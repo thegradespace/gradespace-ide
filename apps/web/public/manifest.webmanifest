@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "T3 Code",
-  "short_name": "T3 Code",
+  "name": "Gradespace IDE",
+  "short_name": "Gradespace",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,9 +9,25 @@
   "theme_color": "#161616",
   "icons": [
     {
-      "src": "/favicon-32x32.png",
-      "sizes": "32x32",
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
       "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/apple-touch-icon.png",

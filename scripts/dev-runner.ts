@@ -670,6 +670,20 @@ const prepareFirstStart = Effect.fn("dev-runner.prepareFirstStart")(function* (i
   }
 });
 
+/**
+ * `vp run dev` in a terminal opens the pairing URL. Remote use (--share, --host)
+ * and background runs stay closed: an agent's dev server must not pop up windows.
+ */
+export const resolveDevBrowser = (input: {
+  readonly mode: DevMode;
+  readonly browser: boolean | undefined;
+  readonly share: boolean;
+  readonly host: string | undefined;
+  readonly interactive: boolean;
+}): boolean =>
+  input.browser ??
+  (input.mode === "dev" && !input.share && input.host === undefined && input.interactive);
+
 interface DevRunnerCliInput {
   readonly mode: DevMode;
   readonly t3Home: string | undefined;
@@ -745,7 +759,13 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
     serverOffset,
     webOffset,
     t3Home: resolvedT3Home,
-    browser: input.browser,
+    browser: resolveDevBrowser({
+      mode: input.mode,
+      browser: input.browser,
+      share: input.share,
+      host: input.host,
+      interactive: process.stdout.isTTY === true,
+    }),
     autoBootstrapProjectFromCwd: input.autoBootstrapProjectFromCwd,
     logWebSocketEvents: input.logWebSocketEvents,
     host: input.host,
@@ -923,8 +943,10 @@ const devRunnerCli = Command.make("dev-runner", {
     Flag.map(Option.getOrUndefined),
   ),
   browser: Flag.Boolean("browser").pipe(
-    Flag.withDescription("Open a browser automatically (disabled by default for web dev)."),
-    Flag.withDefault(false),
+    Flag.withDescription(
+      "Open the pairing URL in a browser. On by default for `dev` in a terminal; --no-browser or T3CODE_DEV_BROWSER=0 skips it.",
+    ),
+    Flag.withFallbackConfig(optionalBooleanConfig("T3CODE_DEV_BROWSER")),
   ),
   autoBootstrapProjectFromCwd: Flag.Boolean("auto-bootstrap-project-from-cwd").pipe(
     Flag.withDescription(

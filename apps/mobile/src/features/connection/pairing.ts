@@ -70,6 +70,9 @@ export function parsePairingUrl(url: string): { host: string; code: string } {
   }
 }
 
+// Upstream servers print `t3code://pair?…` app links; accept them alongside our own scheme.
+const MOBILE_APP_LINK_PROTOCOL = /^(?:t3code|gradespace)(?:-dev|-preview)?:$/;
+
 export function extractPairingUrlFromQrPayload(payload: string): string {
   const trimmed = payload.trim();
   if (!trimmed) {
@@ -78,7 +81,7 @@ export function extractPairingUrlFromQrPayload(payload: string): string {
 
   try {
     const url = new URL(trimmed);
-    if (url.protocol === "t3code:") {
+    if (MOBILE_APP_LINK_PROTOCOL.test(url.protocol)) {
       const pairingUrl = url.searchParams.get(MOBILE_PAIRING_URL_PARAM)?.trim() ?? "";
       if (pairingUrl.length > 0) {
         return pairingUrl;

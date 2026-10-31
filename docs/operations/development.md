@@ -10,7 +10,7 @@ vp i
 vp run dev
 ```
 
-Open the pairing URL printed by the dev runner. The bare origin does not authenticate
+The pairing URL opens in your browser, and is also printed by the dev runner. The bare origin does not authenticate
 a new browser.
 
 Prefer a container? See [Dev container](../internals/devcontainer.md) for VS Code and Codespaces setup.
@@ -55,7 +55,8 @@ Use `vp run dev` for server and web, or `vp run dev:desktop` for the Electron cl
 See the [mobile README](../../apps/mobile/README.md) for native builds and Metro.
 
 Flags go directly after the task name, for example `vp run dev --home-dir /tmp/t3code-dev`.
-Add `--browser` to open a browser automatically.
+`vp run dev` in a terminal opens the pairing URL in your browser. Add `--no-browser` to skip it,
+or `--browser` to force it for background runs or other modes.
 
 ### State and ports
 

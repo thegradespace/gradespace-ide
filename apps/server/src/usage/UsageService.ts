@@ -256,6 +256,11 @@ export const make = Effect.gen(function* () {
     }
 
     if (ratesLastFailedAtMs !== null && now - ratesLastFailedAtMs < RATES_REFRESH_FLOOR_MS) return;
+    const offline = yield* settingsService.getSettings.pipe(
+      Effect.map((settings) => settings.offlineMode),
+      Effect.catchCause(() => Effect.succeed(false)),
+    );
+    if (offline) return;
 
     let fetched = yield* fetchRates(LITELLM_RATES_URL);
     if (fetched === null) {

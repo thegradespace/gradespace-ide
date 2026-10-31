@@ -1,11 +1,14 @@
 import { useState } from "react";
 
 import { type ResizableWidthHandlers, useResizableWidth } from "./useResizableWidth";
+import { useClientSettings } from "./useSettings";
 import { observeResize } from "../lib/observeResize";
 
 export interface PreviewPanelInlineSize {
   readonly width: number;
   readonly handlers: ResizableWidthHandlers;
+  /** The edge facing the chat column, where the resize handle sits. */
+  readonly edge: "left" | "right";
   /** Ref-callback body for the panel host: measures the row the panel shares. */
   readonly observeRow: (host: HTMLElement) => () => void;
 }
@@ -27,6 +30,7 @@ export function usePreviewPanelInlineSize(
 ): PreviewPanelInlineSize {
   const enabled = options.enabled ?? true;
   const container = options.container;
+  const edge = useClientSettings((settings) => (settings.panelSide === "left" ? "right" : "left"));
   const [maxWidth, setMaxWidth] = useState(() =>
     getPreviewPanelMaxWidth(typeof window === "undefined" ? 1280 : window.innerWidth),
   );
@@ -35,7 +39,7 @@ export function usePreviewPanelInlineSize(
     defaultWidth: options.defaultWidth ?? PREVIEW_PANEL_DEFAULT_WIDTH,
     minWidth: PREVIEW_PANEL_MIN_WIDTH,
     maxWidth,
-    edge: "left",
+    edge,
   });
   const observeRow = (host: HTMLElement) => {
     const row = container ?? (enabled ? host.parentElement : null) ?? null;
@@ -62,7 +66,7 @@ export function usePreviewPanelInlineSize(
       stopObserving?.();
     };
   };
-  return { width, handlers, observeRow };
+  return { width, handlers, edge, observeRow };
 }
 
 function getPreviewPanelMaxWidth(viewportWidth: number, containerWidth?: number): number {

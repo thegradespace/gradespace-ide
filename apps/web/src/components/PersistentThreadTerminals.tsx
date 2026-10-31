@@ -160,6 +160,7 @@ export const PersistentThreadTerminalDrawer = memo(function PersistentThreadTerm
   const storeNewTerminal = useTerminalUiStateStore((state) => state.newTerminal);
   const storeSetActiveTerminal = useTerminalUiStateStore((state) => state.setActiveTerminal);
   const storeCloseTerminal = useTerminalUiStateStore((state) => state.closeTerminal);
+  const storeSetTerminalOpen = useTerminalUiStateStore((state) => state.setTerminalOpen);
   const reconcileTerminalIds = useTerminalUiStateStore((state) => state.reconcileTerminalIds);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- reconciles the terminal UI store's ids with the server's terminal list when they diverge
@@ -227,6 +228,12 @@ export const PersistentThreadTerminalDrawer = memo(function PersistentThreadTerm
     if (visible) focusActiveDrawerTerminal(threadRef);
   });
 
+  const moveTerminalToPanel = (terminalId: string) => {
+    if (terminalUiState.terminalIds.length <= 1) storeSetTerminalOpen(threadRef, false);
+    storeCloseTerminal(threadRef, terminalId);
+    useRightPanelStore.getState().openTerminal(threadRef, terminalId);
+  };
+
   const handleAddTerminalContext = (selection: TerminalContextSelection) => {
     if (!visible) {
       return;
@@ -273,6 +280,7 @@ export const PersistentThreadTerminalDrawer = memo(function PersistentThreadTerm
           keybindings={keybindings}
           onActiveTerminalChange={activateTerminal}
           onCloseTerminal={closeTerminal}
+          onMoveTerminal={moveTerminalToPanel}
           onHeightChange={setTerminalHeight}
           onAddTerminalContext={handleAddTerminalContext}
           terminalLabelsById={terminalLabelsById}
@@ -375,6 +383,11 @@ export const PersistentThreadTerminalPanel = memo(function PersistentThreadTermi
     });
   }
 
+  const moveTerminalToDrawer = (terminalId: string) => {
+    useRightPanelStore.getState().closeTerminal(threadRef, surface.id, terminalId);
+    useTerminalUiStateStore.getState().ensureTerminal(threadRef, terminalId, { open: true });
+  };
+
   if (!project || !cwd) return null;
 
   return (
@@ -406,6 +419,7 @@ export const PersistentThreadTerminalPanel = memo(function PersistentThreadTermi
       closeShortcutLabel={closeShortcutLabel}
       onActiveTerminalChange={onActiveTerminalChange}
       onCloseTerminal={onCloseTerminal}
+      onMoveTerminal={moveTerminalToDrawer}
       onHeightChange={() => undefined}
       onAddTerminalContext={onAddTerminalContext}
       terminalLabelsById={terminalLabelsById}

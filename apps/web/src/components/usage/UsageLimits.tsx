@@ -39,6 +39,7 @@ import {
 } from "../ui/alert-dialog";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { UsageApiKeySpend } from "./UsageApiKeySpend";
 import { UsageLimitsPooled } from "./UsageLimitsPooled";
 import { PROVIDER_PRESENTATION } from "./usageProviders";
 
@@ -402,5 +403,14 @@ export function UsageLimitsSection({
       ];
     }),
   );
-  return <UsageLimitsPooled presentations={selected} now={now} cursorPrompt={cursorPrompt} />;
+  return (
+    <div className="flex flex-col gap-8">
+      <UsageLimitsPooled presentations={selected} now={now} cursorPrompt={cursorPrompt} />
+      <UsageApiKeySpend
+        presentations={selected}
+        selectedEnvironmentIds={selectedEnvironmentIds}
+        now={now}
+      />
+    </div>
+  );
 }

@@ -2568,3 +2568,10 @@ code {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
+
+/* The collapsed rail holds the sidebar toggle, so headers need no extra inset for it. */
+@media (min-width: 768px) {
+  [data-slot="sidebar-wrapper"][data-sidebar-state="collapsed"] > * {
+    --workspace-titlebar-content-left: var(--workspace-gutter-start);
+  }
+}

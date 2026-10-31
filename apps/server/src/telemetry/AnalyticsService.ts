@@ -20,6 +20,7 @@ import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 import packageJson from "../../package.json" with { type: "json" };
 import * as ServerConfig from "../config.ts";
+import * as ServerSettings from "../serverSettings.ts";
 import { getTelemetryIdentity, type TelemetryOwner } from "./Identify.ts";
 
 interface BufferedAnalyticsEvent {
@@ -119,6 +120,16 @@ export const make = Effect.gen(function* () {
   const httpClient = yield* HttpClient.HttpClient;
   const serverConfig = yield* ServerConfig.ServerConfig;
   const { distinctId, installId } = yield* getTelemetryIdentity;
+  const settingsService = yield* Effect.serviceOption(ServerSettings.ServerSettingsService);
+  // The env flag can force analytics off; otherwise the user opts in through settings.
+  const isEnabled = Effect.gen(function* () {
+    if (!telemetryConfig.enabled || !distinctId) return false;
+    if (Option.isNone(settingsService)) return true;
+    const settings = yield* settingsService.value.getSettings.pipe(
+      Effect.catchCause(() => Effect.succeed(null)),
+    );
+    return settings !== null && settings.shareUsageData && !settings.offlineMode;
+  });
   const crypto = yield* Crypto.Crypto;
   const bufferRef = yield* Ref.make<ReadonlyArray<BufferedAnalyticsEvent>>([]);
   const deliveryRef = yield* Ref.make<DeliveryState>({
@@ -172,7 +183,7 @@ export const make = Effect.gen(function* () {
   const sendBatch = Effect.fn("AnalyticsService.sendBatch")(function* (
     events: ReadonlyArray<BufferedAnalyticsEvent>,
   ) {
-    if (!telemetryConfig.enabled || !distinctId) return;
+    if (!(yield* isEnabled) || !distinctId) return;
 
     const payload = {
       api_key: telemetryConfig.posthogKey,
@@ -284,7 +295,7 @@ export const make = Effect.gen(function* () {
 
   const record: AnalyticsService["Service"]["record"] = Effect.fn("AnalyticsService.record")(
     function* (event, properties) {
-      if (!telemetryConfig.enabled || !distinctId) return;
+      if (!(yield* isEnabled)) return;
 
       // Catch Node UUID defects too; best-effort telemetry drops events without UUIDs.
       const uuid = yield* Effect.exit(crypto.randomUUIDv7());

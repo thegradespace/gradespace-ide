@@ -10,9 +10,11 @@
 
 This app has three variants:
 
-- `development`: Expo dev client, installable side-by-side as `T3 Code Dev`
-- `preview`: persistent internal preview build, installable side-by-side as `T3 Code Preview`
-- `production`: store/release build as `T3 Code`
+- `development`: Expo dev client, installable side-by-side as `Gradespace Dev`
+- `preview`: persistent internal preview build, installable side-by-side as `Gradespace Preview`
+- `production`: store/release build as `Gradespace`
+
+To build and ship your own copy with EAS, follow [GRADESPACE.md](GRADESPACE.md).
 
 Run commands from `apps/mobile`.
 

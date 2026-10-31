@@ -395,6 +395,18 @@ export const SETTINGS_SEARCH_ITEMS = [
     macOnly: true,
   },
   {
+    id: "panel-side",
+    title: "Panel position",
+    to: "/settings/appearance",
+    searchTerms: ["layout left right side swap chat files diff browser explorer"],
+  },
+  {
+    id: "terminal-placement",
+    title: "Terminal position",
+    to: "/settings/appearance",
+    searchTerms: ["layout terminal drawer bottom under panel code files"],
+  },
+  {
     id: "word-wrap",
     title: "Word wrap",
     to: "/settings/appearance",
@@ -591,6 +603,20 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["queue steer running turn send default behavior composer"],
   },
   {
+    id: "share-usage-data",
+    title: "Share usage data",
+    to: "/settings/maintenance",
+    searchTerms: ["privacy telemetry analytics posthog tracking anonymous"],
+    scope: "environment-defaults",
+  },
+  {
+    id: "offline-mode",
+    title: "Offline mode",
+    to: "/settings/maintenance",
+    searchTerms: ["privacy network downloads internet model prices catalog"],
+    scope: "environment-defaults",
+  },
+  {
     id: "provider-update-checks",
     title: "Provider update checks",
     to: "/settings/maintenance",
@@ -697,9 +723,9 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "cli-command",
-    title: "t3 command",
+    title: "gs command",
     to: "/settings/about",
-    searchTerms: ["cli terminal shell path install command line"],
+    searchTerms: ["cli terminal shell path install command line gs t3"],
     desktopOnly: true,
   },
   {
@@ -710,7 +736,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "privacy-policy",
-    title: "Privacy policy",
+    title: "Privacy",
     to: "/settings/about",
     searchTerms: ["telemetry analytics usage data tracking legal opt out"],
   },
@@ -920,7 +946,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "pull-request-links-open-in-app",
-    title: "Open pull requests in T3 Code",
+    title: "Open pull requests in GS",
     to: "/settings/diffs",
     searchTerms: [
       `pr commit links ${SOURCE_CONTROL_HOST_LABELS} browser external click default pull request view panel`,

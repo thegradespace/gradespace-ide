@@ -12,6 +12,8 @@ import {
   type TerminalSessionState,
 } from "@t3tools/client-runtime/state/terminal";
 import {
+  ArrowDownToLine,
+  ArrowUpToLine,
   Plus,
   Square,
   SquareSplitHorizontal,
@@ -1195,6 +1197,8 @@ interface ThreadTerminalDrawerProps {
   closeShortcutLabel?: string | undefined;
   onActiveTerminalChange: (terminalId: string) => void;
   onCloseTerminal: (terminalId: string, threadRef?: ScopedThreadRef) => void;
+  /** Moves a terminal between the bottom drawer and a panel tab. */
+  onMoveTerminal?: ((terminalId: string) => void) | undefined;
   onHeightChange: (height: number) => void;
   onAddTerminalContext: (selection: TerminalContextSelection) => void;
   keybindings: ResolvedKeybindingsConfig;
@@ -1451,6 +1455,7 @@ export default function ThreadTerminalDrawer({
   closeShortcutLabel,
   onActiveTerminalChange,
   onCloseTerminal,
+  onMoveTerminal,
   onHeightChange,
   onAddTerminalContext,
   keybindings,
@@ -1637,6 +1642,8 @@ export default function ThreadTerminalDrawer({
     if (!canOperateTerminal) return;
     onNewTerminal();
   };
+  const moveTerminalLabel = isPanel ? "Move to bottom drawer" : "Move to panel tab";
+  const MoveTerminalIcon = isPanel ? ArrowDownToLine : ArrowUpToLine;
   const confirmCloseTerminal = (terminalId: string) => {
     if (!canOperateTerminal) return;
     const label = terminalLabelById.get(terminalId) ?? getTerminalLabel(terminalId);
@@ -1837,6 +1844,18 @@ export default function ThreadTerminalDrawer({
             >
               <Plus className="size-3.25" />
             </TerminalActionButton>
+            {onMoveTerminal ? (
+              <>
+                <div className="h-4 w-px bg-border/80" />
+                <TerminalActionButton
+                  className="p-1 text-foreground/90 transition-colors hover:bg-accent"
+                  onClick={() => onMoveTerminal(resolvedActiveTerminalId)}
+                  label={moveTerminalLabel}
+                >
+                  <MoveTerminalIcon className="size-3.25" />
+                </TerminalActionButton>
+              </>
+            ) : null}
             <div className="h-4 w-px bg-border/80" />
             <TerminalActionButton
               disabled={!canOperateTerminal}
@@ -1911,6 +1930,15 @@ export default function ThreadTerminalDrawer({
                   >
                     <Plus className="size-3.25" />
                   </TerminalActionButton>
+                  {onMoveTerminal ? (
+                    <TerminalActionButton
+                      className="inline-flex h-full items-center border-l border-border/70 px-1 text-foreground/90 transition-colors hover:bg-accent/70"
+                      onClick={() => onMoveTerminal(resolvedActiveTerminalId)}
+                      label={moveTerminalLabel}
+                    >
+                      <MoveTerminalIcon className="size-3.25" />
+                    </TerminalActionButton>
+                  ) : null}
                   <TerminalActionButton
                     disabled={!canOperateTerminal}
                     className="inline-flex h-full items-center border-l border-border/70 px-1 text-foreground/90 transition-colors hover:bg-accent/70"

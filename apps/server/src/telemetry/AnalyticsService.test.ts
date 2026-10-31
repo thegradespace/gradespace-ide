@@ -17,6 +17,7 @@ import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 
 import * as ServerConfig from "../config.ts";
+import * as ServerSettings from "../serverSettings.ts";
 import { getTelemetryIdentity } from "./Identify.ts";
 import * as AnalyticsService from "./AnalyticsService.ts";
 
@@ -119,6 +120,7 @@ const sendFor = (
     never,
     AnalyticsService.AnalyticsService | Effect.Services<typeof getTelemetryIdentity>
   > = recordTwentyEvents,
+  settings?: { readonly shareUsageData: boolean; readonly offlineMode: boolean },
 ) =>
   Effect.gen(function* () {
     const batches: Array<ReadonlyArray<SentEvent>> = [];
@@ -152,6 +154,11 @@ const sendFor = (
           Layer.succeed(HostProcess.Architecture, "x64"),
           Layer.succeed(HttpClient.HttpClient, client),
         ),
+      ),
+      Layer.provide(
+        settings === undefined
+          ? Layer.empty
+          : ServerSettings.ServerSettingsService.layerTest(settings),
       ),
     );
 
@@ -188,6 +195,20 @@ it.layer(NodeServices.layer)("AnalyticsService test", (it) => {
 
       assert.equal(owners.filter((observedBy) => observedBy === "client").length, 1_000);
       assert.equal(owners.filter((observedBy) => observedBy === "server").length, 1);
+    }),
+  );
+
+  it.effect("sends only after opting in, and never in offline mode", () =>
+    Effect.gen(function* () {
+      const cases = [
+        { shareUsageData: false, offlineMode: false, sent: 0 },
+        { shareUsageData: true, offlineMode: false, sent: 20 },
+        { shareUsageData: true, offlineMode: true, sent: 0 },
+      ];
+      for (const { sent, ...settings } of cases) {
+        const batches = yield* sendFor(1, respondWithStatus(204), recordTwentyEvents, settings);
+        assert.equal(batches.flat().length, sent, JSON.stringify(settings));
+      }
     }),
   );
 

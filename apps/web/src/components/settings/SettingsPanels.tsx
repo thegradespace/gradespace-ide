@@ -426,6 +426,10 @@ export function useSettingsRestore(onRestored?: () => void) {
       ? ["Diff colors"]
       : []),
     ...(settings.chatWidth !== DEFAULT_UNIFIED_SETTINGS.chatWidth ? ["Chat width"] : []),
+    ...(settings.panelSide !== DEFAULT_UNIFIED_SETTINGS.panelSide ? ["Panel position"] : []),
+    ...(settings.terminalPlacement !== DEFAULT_UNIFIED_SETTINGS.terminalPlacement
+      ? ["Terminal position"]
+      : []),
     ...(settings.effortDisplay !== DEFAULT_UNIFIED_SETTINGS.effortDisplay
       ? ["Effort display"]
       : []),
@@ -511,6 +515,10 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(settings.enableProviderUpdateChecks !== DEFAULT_UNIFIED_SETTINGS.enableProviderUpdateChecks
       ? ["Provider update checks"]
       : []),
+    ...(settings.shareUsageData !== DEFAULT_UNIFIED_SETTINGS.shareUsageData
+      ? ["Share usage data"]
+      : []),
+    ...(settings.offlineMode !== DEFAULT_UNIFIED_SETTINGS.offlineMode ? ["Offline mode"] : []),
     ...(settings.continueThreadsAfterServerUpdate !==
     DEFAULT_UNIFIED_SETTINGS.continueThreadsAfterServerUpdate
       ? ["Continue threads after restarts"]
@@ -601,6 +609,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       appearanceContrast: DEFAULT_UNIFIED_SETTINGS.appearanceContrast,
       diffColorScheme: DEFAULT_UNIFIED_SETTINGS.diffColorScheme,
       chatWidth: DEFAULT_UNIFIED_SETTINGS.chatWidth,
+      panelSide: DEFAULT_UNIFIED_SETTINGS.panelSide,
+      terminalPlacement: DEFAULT_UNIFIED_SETTINGS.terminalPlacement,
       effortDisplay: DEFAULT_UNIFIED_SETTINGS.effortDisplay,
       mathRenderingEnabled: DEFAULT_UNIFIED_SETTINGS.mathRenderingEnabled,
       timestampFormat: DEFAULT_UNIFIED_SETTINGS.timestampFormat,
@@ -631,6 +641,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       snoozePresets: DEFAULT_UNIFIED_SETTINGS.snoozePresets,
       responseStreamingMode: DEFAULT_UNIFIED_SETTINGS.responseStreamingMode,
       enableProviderUpdateChecks: DEFAULT_UNIFIED_SETTINGS.enableProviderUpdateChecks,
+      shareUsageData: DEFAULT_UNIFIED_SETTINGS.shareUsageData,
+      offlineMode: DEFAULT_UNIFIED_SETTINGS.offlineMode,
       continueThreadsAfterServerUpdate: DEFAULT_UNIFIED_SETTINGS.continueThreadsAfterServerUpdate,
       backgroundActivity: DEFAULT_UNIFIED_SETTINGS.backgroundActivity,
       backgroundActivityProfile: DEFAULT_UNIFIED_SETTINGS.backgroundActivityProfile,
@@ -1876,6 +1888,57 @@ export function MaintenanceSettingsPanel() {
 
   return (
     <SettingsPageContainer>
+      <SettingsSection id="privacy" title="Privacy">
+        <SettingsRow
+          serverScoped
+          settingKeys={["shareUsageData"]}
+          {...searchableSetting("share-usage-data")}
+          description="Send anonymous usage events, such as which features and providers you use, to T3 Code's analytics. Prompts, code and files are never sent."
+          resetAction={
+            settings.shareUsageData !== DEFAULT_UNIFIED_SETTINGS.shareUsageData ? (
+              <SettingResetButton
+                label="share usage data"
+                onClick={() =>
+                  updateSettings({ shareUsageData: DEFAULT_UNIFIED_SETTINGS.shareUsageData })
+                }
+              />
+            ) : null
+          }
+          control={
+            <ScopedSwitch
+              settingKeys={["shareUsageData"]}
+              checked={settings.shareUsageData}
+              onCheckedChange={(checked) => updateSettings({ shareUsageData: Boolean(checked) })}
+              aria-label="Share usage data"
+            />
+          }
+        />
+        <SettingsRow
+          serverScoped
+          settingKeys={["offlineMode"]}
+          {...searchableSetting("offline-mode")}
+          description="Stop background downloads: provider version checks, model catalog updates, model prices and analytics. Prices use the last saved copy, and new models may not appear."
+          resetAction={
+            settings.offlineMode !== DEFAULT_UNIFIED_SETTINGS.offlineMode ? (
+              <SettingResetButton
+                label="offline mode"
+                onClick={() =>
+                  updateSettings({ offlineMode: DEFAULT_UNIFIED_SETTINGS.offlineMode })
+                }
+              />
+            ) : null
+          }
+          control={
+            <ScopedSwitch
+              settingKeys={["offlineMode"]}
+              checked={settings.offlineMode}
+              onCheckedChange={(checked) => updateSettings({ offlineMode: Boolean(checked) })}
+              aria-label="Offline mode"
+            />
+          }
+        />
+      </SettingsSection>
+
       <SettingsSection id="updates" title="Updates">
         <SettingsRow
           serverScoped
@@ -1987,7 +2050,7 @@ export function AboutSettingsPanel() {
             <SettingsRow
               id={searchableSetting("app-version").id}
               title={<AboutVersionTitle />}
-              description="Current version of the application."
+              description="Gradespace IDE, built on the open source T3 Code."
             />
           </>
         )}
@@ -1997,20 +2060,25 @@ export function AboutSettingsPanel() {
       <SettingsSection id="legal" title="Legal">
         <SettingsRow
           {...searchableSetting("privacy-policy")}
-          description="How we handle your data, including the anonymous usage data T3 Code collects."
+          description="Gradespace IDE sends no usage data unless you turn on Share usage data. If you do, it goes to T3 Code under their privacy policy."
           control={
-            <Button
-              render={<a href={PRIVACY_POLICY_URL} target="_blank" rel="noreferrer noopener" />}
-              size="sm"
-              variant="outline"
-            >
-              View policy
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button render={<Link to="/settings/maintenance" />} size="sm" variant="outline">
+                Privacy settings
+              </Button>
+              <Button
+                render={<a href={PRIVACY_POLICY_URL} target="_blank" rel="noreferrer noopener" />}
+                size="sm"
+                variant="outline"
+              >
+                T3 policy
+              </Button>
+            </div>
           }
         />
         <SettingsRow
           {...searchableSetting("open-source-licenses")}
-          description="Notices for dependencies, assets, and optional tools used by T3 Code."
+          description="Notices for T3 Code and the dependencies, assets, and optional tools Gradespace IDE uses."
           control={
             <Button
               render={<Link to="/settings/open-source-licenses" />}

@@ -4,6 +4,8 @@ import {
   DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
   DEFAULT_UNIFIED_SETTINGS,
   type ChatWidth,
+  type PanelSide,
+  type TerminalPlacement,
   type EffortDisplay,
   type EnvironmentIdentificationMode,
   MAX_APPEARANCE_CONTRAST,
@@ -76,6 +78,16 @@ const CHAT_WIDTH_LABELS: Record<ChatWidth, string> = {
   comfortable: "Comfortable",
   wide: "Wide",
   full: "Full",
+};
+
+const PANEL_SIDE_LABELS: Record<PanelSide, string> = {
+  right: "Right",
+  left: "Left",
+};
+
+const TERMINAL_PLACEMENT_LABELS: Record<TerminalPlacement, string> = {
+  chat: "Under chat",
+  panel: "Under panel",
 };
 
 const EFFORT_DISPLAY_LABELS: Record<EffortDisplay, string> = {
@@ -269,6 +281,69 @@ export function AppearanceSettingsPanel() {
                   <SelectItem value="comfortable">Comfortable (default)</SelectItem>
                   <SelectItem value="wide">Wide</SelectItem>
                   <SelectItem value="full">Full</SelectItem>
+                </SelectPopup>
+              </Select>
+            </div>
+          }
+        />
+        <SettingsRow
+          {...searchableSetting("panel-side")}
+          description="Choose which side of the chat the files, diff, and browser panel opens on."
+          resetAction={
+            settings.panelSide !== DEFAULT_UNIFIED_SETTINGS.panelSide ? (
+              <SettingResetButton
+                label="panel position"
+                onClick={() => updateSettings({ panelSide: DEFAULT_UNIFIED_SETTINGS.panelSide })}
+              />
+            ) : null
+          }
+          control={
+            <div className="w-full sm:w-40">
+              <Select
+                value={settings.panelSide}
+                onValueChange={(value) => {
+                  if (value === "right" || value === "left") updateSettings({ panelSide: value });
+                }}
+              >
+                <SelectTrigger size="sm" className="w-full min-w-0" aria-label="Panel position">
+                  <SelectValue>{PANEL_SIDE_LABELS[settings.panelSide]}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup align="end" alignItemWithTrigger={false}>
+                  <SelectItem value="right">Right (default)</SelectItem>
+                  <SelectItem value="left">Left</SelectItem>
+                </SelectPopup>
+              </Select>
+            </div>
+          }
+        />
+        <SettingsRow
+          {...searchableSetting("terminal-placement")}
+          description="Open the terminal drawer under the chat, or under the panel while it is open."
+          resetAction={
+            settings.terminalPlacement !== DEFAULT_UNIFIED_SETTINGS.terminalPlacement ? (
+              <SettingResetButton
+                label="terminal position"
+                onClick={() =>
+                  updateSettings({ terminalPlacement: DEFAULT_UNIFIED_SETTINGS.terminalPlacement })
+                }
+              />
+            ) : null
+          }
+          control={
+            <div className="w-full sm:w-40">
+              <Select
+                value={settings.terminalPlacement}
+                onValueChange={(value) => {
+                  if (value === "chat" || value === "panel")
+                    updateSettings({ terminalPlacement: value });
+                }}
+              >
+                <SelectTrigger size="sm" className="w-full min-w-0" aria-label="Terminal position">
+                  <SelectValue>{TERMINAL_PLACEMENT_LABELS[settings.terminalPlacement]}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup align="end" alignItemWithTrigger={false}>
+                  <SelectItem value="chat">Under chat (default)</SelectItem>
+                  <SelectItem value="panel">Under panel</SelectItem>
                 </SelectPopup>
               </Select>
             </div>

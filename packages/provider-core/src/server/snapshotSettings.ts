@@ -16,7 +16,7 @@ function makeProviderSnapshotSettings<Settings>(
 ): ProviderSnapshotSettings<Settings> {
   return {
     provider,
-    enableProviderUpdateChecks: settings.enableProviderUpdateChecks,
+    enableProviderUpdateChecks: settings.enableProviderUpdateChecks && !settings.offlineMode,
   };
 }
 

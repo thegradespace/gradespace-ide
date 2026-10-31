@@ -230,7 +230,9 @@ export const make = Effect.gen(function* () {
     const settings = yield* settingsService.getSettings.pipe(
       Effect.catchCause(() => Effect.succeed(null)),
     );
-    if (settings !== null && !settings.enableProviderUpdateChecks) return manifest;
+    if (settings !== null && (!settings.enableProviderUpdateChecks || settings.offlineMode)) {
+      return manifest;
+    }
 
     lastAttemptMs = now;
     const fetched = yield* httpClient.get(MODEL_MANIFEST_URL).pipe(

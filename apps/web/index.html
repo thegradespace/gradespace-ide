@@ -7,8 +7,8 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <meta name="theme-color" content="#000000" />
-    <link rel="icon" href="/favicon.ico" sizes="48x48" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" href="/favicon.ico?v=ide" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=ide" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <script>
       (() => {
@@ -423,20 +423,146 @@
         color: var(--boot-foreground);
       }
 
+      /* Gradespace loading screen; the boot error replaces the card and brings its own colors. */
+      #boot-shell:has(> #boot-shell-card) {
+        background: radial-gradient(circle at 50% 42%, #17125a 0%, #08072a 62%);
+        color: #a9a6d6;
+      }
+
       #boot-shell-card {
         position: relative;
         z-index: 1;
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        width: 96px;
-        height: 96px;
+        gap: 22px;
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
       }
 
       #boot-shell-logo {
-        width: 64px;
-        height: 64px;
-        object-fit: contain;
+        width: 144px;
+        height: 144px;
+        filter: drop-shadow(0 18px 40px rgba(60, 50, 220, 0.35));
+      }
+
+      #boot-shell-logo .ring {
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        animation: boot-ring 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+      }
+
+      #boot-shell-logo .chevron {
+        opacity: 0;
+        transform: translateX(-24px);
+        animation: boot-chevron 2.4s ease-out infinite;
+      }
+
+      #boot-shell-logo .cursor {
+        animation: boot-blink 2.4s steps(1) infinite;
+      }
+
+      #boot-shell-name {
+        font-size: 20px;
+        font-weight: 600;
+        color: #ffffff;
+        letter-spacing: 0.01em;
+      }
+
+      #boot-shell-name span {
+        color: #8f89ff;
+        font-weight: 500;
+      }
+
+      #boot-shell-bar {
+        width: 160px;
+        height: 3px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+      }
+
+      #boot-shell-bar i {
+        display: block;
+        width: 40%;
+        height: 100%;
+        border-radius: 3px;
+        background: #8f89ff;
+        animation: boot-slide 1.4s ease-in-out infinite;
+      }
+
+      @keyframes boot-ring {
+        0% {
+          stroke-dashoffset: 1;
+        }
+        40%,
+        90% {
+          stroke-dashoffset: 0;
+        }
+        100% {
+          stroke-dashoffset: -1;
+        }
+      }
+
+      @keyframes boot-chevron {
+        0%,
+        30% {
+          opacity: 0;
+          transform: translateX(-24px);
+        }
+        45%,
+        88% {
+          opacity: 1;
+          transform: none;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes boot-blink {
+        0%,
+        45% {
+          opacity: 0;
+        }
+        50%,
+        60% {
+          opacity: 1;
+        }
+        65%,
+        70% {
+          opacity: 0;
+        }
+        75%,
+        88% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes boot-slide {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(250%);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #boot-shell-logo :is(.ring, .chevron, .cursor),
+        #boot-shell-bar i {
+          animation: none;
+          stroke-dashoffset: 0;
+          opacity: 1;
+          transform: none;
+        }
       }
 
       /* App CSS locks body and #root scrolling once main loads, so the error screen scrolls itself. */
@@ -668,13 +794,63 @@
         white-space: nowrap;
       }
     </style>
-    <title>T3 Code (Beta)</title>
+    <title>Gradespace IDE</title>
   </head>
   <body>
     <div id="root">
       <div id="boot-shell">
-        <div id="boot-shell-card" aria-label="T3 Code splash screen">
-          <img id="boot-shell-logo" src="/apple-touch-icon.png" alt="T3 Code" />
+        <div id="boot-shell-card" role="status" aria-label="Loading Gradespace IDE">
+          <svg id="boot-shell-logo" viewBox="0 0 512 512" aria-hidden="true">
+            <defs>
+              <linearGradient id="boot-shell-gradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#1C1670" />
+                <stop offset="1" stop-color="#0A0830" />
+              </linearGradient>
+            </defs>
+            <rect
+              x="24"
+              y="24"
+              width="464"
+              height="464"
+              rx="108"
+              fill="url(#boot-shell-gradient)"
+            />
+            <rect
+              x="24.5"
+              y="24.5"
+              width="463"
+              height="463"
+              rx="107.5"
+              fill="none"
+              stroke="#fff"
+              stroke-opacity=".08"
+            />
+            <path
+              d="M363.2 166 A140 140 0 1 0 363.2 346"
+              fill="none"
+              stroke="#fff"
+              stroke-opacity=".07"
+              stroke-width="62"
+            />
+            <path
+              class="ring"
+              pathLength="1"
+              d="M363.2 166 A140 140 0 1 0 363.2 346"
+              fill="none"
+              stroke="#fff"
+              stroke-width="62"
+            />
+            <path
+              class="chevron"
+              d="M248 206 L304 256 L248 306"
+              fill="none"
+              stroke="#8F89FF"
+              stroke-width="48"
+            />
+            <rect class="cursor" x="318" y="290" width="58" height="28" rx="3" fill="#8F89FF" />
+          </svg>
+          <div id="boot-shell-name">Gradespace <span>IDE</span></div>
+          <div id="boot-shell-bar"><i></i></div>
         </div>
       </div>
     </div>

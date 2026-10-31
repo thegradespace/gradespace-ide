@@ -1266,6 +1266,8 @@ export default function ChatView(props: ChatViewProps) {
   const canChangeEnvironment =
     hasMultipleEnvironments && !envLocked && draftId !== null && !draftThread?.promotedTo;
 
+  const panelSide = useClientSettings((settings) => settings.panelSide);
+  const terminalPlacement = useClientSettings((settings) => settings.terminalPlacement);
   const loadBalancingSettings = useClientSettings((settings) => ({
     loadBalancingEnabled: settings.loadBalancingEnabled,
     loadBalancingWeights: settings.loadBalancingWeights,
@@ -2797,7 +2799,7 @@ export default function ChatView(props: ChatViewProps) {
         : serverConfig === null
           ? "Side chats are not ready yet. Try again in a moment."
           : serverConfig.environment.capabilities.sideChats !== true
-            ? "Update this environment's T3 Code server to use side chats."
+            ? "Update this environment's GS server to use side chats."
             : sideChatsOffered && !isServerThread
               ? "Side chats start after the first message."
               : sideChat.available &&
@@ -3292,10 +3294,35 @@ export default function ChatView(props: ChatViewProps) {
     addFolders: addDroppedFoldersToComposer,
   });
 
+  // The drawer falls back to the chat column whenever the panel is not open inline.
+  const terminalInPanel =
+    terminalPlacement === "panel" &&
+    rightPanelPresent &&
+    rightPanelOpen &&
+    !shouldUsePlanSidebarSheet &&
+    activeThreadRef !== null &&
+    !embedded;
+  const terminalDrawers = (composerHeight: number) => (
+    <ChatTerminalDrawers
+      activeThreadKey={activeThreadKey}
+      activeTerminalOpen={Boolean(terminalUiState.terminalOpen)}
+      composerHeight={composerHeight}
+      launchContext={activeTerminalLaunchContext ?? null}
+      splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
+      splitVerticalShortcutLabel={splitTerminalVerticalShortcutLabel ?? undefined}
+      newShortcutLabel={newTerminalShortcutLabel ?? undefined}
+      closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
+      keybindings={keybindings}
+      onAddTerminalContext={addTerminalContextToDraftStable}
+    />
+  );
   const content = (
     <div
       ref={setWorkspaceLayoutElement}
-      className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
+      className={cn(
+        "relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background",
+        panelSide === "left" && "flex-row-reverse",
+      )}
     >
       {embedded ? null : (
         <DeviceSetupDialogHost
@@ -3328,7 +3355,9 @@ export default function ChatView(props: ChatViewProps) {
                       "wco:pr-(--workspace-native-controls-inset)",
                   )
                 : "flex h-[var(--workspace-topbar-height)] min-h-[var(--workspace-topbar-height)] shrink-0 items-center pl-(--workspace-gutter-start) pr-(--workspace-gutter-end)",
-              COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
+              // A left-side inline panel sits under the sidebar toggle instead.
+              !(panelSide === "left" && rightPanelOpen && !shouldUsePlanSidebarSheet) &&
+                COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
             )}
           >
             {isElectron && rightPanelControlsAtRoot ? (
@@ -3920,20 +3949,7 @@ export default function ChatView(props: ChatViewProps) {
           </ThreadFindCanvas>
         </div>
 
-        {embedded ? null : (
-          <ChatTerminalDrawers
-            activeThreadKey={activeThreadKey}
-            activeTerminalOpen={Boolean(terminalUiState.terminalOpen)}
-            composerHeight={composerReservedHeight}
-            launchContext={activeTerminalLaunchContext ?? null}
-            splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
-            splitVerticalShortcutLabel={splitTerminalVerticalShortcutLabel ?? undefined}
-            newShortcutLabel={newTerminalShortcutLabel ?? undefined}
-            closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
-            keybindings={keybindings}
-            onAddTerminalContext={addTerminalContextToDraftStable}
-          />
-        )}
+        {embedded || terminalInPanel ? null : terminalDrawers(composerReservedHeight)}
       </div>
 
       {rightPanelPresent && activeThreadRef && !embedded ? (
@@ -3995,6 +4011,7 @@ export default function ChatView(props: ChatViewProps) {
           deviceAvailable={activeThreadRef !== null}
           sideChatAvailable={sideChat.available}
           sideChatDisabledReason={sideChatDisabledReason}
+          footer={terminalInPanel ? terminalDrawers(0) : undefined}
         >
           {rightPanelContent}
         </ChatRightPanel>

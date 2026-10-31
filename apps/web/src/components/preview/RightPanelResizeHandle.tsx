@@ -7,11 +7,19 @@ interface Props extends Pick<
   "tabIndex" | "onKeyDown" | "aria-valuenow" | "aria-valuemin" | "aria-valuemax"
 > {
   handlers: ResizableWidthHandlers;
+  /** The panel edge the handle sits on. */
+  edge?: "left" | "right";
   className?: string;
   label?: string;
 }
 
-export function RightPanelResizeHandle({ handlers, className, label, ...separatorProps }: Props) {
+export function RightPanelResizeHandle({
+  handlers,
+  edge = "left",
+  className,
+  label,
+  ...separatorProps
+}: Props) {
   return (
     <div
       role="separator"
@@ -19,7 +27,8 @@ export function RightPanelResizeHandle({ handlers, className, label, ...separato
       aria-orientation="vertical"
       {...separatorProps}
       className={cn(
-        "group absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize select-none",
+        "group absolute inset-y-0 z-20 w-2 cursor-col-resize select-none",
+        edge === "left" ? "-left-1" : "-right-1",
         className,
       )}
       {...handlers}

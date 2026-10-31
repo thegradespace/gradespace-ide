@@ -56,7 +56,7 @@ vi.mock("./connect.ts", async (importOriginal) => {
   };
 });
 
-it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("t3 up with T3 Connect", (it) => {
+it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("gs up with T3 Connect", (it) => {
   it.effect.each([
     { label: "no link", prior: null, events: ["link", "restart", "unlink", "restart"] },
     // The publish-only link comes back, with its activity publishing.

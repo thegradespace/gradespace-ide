@@ -21,6 +21,7 @@ import { ChildProcessSpawner } from "effect/process";
 import {
   checkPortAvailabilityOnHosts,
   createDevRunnerEnv,
+  resolveDevBrowser,
   findFirstAvailableOffset,
   resolveModePortOffsets,
   runDevRunnerWithInput,
@@ -70,6 +71,29 @@ const devServerInput = {
 } as const;
 
 it.layer(NodeServices.layer)("dev-runner", (it) => {
+  describe("resolveDevBrowser", () => {
+    const local = {
+      mode: "dev",
+      browser: undefined,
+      share: false,
+      host: undefined,
+      interactive: true,
+    } as const;
+
+    it("opens for dev in a terminal and stays closed for remote or background runs", () => {
+      assert.equal(resolveDevBrowser(local), true);
+      assert.equal(resolveDevBrowser({ ...local, interactive: false }), false);
+      assert.equal(resolveDevBrowser({ ...local, share: true }), false);
+      assert.equal(resolveDevBrowser({ ...local, host: "0.0.0.0" }), false);
+      assert.equal(resolveDevBrowser({ ...local, mode: "dev:server" }), false);
+    });
+
+    it("lets the flag override the default", () => {
+      assert.equal(resolveDevBrowser({ ...local, browser: false }), false);
+      assert.equal(resolveDevBrowser({ ...local, interactive: false, browser: true }), true);
+    });
+  });
+
   describe("createDevRunnerEnv", () => {
     it.effect("forwards the reusable auth token to web dev and removes it for desktop", () =>
       Effect.gen(function* () {
