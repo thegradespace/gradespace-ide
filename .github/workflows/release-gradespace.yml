@@ -1,0 +1,134 @@
+name: Release Gradespace IDE
+
+# Code stays in this private repo. Builds go to a public repo that holds only releases,
+# because the app's update check and the download page cannot read a private repo.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without the v, such as 0.1.6"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_REPO: johnkoko/gradespace-ide-releases
+  VERSION: ${{ inputs.version || github.ref_name }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      can_publish: ${{ steps.version.outputs.can_publish }}
+    steps:
+      - id: version
+        env:
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
+          echo "can_publish=$([[ -n "$RELEASES_TOKEN" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Create draft release
+        if: steps.version.outputs.can_publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAG: v${{ steps.version.outputs.version }}
+        run: |
+          gh release view "$TAG" --repo "$RELEASE_REPO" >/dev/null 2>&1 ||
+            gh release create "$TAG" --repo "$RELEASE_REPO" --draft --title "Gradespace IDE $TAG" --notes "Gradespace IDE $TAG"
+
+  build:
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      # A failure on one Mac usually hits both; stopping early saves build minutes.
+      fail-fast: true
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-14
+          - arch: x64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-ci-deps
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Align package versions to the release version
+        run: node scripts/update-release-package-versions.ts "${{ needs.prepare.outputs.version }}"
+
+      - name: Build the app
+        env:
+          T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ env.RELEASE_REPO }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          args=(--platform mac --target dmg --arch "${{ matrix.arch }}" --build-version "${{ needs.prepare.outputs.version }}" --verbose)
+          if [[ -n "$CSC_LINK" && -n "$CSC_KEY_PASSWORD" && -n "$APPLE_API_KEY" && -n "$APPLE_API_KEY_ID" && -n "$APPLE_API_ISSUER" ]]; then
+            key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+            printf '%s' "$APPLE_API_KEY" > "$key_path"
+            export APPLE_API_KEY="$key_path"
+            args+=(--signed)
+            echo "Signing and notarizing."
+          else
+            echo "::warning::Apple signing secrets are missing, so this build is unsigned and will not be published."
+          fi
+          vp run dist:desktop:artifact "${args[@]}"
+          ls -la release
+
+      - name: Upload to the draft release
+        if: needs.prepare.outputs.can_publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAG: v${{ needs.prepare.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          mv release/latest-mac.yml "release/latest-mac-$ARCH.yml"
+          # A fixed name lets the download page link to the newest build forever.
+          cp release/Gradespace-IDE-*-"$ARCH".dmg "release/Gradespace-IDE-$ARCH.dmg"
+          gh release upload "$TAG" --repo "$RELEASE_REPO" --clobber \
+            release/*.dmg release/*.zip release/*.blockmap "release/latest-mac-$ARCH.yml"
+
+  publish:
+    needs: [prepare, build]
+    if: needs.prepare.outputs.can_publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+      TAG: v${{ needs.prepare.outputs.version }}
+      SIGNED: ${{ secrets.CSC_LINK != '' && secrets.APPLE_API_KEY != '' }}
+    steps:
+      - name: Stop if unsigned
+        run: |
+          if [[ "$SIGNED" != "true" ]]; then
+            echo "::warning::Leaving $TAG as a draft: macOS refuses updates to unsigned apps."
+          fi
+
+      - uses: actions/checkout@v6
+        if: env.SIGNED == 'true'
+
+      - uses: ./.github/actions/setup-ci-deps
+        if: env.SIGNED == 'true'
+
+      - name: Merge update manifests and publish
+        if: env.SIGNED == 'true'
+        run: |
+          mkdir -p manifests
+          gh release download "$TAG" --repo "$RELEASE_REPO" --pattern 'latest-mac-*.yml' --dir manifests
+          node scripts/merge-update-manifests.ts --platform mac manifests/latest-mac-arm64.yml manifests/latest-mac-x64.yml manifests/latest-mac.yml
+          gh release upload "$TAG" --repo "$RELEASE_REPO" --clobber manifests/latest-mac.yml
+          gh release delete-asset "$TAG" latest-mac-arm64.yml --repo "$RELEASE_REPO" --yes
+          gh release delete-asset "$TAG" latest-mac-x64.yml --repo "$RELEASE_REPO" --yes
+          gh release edit "$TAG" --repo "$RELEASE_REPO" --draft=false --latest

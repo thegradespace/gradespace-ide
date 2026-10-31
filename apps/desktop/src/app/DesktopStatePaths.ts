@@ -16,7 +16,8 @@ export function resolveDesktopBaseDir(input: {
   readonly t3Home: Option.Option<string>;
 }): string {
   return Option.getOrElse(normalizeConfiguredBaseDir(input.t3Home), () =>
-    input.joinPath(input.homeDirectory, ".t3"),
+    // Not `.t3`: the official T3 Code app can run beside this one and owns that folder.
+    input.joinPath(input.homeDirectory, ".gradespace"),
   );
 }
 
