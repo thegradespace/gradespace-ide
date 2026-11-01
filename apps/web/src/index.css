@@ -2569,9 +2569,43 @@ code {
   outline-offset: -2px;
 }
 
-/* The collapsed rail holds the sidebar toggle, so headers need no extra inset for it. */
 @media (min-width: 768px) {
-  [data-slot="sidebar-wrapper"][data-sidebar-state="collapsed"] > * {
-    --workspace-titlebar-content-left: var(--workspace-gutter-start);
+  /* The window controls and toggle overflow the 52px rail on Mac; headers clear what is left. */
+  [data-slot="sidebar-wrapper"][data-sidebar-state="collapsed"][data-collapsed-style="project-dock"]
+    > *,
+  [data-slot="sidebar-wrapper"][data-sidebar-state="collapsed"][data-collapsed-style="slim-rail"]
+    > * {
+    --workspace-titlebar-content-left: max(
+      var(--workspace-gutter-start),
+      calc(
+        var(--workspace-controls-left) + var(--workspace-titlebar-control-size) +
+          var(--workspace-titlebar-control-gap) - var(--sidebar-rail-width)
+      )
+    );
+  }
+
+  /* The tab bar is a row of its own above the content, and holds the toggle. */
+  [data-slot="sidebar-wrapper"][data-sidebar-state="collapsed"][data-collapsed-style="thread-tabs"] {
+    padding-top: var(--workspace-topbar-height);
+
+    > * {
+      --workspace-controls-top: var(--workspace-topbar-height);
+      --workspace-titlebar-content-left: var(--workspace-gutter-start);
+    }
+
+    > [data-sidebar-control] {
+      --workspace-controls-top: 0px;
+    }
+
+    > [data-collapsed-tabs] {
+      padding-left: calc(
+        var(--workspace-controls-left) + var(--workspace-titlebar-control-size) +
+          var(--workspace-titlebar-control-gap)
+      );
+    }
+
+    [data-slot="sidebar-inset"] {
+      height: calc(100dvh - var(--workspace-topbar-height)) !important;
+    }
   }
 }

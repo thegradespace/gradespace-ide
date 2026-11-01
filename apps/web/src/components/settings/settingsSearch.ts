@@ -401,6 +401,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["layout left right side swap chat files diff browser explorer"],
   },
   {
+    id: "sidebar-collapsed-style",
+    title: "Collapsed sidebar",
+    to: "/settings/appearance",
+    searchTerms: ["layout rail dock icons tabs peek hover minimized hidden projects threads"],
+  },
+  {
     id: "terminal-placement",
     title: "Terminal position",
     to: "/settings/appearance",

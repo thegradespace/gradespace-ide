@@ -329,6 +329,13 @@ export type ChatWidth = typeof ChatWidth.Type;
 
 export const PanelSide = Schema.Literals(["right", "left"]);
 export type PanelSide = typeof PanelSide.Type;
+export const SidebarCollapsedStyle = Schema.Literals([
+  "project-dock",
+  "slim-rail",
+  "thread-tabs",
+  "edge-peek",
+]);
+export type SidebarCollapsedStyle = typeof SidebarCollapsedStyle.Type;
 
 export const TerminalPlacement = Schema.Literals(["chat", "panel"]);
 export type TerminalPlacement = typeof TerminalPlacement.Type;
@@ -364,6 +371,9 @@ export const ClientSettingsSchema = Schema.Struct({
   ),
   chatWidth: ChatWidth.pipe(Schema.withDecodingDefault(Effect.succeed("comfortable" as const))),
   panelSide: PanelSide.pipe(Schema.withDecodingDefault(Effect.succeed("right" as const))),
+  sidebarCollapsedStyle: SidebarCollapsedStyle.pipe(
+    Schema.withDecodingDefault(Effect.succeed("project-dock" as const)),
+  ),
   terminalPlacement: TerminalPlacement.pipe(
     Schema.withDecodingDefault(Effect.succeed("chat" as const)),
   ),
@@ -1740,6 +1750,7 @@ export const ClientSettingsPatch = Schema.Struct({
   diffColorScheme: Schema.optionalKey(DiffColorScheme),
   chatWidth: Schema.optionalKey(ChatWidth),
   panelSide: Schema.optionalKey(PanelSide),
+  sidebarCollapsedStyle: Schema.optionalKey(SidebarCollapsedStyle),
   terminalPlacement: Schema.optionalKey(TerminalPlacement),
   effortDisplay: Schema.optionalKey(EffortDisplay),
   loadBalancingEnabled: Schema.optionalKey(Schema.Boolean),

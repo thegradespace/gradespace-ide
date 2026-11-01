@@ -31,7 +31,7 @@ import { selectActiveRightPanel, useRightPanelStore } from "../rightPanelStore";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import { cn, isMacPlatform } from "../lib/utils";
 import { primaryServerKeybindingsAtom } from "../state/server";
-import { useEnvironmentIdentificationMode } from "../hooks/useSettings";
+import { useClientSettings, useEnvironmentIdentificationMode } from "../hooks/useSettings";
 import {
   PanelAnimationSuppressionProvider,
   usePanelAnimationSettings,
@@ -40,7 +40,7 @@ import {
 import { BackgroundThreadAnnouncer } from "./BackgroundThreadAnnouncer";
 import { HistorySwipeNavigation } from "./HistorySwipeNavigation";
 import ThreadSidebar from "./Sidebar";
-import { SidebarCollapsedRailSlot } from "./sidebar/SidebarCollapsedRail";
+import { SidebarCollapsedSlot, useEdgePeek } from "./sidebar/SidebarCollapsedRail";
 import { SidebarBrandWidthProbe } from "./sidebar/SidebarChrome";
 import { isAppModalPage } from "./sidebar/mainAppLocation";
 import type { SidebarRouteReveal } from "./sidebar/routeReveal";
@@ -440,15 +440,18 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const sidebarProviderStyle = {
     "--sidebar-width": `${clampThreadSidebarWidth(sidebarWidth, sidebarMinimumWidth, sidebarMaximumWidth)}px`,
     "--panel-animation-duration": `${panelAnimationDurationMs}ms`,
-    "--sidebar-rail-width":
-      "calc(var(--workspace-controls-left) * 2 + var(--workspace-titlebar-control-size))",
+    "--sidebar-rail-width": "52px",
     ...windowControlsInsetStyle,
   } as CSSProperties;
+
+  const collapsedStyle = useClientSettings((settings) => settings.sidebarCollapsedStyle);
+  const edgePeek = useEdgePeek();
 
   return (
     <PanelAnimationSuppressionProvider value={panelAnimationsSuppressed}>
       <SidebarProvider
         className="h-dvh! min-h-0!"
+        data-collapsed-style={collapsedStyle}
         data-panel-animations={routePanelAnimationsActive ? "true" : "false"}
         defaultOpen
         style={sidebarProviderStyle}
@@ -457,6 +460,9 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         <Sidebar
           side="left"
           collapsible="offcanvas"
+          peeking={collapsedStyle === "edge-peek" && edgePeek.peeking}
+          onPointerEnter={edgePeek.show}
+          onPointerLeave={edgePeek.hide}
           data-app-sidebar=""
           {...sidebarArea}
           role="navigation"
@@ -475,7 +481,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           <ThreadSidebar routeReveal={sidebarRouteReveal} />
           <SidebarRail onDoubleClick={resetSidebarWidth} />
         </Sidebar>
-        <SidebarCollapsedRailSlot />
+        <SidebarCollapsedSlot style={collapsedStyle} onEdgeEnter={edgePeek.show} />
         {children}
         <BackgroundThreadAnnouncer />
         <SidebarControl />

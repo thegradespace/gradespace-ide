@@ -1,10 +1,12 @@
 import type { CSSProperties } from "react";
 import { useState } from "react";
+import * as Schema from "effect/Schema";
 import {
   DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
   DEFAULT_UNIFIED_SETTINGS,
   type ChatWidth,
   type PanelSide,
+  SidebarCollapsedStyle,
   type TerminalPlacement,
   type EffortDisplay,
   type EnvironmentIdentificationMode,
@@ -83,6 +85,15 @@ const CHAT_WIDTH_LABELS: Record<ChatWidth, string> = {
 const PANEL_SIDE_LABELS: Record<PanelSide, string> = {
   right: "Right",
   left: "Left",
+};
+
+const isSidebarCollapsedStyle = Schema.is(SidebarCollapsedStyle);
+
+const SIDEBAR_COLLAPSED_STYLE_LABELS: Record<SidebarCollapsedStyle, string> = {
+  "project-dock": "Project dock",
+  "slim-rail": "Slim rail",
+  "thread-tabs": "Thread tabs",
+  "edge-peek": "Edge peek",
 };
 
 const TERMINAL_PLACEMENT_LABELS: Record<TerminalPlacement, string> = {
@@ -311,6 +322,45 @@ export function AppearanceSettingsPanel() {
                 <SelectPopup align="end" alignItemWithTrigger={false}>
                   <SelectItem value="right">Right (default)</SelectItem>
                   <SelectItem value="left">Left</SelectItem>
+                </SelectPopup>
+              </Select>
+            </div>
+          }
+        />
+        <SettingsRow
+          {...searchableSetting("sidebar-collapsed-style")}
+          description="Choose what stays on screen when the sidebar is collapsed."
+          resetAction={
+            settings.sidebarCollapsedStyle !== DEFAULT_UNIFIED_SETTINGS.sidebarCollapsedStyle ? (
+              <SettingResetButton
+                label="collapsed sidebar"
+                onClick={() =>
+                  updateSettings({
+                    sidebarCollapsedStyle: DEFAULT_UNIFIED_SETTINGS.sidebarCollapsedStyle,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <div className="w-full sm:w-40">
+              <Select
+                value={settings.sidebarCollapsedStyle}
+                onValueChange={(value) => {
+                  if (isSidebarCollapsedStyle(value))
+                    updateSettings({ sidebarCollapsedStyle: value });
+                }}
+              >
+                <SelectTrigger size="sm" className="w-full min-w-0" aria-label="Collapsed sidebar">
+                  <SelectValue>
+                    {SIDEBAR_COLLAPSED_STYLE_LABELS[settings.sidebarCollapsedStyle]}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectPopup align="end" alignItemWithTrigger={false}>
+                  <SelectItem value="project-dock">Project dock (default)</SelectItem>
+                  <SelectItem value="slim-rail">Slim rail</SelectItem>
+                  <SelectItem value="thread-tabs">Thread tabs</SelectItem>
+                  <SelectItem value="edge-peek">Edge peek</SelectItem>
                 </SelectPopup>
               </Select>
             </div>

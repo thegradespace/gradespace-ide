@@ -427,6 +427,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       : []),
     ...(settings.chatWidth !== DEFAULT_UNIFIED_SETTINGS.chatWidth ? ["Chat width"] : []),
     ...(settings.panelSide !== DEFAULT_UNIFIED_SETTINGS.panelSide ? ["Panel position"] : []),
+    ...(settings.sidebarCollapsedStyle !== DEFAULT_UNIFIED_SETTINGS.sidebarCollapsedStyle
+      ? ["Collapsed sidebar"]
+      : []),
     ...(settings.terminalPlacement !== DEFAULT_UNIFIED_SETTINGS.terminalPlacement
       ? ["Terminal position"]
       : []),
