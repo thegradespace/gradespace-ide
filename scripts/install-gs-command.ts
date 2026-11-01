@@ -6,9 +6,19 @@ import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/cli";
 
 import * as HostProcess from "@t3tools/shared/HostProcess";
+
+export class ForeignLauncherError extends Schema.TaggedError<ForeignLauncherError>()(
+  "ForeignLauncherError",
+  { file: Schema.String },
+) {
+  override get message(): string {
+    return `${this.file} already exists and was not installed by this script.`;
+  }
+}
 
 const MARKER = "# Installed by scripts/install-gs-command.ts";
 // /usr/local/bin is on PATH on macOS; ~/.local/bin is the fallback when it is not writable.
@@ -59,9 +69,7 @@ const install = Effect.fn("install-gs-command.install")(function* (devUrl: strin
   const repoRoot = path.resolve(import.meta.dirname, "..");
   const target = yield* resolveInstallPath;
   if ((yield* fs.exists(target.file)) && !(yield* isOurs(target.file))) {
-    return yield* Effect.fail(
-      new Error(`${target.file} already exists and was not installed by this script.`),
-    );
+    return yield* new ForeignLauncherError({ file: target.file });
   }
   yield* fs.writeFileString(
     target.file,
