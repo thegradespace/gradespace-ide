@@ -11,6 +11,14 @@ on:
       version:
         description: "Version without the v, such as 0.1.6"
         required: true
+      arm64_only:
+        description: "Build Apple Silicon only"
+        type: boolean
+        default: false
+      publish:
+        description: "Publish when the builds finish; off leaves a draft for testing"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -50,11 +58,7 @@ jobs:
       # A failure on one Mac usually hits both; stopping early saves build minutes.
       fail-fast: true
       matrix:
-        include:
-          - arch: arm64
-            runner: macos-15
-          - arch: x64
-            runner: macos-15-intel
+        include: ${{ fromJSON(inputs.arm64_only && '[{"arch":"arm64","runner":"macos-15"}]' || '[{"arch":"arm64","runner":"macos-15"},{"arch":"x64","runner":"macos-15-intel"}]') }}
     steps:
       - uses: actions/checkout@v6
 
@@ -102,7 +106,7 @@ jobs:
 
   publish:
     needs: [prepare, build]
-    if: needs.prepare.outputs.can_publish == 'true'
+    if: needs.prepare.outputs.can_publish == 'true' && (github.event_name != 'workflow_dispatch' || inputs.publish)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
