@@ -45,7 +45,7 @@ jobs:
   build:
     needs: prepare
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       # A failure on one Mac usually hits both; stopping early saves build minutes.
       fail-fast: true
