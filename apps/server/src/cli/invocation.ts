@@ -13,7 +13,7 @@ import packageJson from "../../package.json" with { type: "json" };
 export type CliRunner = "npx" | "pnpm dlx" | "bunx";
 
 /** The installed command's name. The npm package (and `npx t3`) keeps upstream's `t3`. */
-export const CLI_COMMAND = "gs";
+const CLI_COMMAND = "gs";
 
 /** Detection is best-effort; callers must fail closed to a plain `gs` command. */
 function detectCliRunner(entryPath: string): CliRunner | null {
@@ -157,7 +157,8 @@ export const resolveHostCliCommand = Effect.fn("invocation.resolveHostCliCommand
   const withArgs = (prefix: string) =>
     [prefix, ...args.map((arg) => hostShellWord(platform, arg))].join(" ");
   const command = yield* resolveCliCommand(subcommand);
-  if (command !== `${CLI_COMMAND} ${subcommand}`) return { command: withArgs(command), launcher: false };
+  if (command !== `${CLI_COMMAND} ${subcommand}`)
+    return { command: withArgs(command), launcher: false };
   const onPath = yield* resolveCommandPath(CLI_COMMAND);
   if (onPath !== null) {
     const shim = (yield* HostProcess.Environment).T3CODE_CLI_PATH?.trim();
