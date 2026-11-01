@@ -2923,6 +2923,15 @@ function isClaudeRootTurnFrame(message: SDKMessage): boolean {
   );
 }
 
+// Claude's task messages carry no start time, and its task ids match no turn item.
+function withFirstSeenStartedAt(
+  task: OrchestrationV2PendingBackgroundTask,
+  known: OrchestrationV2PendingBackgroundTask | undefined,
+  now: DateTime.Utc,
+): OrchestrationV2PendingBackgroundTask {
+  return { ...task, startedAt: known?.startedAt ?? now };
+}
+
 function claudePendingBackgroundTasksFromRoster(
   roster: ReadonlyMap<string, OrchestrationV2PendingBackgroundTask>,
   awaitedTaskIds: ReadonlySet<string>,
@@ -5316,19 +5325,24 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           /* Provider events include streaming deltas; avoid a span for each update. */
           Effect.fnUntraced(function* (
             nativeThreadId: string,
-            tasks: ReadonlyArray<OrchestrationV2PendingBackgroundTask>,
+            listedTasks: ReadonlyArray<OrchestrationV2PendingBackgroundTask>,
           ) {
-            yield* Ref.update(pendingBackgroundTasksByNativeThread, (current) => {
+            const now = yield* DateTime.now;
+            const tasks = yield* Ref.modify(pendingBackgroundTasksByNativeThread, (current) => {
+              const known = rosterForNativeThread(current, nativeThreadId);
+              const stamped = listedTasks.map((task) =>
+                withFirstSeenStartedAt(task, known.get(task.taskId), now),
+              );
               const updated = new Map(current);
-              if (tasks.length === 0) {
+              if (stamped.length === 0) {
                 updated.delete(nativeThreadId);
               } else {
                 updated.set(
                   nativeThreadId,
-                  new Map(tasks.map((task) => [task.taskId, task] as const)),
+                  new Map(stamped.map((task) => [task.taskId, task] as const)),
                 );
               }
-              return updated;
+              return [stamped, updated] as const;
             });
             yield* rememberOpaqueTasks(tasks);
             if (tasks.length > 0) {
@@ -5354,12 +5368,18 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           /* Provider events include streaming deltas; avoid a span for each update. */
           Effect.fnUntraced(function* (
             nativeThreadId: string,
-            task: OrchestrationV2PendingBackgroundTask,
+            startedTask: OrchestrationV2PendingBackgroundTask,
           ) {
-            yield* Ref.update(pendingBackgroundTasksByNativeThread, (current) => {
+            const now = yield* DateTime.now;
+            const task = yield* Ref.modify(pendingBackgroundTasksByNativeThread, (current) => {
               const roster = new Map(rosterForNativeThread(current, nativeThreadId));
-              roster.set(task.taskId, task);
-              return new Map(current).set(nativeThreadId, roster);
+              const stamped = withFirstSeenStartedAt(
+                startedTask,
+                roster.get(startedTask.taskId),
+                now,
+              );
+              roster.set(stamped.taskId, stamped);
+              return [stamped, new Map(current).set(nativeThreadId, roster)] as const;
             });
             yield* rememberOpaqueTasks([task]);
             yield* markWakeEligibleOpaqueBackgroundTasks(nativeThreadId, [task.taskId]);

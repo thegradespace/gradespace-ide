@@ -170,10 +170,11 @@ export function backgroundWorkNowItem(input: {
       (candidate) => (candidate.nativeItemRef?.nativeId || candidate.id) === task.taskId,
     );
     const subagent = item?.type === "subagent" ? item : undefined;
+    const startedAt = item?.startedAt ?? task.startedAt;
     return {
       task,
       activity: subagent?.progress?.replace(/\s+/gu, " ").trim() || null,
-      startedAtMs: item?.startedAt ? DateTime.toEpochMillis(item.startedAt) : null,
+      startedAtMs: startedAt ? DateTime.toEpochMillis(startedAt) : null,
       updatedAtMs: subagent ? DateTime.toEpochMillis(subagent.updatedAt) : 0,
       childThreadId: task.childThreadId ?? subagent?.childThreadId ?? undefined,
     };

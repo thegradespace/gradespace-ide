@@ -1007,6 +1007,8 @@ const PendingBackgroundTaskFields = {
    * subagent. Only the agent knows whether a command is a wait or a dev server it left running.
    */
   awaited: Schema.optional(Schema.Literal(true)),
+  /** When the adapter first saw the task; for rosters with no turn item to time it from. */
+  startedAt: Schema.optional(Schema.DateTimeUtc),
 };
 
 export const OrchestrationV2PendingBackgroundTask = kindUnionWithFallback(
@@ -1023,10 +1025,11 @@ export const OrchestrationV2PendingBackgroundTask = kindUnionWithFallback(
     Schema.Struct({ ...PendingBackgroundTaskFields, kind: Schema.Literal("background_task") }),
   ],
   (kind) => Schema.Struct({ ...PendingBackgroundTaskFields, kind }),
-  ({ taskId, description, parentTaskId }) => ({
+  ({ taskId, description, parentTaskId, startedAt }) => ({
     taskId,
     ...(description === undefined ? {} : { description }),
     ...(parentTaskId === undefined ? {} : { parentTaskId }),
+    ...(startedAt === undefined ? {} : { startedAt }),
     kind: "background_task",
   }),
 );

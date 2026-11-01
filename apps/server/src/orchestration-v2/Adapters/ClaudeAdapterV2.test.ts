@@ -8308,7 +8308,11 @@ describe("ClaudeAdapterV2 background wake turns", () => {
             (afterStart.at(-1)?.providerThread.pendingBackgroundTasks ?? [])[0]?.taskId,
             WAKE_TASK_ID,
           );
+          const firstSeenAt = (afterStart.at(-1)?.providerThread.pendingBackgroundTasks ?? [])[0]
+            ?.startedAt;
+          assert.isDefined(firstSeenAt);
 
+          yield* TestClock.adjust("1 minute");
           yield* Queue.offer(
             harness.sdkMessages,
             claudeSdkFrame({
@@ -8321,6 +8325,11 @@ describe("ClaudeAdapterV2 background wake turns", () => {
                   description: "sleep 150",
                   parent_task_id: "agent-1",
                 },
+                {
+                  task_id: WAKE_TASK_ID,
+                  task_type: "local_bash",
+                  description: WAKE_TASK_DESCRIPTION,
+                },
               ],
               uuid: "00000000-0000-4000-8000-000000000203",
               session_id: WAKE_NATIVE_SESSION,
@@ -8332,6 +8341,10 @@ describe("ClaudeAdapterV2 background wake turns", () => {
                 event.providerThread.pendingBackgroundTasks?.[0]?.parentTaskId === "agent-1",
             ),
           );
+          const relisted = providerThreadRosterEvents(harness.events).at(-1)?.providerThread
+            .pendingBackgroundTasks;
+          assert.deepStrictEqual(relisted?.[1]?.startedAt, firstSeenAt);
+          assert.notDeepEqual(relisted?.[0]?.startedAt, firstSeenAt);
 
           yield* Queue.offer(harness.sdkMessages, emptyRoster);
           yield* harness.until(() =>
@@ -8602,7 +8615,7 @@ describe("ClaudeAdapterV2 background wake turns", () => {
         const roster = providerThreadRosterEvents(harness.events).at(-1)?.providerThread
           .pendingBackgroundTasks;
         assert.deepEqual(roster, [
-          { taskId: longRunning.taskId, kind: "monitor", description: "Monitor 0" },
+          { taskId: longRunning.taskId, kind: "monitor", description: "Monitor 0", startedAt: now },
         ]);
       }).pipe(
         Effect.provide(
@@ -9132,7 +9145,7 @@ describe("ClaudeAdapterV2 background wake turns", () => {
             (event) => event.providerThread.id === providerThreadA.id,
           )?.providerThread.pendingBackgroundTasks;
           assert.deepEqual(rosterAAfterSettle ?? [], [
-            { taskId: taskA, description: "work on A", kind: "command" },
+            { taskId: taskA, description: "work on A", kind: "command", startedAt: now },
           ]);
           assert.isTrue(yield* hasPendingBackgroundWork);
           assert.isTrue(yield* hasPendingBackgroundWorkForThread(providerThreadA));
