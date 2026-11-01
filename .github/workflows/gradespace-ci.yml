@@ -1,0 +1,42 @@
+name: Gradespace CI
+
+# Replaces T3's CI, which needs their build machines and private task cache.
+# Linux only, because macOS minutes are the scarce ones on this plan.
+on:
+  push:
+    branches: [mine]
+    paths-ignore:
+      - "**.md"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gradespace-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-ci-deps
+
+      - name: Prepare Electron for the desktop tests
+        run: vp run --filter @t3tools/desktop ensure:electron
+
+      # Each check runs even if an earlier one fails, so one run reports everything.
+      - name: Format and lint
+        run: vp run fmt:check && vp run lint
+
+      - name: Type check
+        if: ${{ !cancelled() }}
+        run: vp run typecheck
+
+      - name: Unit tests
+        if: ${{ !cancelled() }}
+        run: vp run -r test
