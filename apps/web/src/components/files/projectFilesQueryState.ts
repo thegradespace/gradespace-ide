@@ -251,6 +251,7 @@ export function useProjectFileQuery(
   cwd: string,
   relativePath: string | null,
   enabled = true,
+  revision?: string | null,
 ): ProjectFileQueryState {
   // Read media-like paths too; a failed read is how folders with those names are detected.
   const fileAccess = useFilesystemReadAccess(environmentId);
@@ -260,7 +261,9 @@ export function useProjectFileQuery(
     enabled && canReadFiles
       ? getProjectFileQueryAtom(environmentId, cwd, relativePath)
       : EMPTY_PROJECT_FILE_QUERY_ATOM;
-  const result = useAtomValue(atom);
+  const result = useAtomValue(
+    revisionedQuery(atom, enabled && canReadFiles ? revision : undefined),
+  );
   const refreshAtom = useAtomRefresh(atom);
   const refresh = () => refreshAtom();
   const readData = AsyncResult.getOrElse(result, () => null);

@@ -33,6 +33,7 @@ const DevicePanel = lazy(() =>
   import("../device/DevicePanel").then((module) => ({ default: module.DevicePanel })),
 );
 const FilePreviewPanel = lazy(() => import("../files/FilePreviewPanel"));
+const StudioPanel = lazy(() => import("../studio/StudioPanel"));
 
 type RightPanelTerminalProps = Omit<
   PersistentThreadTerminalPanelProps,
@@ -192,6 +193,20 @@ export function RightPanelSurfaceContent(props: {
               props.onCloseSurface(surface);
               useRightPanelStore.getState().show(threadRef);
             }}
+          />
+        </Suspense>
+      );
+    case "studio":
+      if (!props.files.workspaceRoot) return null;
+      return (
+        <Suspense fallback={null}>
+          <StudioPanel
+            key={`${props.environmentId}:${props.files.workspaceRoot}`}
+            environmentId={props.environmentId}
+            cwd={props.files.workspaceRoot}
+            threadRef={threadRef}
+            composerDraftTarget={props.composerDraftTarget}
+            workspaceMutationId={props.workspaceMutationId}
           />
         </Suspense>
       );
