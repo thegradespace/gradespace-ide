@@ -1,10 +1,11 @@
 import {
+  GS_PROJECT_FILE_NAME,
   T3_PROJECT_FILE_NAME,
   type EnvironmentId,
   type T3ProjectFile,
   type T3ProjectFileScript,
 } from "@t3tools/contracts";
-import { parseT3ProjectFile } from "@t3tools/shared/t3ProjectFile";
+import { parseT3ProjectFile, pickProjectFileRead } from "@t3tools/shared/t3ProjectFile";
 
 import { useProjectFileQuery } from "~/components/files/projectFilesQueryState";
 
@@ -20,9 +21,14 @@ export function useT3ProjectFileState(
   environmentId: EnvironmentId,
   cwd: string | null,
 ): T3ProjectFileState {
-  const query = useProjectFileQuery(environmentId, cwd ?? "", T3_PROJECT_FILE_NAME, cwd !== null);
-  const contents = query.data && !query.data.truncated ? query.data.contents : null;
-  const isPending = query.isPending;
+  const gs = useProjectFileQuery(environmentId, cwd ?? "", GS_PROJECT_FILE_NAME, cwd !== null);
+  const t3 = useProjectFileQuery(environmentId, cwd ?? "", T3_PROJECT_FILE_NAME, cwd !== null);
+  const data = pickProjectFileRead({
+    [GS_PROJECT_FILE_NAME]: gs.data,
+    [T3_PROJECT_FILE_NAME]: t3.data,
+  });
+  const contents = data && !data.truncated ? data.contents : null;
+  const isPending = gs.isPending || t3.isPending;
   if (contents === null) {
     return {
       status: isPending ? "loading" : "missing",

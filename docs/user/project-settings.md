@@ -170,18 +170,19 @@ project crumb.
 The Projects category, under Code, holds the project's name, icon, actions,
 checkouts and removal. Actions belong to a project: editing them creates the project's own list
 on each selected environment, and reset returns to the environment's shared list. A project's
-`t3.json` actions can be imported there.
+`gs.json` actions can be imported there.
 
-Settings a repository can also declare in `t3.json`, such as the workspace for new threads,
-resolve in one order: a project override, then the environment setting, then `t3.json`, then the
-built-in default. Leave a setting on **Inherit** to let the next tier decide.
+Settings a repository can also declare in `gs.json` at its root, such as the workspace for new threads,
+resolve in one order: a project override, then the environment setting, then `gs.json`, then the
+built-in default. Leave a setting on **Inherit** to let the next tier decide. A repository with a
+`t3.json` instead is read the same way; if both exist, only `gs.json` is used.
 Browser access changes apply when an agent session next starts.
 
 New worktrees initialize git submodules recursively. If that step is slow because the repository
 declares many nested submodules, set **Submodules** in **Settings → Worktrees** under Advanced (with the project
 selected to override it there) to **Top level only** to stop at the ones the repository declares
 itself, or **Skip** to leave them for a setup script. It resolves in the same order as the
-workspace default: a `"worktreeSubmodules"` value in the `t3.json` of the branch being checked out
+workspace default: a `"worktreeSubmodules"` value in the `gs.json` of the branch being checked out
 applies when the project and environment are both on **Inherit**.
 
 ## Worktree location

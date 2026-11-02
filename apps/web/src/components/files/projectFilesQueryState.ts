@@ -4,8 +4,8 @@ import {
   type ProjectListEntriesResult,
   ProjectReadFileError,
   type ProjectReadFileResult,
-  T3_PROJECT_FILE_NAME,
 } from "@t3tools/contracts";
+import { isProjectFileName } from "@t3tools/shared/t3ProjectFile";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -76,7 +76,7 @@ export function getProjectFileQueryAtom(
     input: {
       cwd,
       relativePath: relativePath ?? EMPTY_PROJECT_FILE_PATH,
-      ...(relativePath === T3_PROJECT_FILE_NAME ? { allowMissing: true } : {}),
+      ...(relativePath !== null && isProjectFileName(relativePath) ? { allowMissing: true } : {}),
     },
   });
 }

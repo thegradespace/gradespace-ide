@@ -1633,6 +1633,7 @@ function OpenCommandPaletteDialog(props: {
         "grouping",
         "checkout",
         "remove",
+        "gs.json",
         "t3.json",
       ],
       title: "Project settings",

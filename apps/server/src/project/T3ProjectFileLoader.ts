@@ -6,8 +6,8 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { T3_PROJECT_FILE_NAME, type T3ProjectFile } from "@t3tools/contracts";
-import { T3ProjectFileFromJson } from "@t3tools/shared/t3ProjectFile";
+import { PROJECT_FILE_NAMES, type T3ProjectFile } from "@t3tools/contracts";
+import { resolveProjectFileName, T3ProjectFileFromJson } from "@t3tools/shared/t3ProjectFile";
 
 const decodeT3ProjectFileJson = Schema.decodeEffect(T3ProjectFileFromJson);
 
@@ -21,7 +21,7 @@ export class T3ProjectFileLoadError extends Schema.TaggedError<T3ProjectFileLoad
   },
 ) {
   override get message(): string {
-    return `Failed to ${this.operation} ${T3_PROJECT_FILE_NAME} at ${this.filePath}.`;
+    return `Failed to ${this.operation} project file at ${this.filePath}.`;
   }
 }
 
@@ -43,6 +43,19 @@ const logT3ProjectFileLoadError = (error: T3ProjectFileLoadError) =>
     }),
   );
 
+/** The root's gs.json if present, else its t3.json; gs.json when neither exists. */
+export const resolveProjectFilePath = Effect.fn("T3ProjectFileLoader.resolveProjectFilePath")(
+  function* (fileSystem: FileSystem.FileSystem, path: Path.Path, workspaceRoot: string) {
+    const present = yield* Effect.filter(PROJECT_FILE_NAMES, (name) =>
+      fileSystem.exists(path.join(workspaceRoot, name)).pipe(Effect.orElseSucceed(() => false)),
+    );
+    return path.join(
+      workspaceRoot,
+      resolveProjectFileName((name) => present.includes(name)),
+    );
+  },
+);
+
 /** @public */
 export const make = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
@@ -50,7 +63,7 @@ export const make = Effect.gen(function* () {
 
   const load: T3ProjectFileLoader["Service"]["load"] = Effect.fn("T3ProjectFileLoader.load")(
     function* (workspaceRoot) {
-      const filePath = path.join(workspaceRoot, T3_PROJECT_FILE_NAME);
+      const filePath = yield* resolveProjectFilePath(fileSystem, path, workspaceRoot);
       const raw = yield* fileSystem.readFileString(filePath).pipe(
         Effect.asSome,
         Effect.catchTags({
