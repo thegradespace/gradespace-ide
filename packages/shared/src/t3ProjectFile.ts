@@ -7,7 +7,7 @@ import {
   type ProjectFileName,
   type ProjectReadFileResult,
   T3ProjectFile,
-  T3_PROJECT_FILE_SCHEMA_URL,
+  PROJECT_FILE_SCHEMA_URL,
 } from "@t3tools/contracts";
 
 import { fromLenientJson } from "./schemaJson.ts";
@@ -48,7 +48,7 @@ export function buildT3ProjectFileJsonSchema(): Record<string, unknown> {
   const document = Schema.toJsonSchemaDocument(T3ProjectFile, { onExcessProperty: "error" });
   const jsonSchema: Record<string, unknown> = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    $id: T3_PROJECT_FILE_SCHEMA_URL,
+    $id: PROJECT_FILE_SCHEMA_URL,
     ...document.schema,
   };
   if (document.definitions && Object.keys(document.definitions).length > 0) {
