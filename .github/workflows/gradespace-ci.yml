@@ -29,6 +29,9 @@ jobs:
       - name: Install libsecret for the native helper test
         run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
 
+      - name: Install Chromium for the web browser tests
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+
       - name: Prepare Electron for the desktop tests
         run: vp run --filter @t3tools/desktop ensure:electron
 
