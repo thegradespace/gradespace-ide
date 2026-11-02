@@ -38,9 +38,7 @@ export function planProjectRemoval<
         ]
       : [`This removes ${members.length} grouped project entries.`]),
     ...(threadCount > 0
-      ? [
-          "Those threads and any archived threads are deleted from GS. Provider sessions are kept.",
-        ]
+      ? ["Those threads and any archived threads are deleted from GS. Provider sessions are kept."]
       : ["Any archived threads are deleted from GS. Provider sessions are kept."]),
     isWholeGroup && !hasOtherMembers
       ? "This removes only the project entries, not the files on disk."
