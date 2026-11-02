@@ -1,3 +1,6 @@
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+
 import { compareSemverVersions } from "./semver.ts";
 
 export const CLI_RELEASE_CHECKSUMS_FILE = "SHA256SUMS";
@@ -87,4 +90,15 @@ export function acceptsTrackSwitchRelease(
     cliReleaseChannelOf(found) === (channel === "nightly" ? "nightly" : "stable") &&
     compareSemverVersions(found, checked) >= 0
   );
+}
+
+const NpmReleaseMigrationManifest = Schema.Struct({
+  t3code: Schema.Struct({ databaseMigration: Schema.Int }),
+});
+const decodeNpmReleaseMigrationManifest = Schema.decodeUnknownOption(NpmReleaseMigrationManifest);
+
+/** Highest database migration a release's server knows, from its npm `t3` manifest. */
+export function npmReleaseDatabaseMigration(manifest: unknown): number | undefined {
+  return Option.getOrUndefined(decodeNpmReleaseMigrationManifest(manifest))?.t3code
+    .databaseMigration;
 }
