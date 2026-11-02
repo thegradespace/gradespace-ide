@@ -15,7 +15,7 @@ import * as VcsProcess from "../vcs/VcsProcess.ts";
 import * as TriageService from "./TriageService.ts";
 import { pickSourceRef } from "./TriageService.ts";
 
-const MAIN = "a1dc856ee61278d0199c36d4bcdef5fdea4d21fe\trefs/heads/main";
+const MAIN = "a1dc856ee61278d0199c36d4bcdef5fdea4d21fe\trefs/heads/mine";
 
 it("clones the server's release tag, peeling annotated tags to their commit", () => {
   assert.deepEqual(pickSourceRef(`${MAIN}\n7027b1f\trefs/tags/v0.1.1\n`, "0.1.1"), {
@@ -28,9 +28,9 @@ it("clones the server's release tag, peeling annotated tags to their commit", ()
   );
 });
 
-it("falls back to main when the server's version has no tag", () => {
+it("falls back to the mine branch when the server's version has no tag", () => {
   assert.deepEqual(pickSourceRef(`${MAIN}\n`, "0.1.2-dev"), {
-    ref: "main",
+    ref: "mine",
     commit: "a1dc856ee61278d0199c36d4bcdef5fdea4d21fe",
   });
   assert.isUndefined(pickSourceRef("", "0.1.1"));
