@@ -206,7 +206,7 @@ export function DesktopWebLinkCoordinator() {
       await pairFromLink(pairingUrl);
       return;
     }
-    const appPath = promptLinkAppPath(url);
+    const appPath = promptLinkAppPath(url, null);
     if (appPath !== null) {
       await router.navigate({ href: appPath });
       return;

@@ -179,6 +179,11 @@ const installFromArchive = Effect.fn("cloud.pinned_runtime.install_archive")(fun
   }
   const httpClient = input.httpClient;
   const baseUrl = cliReleaseDownloadBaseUrl(input.version, input.releaseBaseUrl);
+  if (baseUrl === undefined) {
+    return yield* new PinnedRuntimeInstallError({
+      step: "locating a t3 release archive, since Gradespace IDE publishes no CLI builds and T3CODE_RELEASE_BASE_URL is not set",
+    });
+  }
   const fileName = cliArchiveFileName(input.version, platformKey);
 
   input.onProgress?.({ stage: "download", received: 0, total: undefined });

@@ -1,4 +1,4 @@
-const DEFAULT_MARKETING_SITE_URL = "https://t3.codes";
+const DEFAULT_MARKETING_SITE_URL = "https://thegradespace.com";
 
 function resolveMarketingSiteUrl(override: string | undefined): URL {
   try {
@@ -22,7 +22,7 @@ function marketingSiteDocumentUrl(path: string): string {
   return new URL(path, MARKETING_SITE_URL).toString();
 }
 
-const PRIVACY_POLICY_URL = marketingSiteDocumentUrl("privacy-policy");
+const PRIVACY_POLICY_URL = marketingSiteDocumentUrl("privacy");
 const SECURITY_POLICY_URL = marketingSiteDocumentUrl("security-policy");
 const TERMS_OF_SERVICE_URL = marketingSiteDocumentUrl("terms-of-service");
 export const LEGAL_URL = marketingSiteDocumentUrl("legal");

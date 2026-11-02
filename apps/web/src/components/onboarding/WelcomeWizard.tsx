@@ -424,8 +424,8 @@ function ConnectionStep({
       ) : null}
       <div className="mt-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">
-          GS sends no usage data unless you turn on Share usage data in Settings. If you do, it goes
-          to T3 Code under their{" "}
+          GS sends no usage data unless an analytics service is configured and you turn on Share
+          usage data in Settings. Read the{" "}
           <a
             className="underline underline-offset-2 hover:text-foreground"
             href={PRIVACY_POLICY_URL}
@@ -520,7 +520,7 @@ function ConnectAccountOption({
             <p className="text-sm text-muted-foreground">
               Run this on each computer you want to connect.
             </p>
-            <CommandBlock command="npx t3 connect" className="mt-3" />
+            <CommandBlock command="gs connect" className="mt-3" />
             <p className="mt-3 text-xs text-muted-foreground">
               Keep GS running. Select the computers you want to set up above.
             </p>
@@ -629,11 +629,11 @@ function PairingForm({
           <CollapsiblePanel>
             <p className="pt-3 text-sm text-muted-foreground">
               On the computer with your code, start GS or run{" "}
-              <code className="font-mono">npx t3 serve</code>, then run:
+              <code className="font-mono">gs serve</code>, then run:
             </p>
-            <CommandBlock command="npx t3 pair" className="mt-2" />
+            <CommandBlock command="gs pair" className="mt-2" />
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              On a tailnet, run <code className="font-mono">npx t3 pair --tailscale</code> instead.
+              On a tailnet, run <code className="font-mono">gs pair --tailscale</code> instead.
             </p>
           </CollapsiblePanel>
         </Collapsible>
