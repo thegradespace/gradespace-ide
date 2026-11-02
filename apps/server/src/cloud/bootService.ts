@@ -35,9 +35,13 @@ import {
 const BOOT_SERVICE_NAME = "t3code";
 export const BOOT_SERVICE_UNIT_FILE = `${BOOT_SERVICE_NAME}.service`;
 // `.service` suffix keeps the label distinct from the desktop app's bundle id
-// (com.t3tools.t3code), so launchd and TCC records never collide.
-export const BOOT_SERVICE_LAUNCHD_LABEL = "com.t3tools.t3code.service";
+// (com.gradespace.ide), so launchd and TCC records never collide.
+export const BOOT_SERVICE_LAUNCHD_LABEL = "com.gradespace.ide.service";
 export const BOOT_SERVICE_PLIST_FILE = `${BOOT_SERVICE_LAUNCHD_LABEL}.plist`;
+// Launch agents installed before the rebrand still use this label; mutating
+// operations adopt them under the current label.
+export const BOOT_SERVICE_LEGACY_LAUNCHD_LABEL = "com.t3tools.t3code.service";
+export const BOOT_SERVICE_LEGACY_PLIST_FILE = `${BOOT_SERVICE_LEGACY_LAUNCHD_LABEL}.plist`;
 const BOOT_SERVICE_UNIT_ENV = "T3_BOOT_SERVICE_UNIT";
 export const BOOT_SERVICE_LOG_FILE = "boot-service.log";
 
@@ -571,6 +575,10 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
     environmentPath,
   });
   const unitPath = detectedManager?.unitPath ?? "";
+  const legacyUnitPath =
+    detectedManager?.kind === "launchd"
+      ? path.join(homeDir, "Library", "LaunchAgents", BOOT_SERVICE_LEGACY_PLIST_FILE)
+      : undefined;
   const logPath = path.join(input.logsDir, BOOT_SERVICE_LOG_FILE);
   const statePath = path.join(input.baseDir, "runtime", SERVICE_STATE_FILE);
   const restartPendingPath = path.join(input.baseDir, "runtime", SERVICE_RESTART_PENDING_FILE);
@@ -712,11 +720,43 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
     if (remaining[0]) return yield* new BootServicePrerequisiteError({ problem: remaining[0] });
   });
 
+  // Stops a launch agent installed under the pre-rebrand label and re-registers
+  // it under the current one, restoring it if it was loaded.
+  const adoptLegacyLaunchAgent = Effect.gen(function* () {
+    if (legacyUnitPath === undefined || detectedManager === undefined) return;
+    const legacy = yield* fs.readFileString(legacyUnitPath).pipe(Effect.option);
+    if (Option.isNone(legacy)) return;
+    const legacyTarget = `gui/${uid}/${BOOT_SERVICE_LEGACY_LAUNCHD_LABEL}`;
+    const wasLoaded = succeeded(yield* probe("launchctl", ["print", legacyTarget]));
+    yield* runStep(
+      "stopping the launch agent installed under its previous label",
+      "launchctl",
+      ["bootout", "--wait", legacyTarget],
+      { timeout: STOP_STEP_TIMEOUT },
+    ).pipe(Effect.ignore);
+    if (!(yield* fs.exists(unitPath))) {
+      yield* writeDurably(
+        unitPath,
+        legacy.value.replaceAll(
+          `<string>${BOOT_SERVICE_LEGACY_LAUNCHD_LABEL}</string>`,
+          `<string>${BOOT_SERVICE_LAUNCHD_LABEL}</string>`,
+        ),
+      );
+    }
+    yield* fs.remove(legacyUnitPath, { force: true });
+    if (wasLoaded) yield* runSteps(detectedManager.restart).pipe(Effect.ignore);
+  }).pipe(
+    Effect.mapError((cause) =>
+      cause._tag === "PlatformError" ? new BootServiceInstallError({ cause }) : cause,
+    ),
+  );
+
   const install = Effect.fn("cloud.boot_service.install")(function* (options?: {
     readonly allowDowngrade?: boolean;
     readonly start?: boolean;
   }) {
     const manager = yield* requireManager;
+    yield* adoptLegacyLaunchAgent;
     yield* fs
       .makeDirectory(input.logsDir, { recursive: true })
       .pipe(Effect.mapError((cause) => new BootServiceInstallError({ cause })));
@@ -873,6 +913,7 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
 
   const restart: BootService["Service"]["restart"] = Effect.gen(function* () {
     const manager = yield* requireManager;
+    yield* adoptLegacyLaunchAgent;
     const unit = yield* fs.readFileString(unitPath).pipe(Effect.option);
     if (Option.isNone(unit)) return "skipped" as const;
     const installedBaseDir = bootServiceBaseDirOf(unit.value);
@@ -906,6 +947,7 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
   ): Effect.fn.Return<A, E | BootServiceError, R> {
     if (detectedManager === undefined) return yield* operation;
     const manager = detectedManager;
+    yield* adoptLegacyLaunchAgent;
     const unit = yield* fs.readFileString(unitPath).pipe(Effect.option);
     if (Option.isNone(unit)) return yield* operation;
     const installedBaseDir = bootServiceBaseDirOf(unit.value);
@@ -952,6 +994,7 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
 
   const uninstall: BootService["Service"]["uninstall"] = Effect.gen(function* () {
     const manager = yield* requireManager;
+    yield* adoptLegacyLaunchAgent;
     if (
       !(yield* fs
         .exists(unitPath)
@@ -970,11 +1013,17 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
     if (detectedManager === undefined) {
       return { supported: false, installed: false, current: false, unitPath, logPath };
     }
-    if (!(yield* fs.exists(unitPath))) {
+    // Status is read-only, so a legacy agent is reported as installed but not current until a mutating command adopts it.
+    const installedPath = (yield* fs.exists(unitPath))
+      ? unitPath
+      : legacyUnitPath !== undefined && (yield* fs.exists(legacyUnitPath))
+        ? legacyUnitPath
+        : undefined;
+    if (installedPath === undefined) {
       return { supported: true, installed: false, current: false, unitPath, logPath };
     }
     const [unit, runtimeEntryExists, runtimeSentinel, stateText] = yield* Effect.all([
-      fs.readFileString(unitPath),
+      fs.readFileString(installedPath),
       fs.exists(runtimePaths.entryPath),
       fs.readFileString(runtimePaths.sentinelPath).pipe(Effect.option),
       fs.readFileString(statePath).pipe(Effect.option),
@@ -998,6 +1047,7 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
       ...(installedBaseDir === undefined ? {} : { installedBaseDir }),
       problems,
       current:
+        installedPath === unitPath &&
         problems.length === 0 &&
         normalizeUnit(unit) === normalizeUnit(detectedManager.render(plan)) &&
         runtimeEntryExists &&

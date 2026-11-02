@@ -762,7 +762,11 @@ export const make = Effect.gen(function* () {
   >();
   const runPromise = Effect.runPromiseWith(context);
   const captureDirectory = path.join(environment.stateDir, "snap-shots");
-  const linuxAppId = environment.linuxDesktopEntryName.replace(/\.desktop$/, "");
+  // Pinned to the pre-rebrand id: the separately installed GNOME extension only trusts these D-Bus names,
+  // and users' compositor shortcuts bind to this id.
+  const linuxAppId = environment.isDevelopment
+    ? "com.t3tools.T3Code.Development"
+    : "com.t3tools.T3Code";
   const home = yield* HostProcess.HomeDirectory;
   let shortcutVerified = false;
   const gnomeSetupPaths = {

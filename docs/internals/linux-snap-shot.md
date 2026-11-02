@@ -75,7 +75,10 @@ The bundled protocol XML ships with the helper because its BSD license requires 
 Niri does not implement the global-shortcut portal. While capture is enabled the app owns
 `<app-id>.SnapShot` on the session bus and exports `com.t3tools.SnapShot.Capture`; the config
 binding spawns `gdbus` to call it. Development and packaged app IDs use separate names so a dev
-build does not steal the user's binding.
+build does not steal the user's binding. The app ID is pinned to the pre-rebrand
+`com.t3tools.T3Code[.Development]` rather than derived from the desktop entry name, because the
+GNOME extension is installed separately and trusts only those names, and users' compositor
+shortcuts already bind to them.
 
 Niri supplies no global screenshot origin, so AT-SPI matching uses logical size and title only.
 

@@ -27,6 +27,7 @@ const startBesideBootService = Effect.fn("test.startBesideBootService")(function
   readonly platform: "darwin" | "linux";
   readonly outputs: Readonly<Record<string, { readonly code: number; readonly stdout?: string }>>;
   readonly unitServesOtherHome?: boolean;
+  readonly legacyLaunchdLabel?: boolean;
   readonly restartPending?: boolean;
   readonly activeVersion?: string;
   readonly npmRuntime?: boolean;
@@ -74,7 +75,14 @@ const startBesideBootService = Effect.fn("test.startBesideBootService")(function
   const [unitPath, unit] =
     input.platform === "darwin"
       ? [
-          path.join(root, "Library", "LaunchAgents", "com.t3tools.t3code.service.plist"),
+          path.join(
+            root,
+            "Library",
+            "LaunchAgents",
+            input.legacyLaunchdLabel
+              ? "com.t3tools.t3code.service.plist"
+              : "com.gradespace.ide.service.plist",
+          ),
           renderBootServicePlist(plan, { homeDir: root, environmentPath: "" }),
         ]
       : [
@@ -338,9 +346,17 @@ describe("server ownership", () => {
               "launchctl print": { code: 113 },
               "launchctl print-disabled": {
                 code: 0,
-                stdout: '"com.t3tools.t3code.service" => false',
+                stdout: '"com.gradespace.ide.service" => false',
               },
             },
+          },
+          // Installed before the rebrand and not yet adopted under the new label.
+          {
+            platform: "darwin",
+            legacyLaunchdLabel: true,
+            restartPending: true,
+            activeVersion: "0.1.0",
+            outputs: { "launchctl print": { code: 0 } },
           },
           {
             platform: "linux",
@@ -451,7 +467,7 @@ describe("server ownership", () => {
               "launchctl print": { code: 113 },
               "launchctl print-disabled": {
                 code: 0,
-                stdout: '"com.t3tools.t3code.service" => disabled',
+                stdout: '"com.gradespace.ide.service" => disabled',
               },
             },
           },

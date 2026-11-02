@@ -154,7 +154,7 @@ On macOS, check **System Settings → General → Login Items** if the service n
 longer starts at login. If agent work cannot access Desktop, Documents, or
 Downloads, it may need Full Disk Access for the `t3` executable listed in
 `ProgramArguments` in
-`~/Library/LaunchAgents/com.t3tools.t3code.service.plist`.
+`~/Library/LaunchAgents/com.gradespace.ide.service.plist`. A service installed under the earlier `com.t3tools.t3code.service` label is moved to the new one the next time you run a service command.
 
 For failures after signing in to T3 Connect, see
 [connection troubleshooting](./t3-connect-troubleshooting.md).
