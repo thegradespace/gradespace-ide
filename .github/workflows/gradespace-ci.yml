@@ -20,7 +20,7 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v6
 
@@ -45,4 +45,5 @@ jobs:
 
       - name: Unit tests
         if: ${{ !cancelled() }}
-        run: vp run -r test
+        # One package at a time: browser tests hit their timeout when sharing the runner.
+        run: vp run -r --concurrency-limit 1 test
