@@ -1,5 +1,11 @@
-import { type EnvironmentId, T3_PROJECT_FILE_NAME, type T3ProjectFile } from "@t3tools/contracts";
-import { parseT3ProjectFile } from "@t3tools/shared/t3ProjectFile";
+import {
+  type EnvironmentId,
+  GS_PROJECT_FILE_NAME,
+  type ProjectFileName,
+  T3_PROJECT_FILE_NAME,
+  type T3ProjectFile,
+} from "@t3tools/contracts";
+import { parseT3ProjectFile, pickProjectFileRead } from "@t3tools/shared/t3ProjectFile";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { createContext, type ReactNode, useContext } from "react";
@@ -22,18 +28,25 @@ const memberProjectFilesAtom = Atom.family((membersKey: string) => {
   return Atom.make((get) => {
     const files = new Map<string, T3ProjectFile | null>();
     for (const [environmentId, workspaceRoot, physicalProjectKey] of members) {
-      const result = get(
-        getProjectFileQueryAtom(environmentId, workspaceRoot, T3_PROJECT_FILE_NAME),
-      );
-      if (result.waiting) continue;
-      const data =
-        get(optimisticFileAtom(environmentId, workspaceRoot, T3_PROJECT_FILE_NAME))?.data ??
-        AsyncResult.getOrElse(result, () => null);
+      const read = (name: ProjectFileName) => {
+        const result = get(getProjectFileQueryAtom(environmentId, workspaceRoot, name));
+        return {
+          waiting: result.waiting,
+          data:
+            get(optimisticFileAtom(environmentId, workspaceRoot, name))?.data ??
+            AsyncResult.getOrElse(result, () => null),
+        };
+      };
+      const gs = read(GS_PROJECT_FILE_NAME);
+      const t3 = read(T3_PROJECT_FILE_NAME);
+      if (gs.waiting || t3.waiting) continue;
+      const data = pickProjectFileRead({
+        [GS_PROJECT_FILE_NAME]: gs.data,
+        [T3_PROJECT_FILE_NAME]: t3.data,
+      });
       files.set(
         physicalProjectKey,
-        data === null || data.exists === false || data.truncated
-          ? null
-          : parseT3ProjectFile(data.contents),
+        data === null || data.truncated ? null : parseT3ProjectFile(data.contents),
       );
     }
     return files;

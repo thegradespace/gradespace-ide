@@ -426,8 +426,8 @@ export function SettingsRow({
     ? { state: "mixed", summary: "Mixed across selected environments" }
     : source === "project"
       ? { state: "overridden", summary: "Overridden for this project" }
-      : source === "t3.json"
-        ? { state: "inherited", summary: "Inherited from the repository's t3.json" }
+      : source === "project-file"
+        ? { state: "inherited", summary: "Inherited from the repository's gs.json or t3.json" }
         : source === "environment" && scopedKeys.length > 0
           ? { state: "inherited", summary: `Inherited from ${inheritedFrom}` }
           : customized

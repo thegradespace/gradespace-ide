@@ -4192,7 +4192,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
       }),
     );
 
-    it.effect("resolves the submodule mode from the option, then t3.json", () =>
+    it.effect("resolves the submodule mode from the option, then gs.json, then t3.json", () =>
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const pathService = yield* Path.Path;
@@ -4232,12 +4232,17 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           fileMode: WorktreeSubmodules,
           branch: string,
           submodules: WorktreeSubmodules | null = null,
+          gsMode: WorktreeSubmodules | null = null,
         ) {
           yield* writeTextFile(cwd, "t3.json", `{ "worktreeSubmodules": "${fileMode}" }`);
           yield* git(cwd, ["add", "t3.json"]);
+          if (gsMode !== null) {
+            yield* writeTextFile(cwd, "gs.json", `{ "worktreeSubmodules": "${gsMode}" }`);
+            yield* git(cwd, ["add", "gs.json"]);
+          }
           yield* git(cwd, ["commit", "--allow-empty", "-m", `submodules: ${fileMode}`]);
           const worktreePath = pathService.join(worktreesDir, branch);
-          const disabled = yield* Ref.make<"settings" | "t3.json" | false>(false);
+          const disabled = yield* Ref.make<"settings" | "project-file" | false>(false);
           yield* driver.createWorktree(
             { cwd, path: worktreePath, refName: initialBranch, newRefName: branch },
             {
@@ -4275,8 +4280,13 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           nested: false,
         });
         assert.deepEqual(yield* createWithMode("none", "none"), {
-          disabled: "t3.json",
+          disabled: "project-file",
           inner: false,
+          nested: false,
+        });
+        assert.deepEqual(yield* createWithMode("none", "gs-wins", null, "top-level"), {
+          disabled: false,
+          inner: true,
           nested: false,
         });
       }),

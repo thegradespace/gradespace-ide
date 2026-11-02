@@ -5,9 +5,14 @@ import { ThreadEnvMode, WorktreeSubmodules } from "./environment.ts";
 import { ProjectScriptIcon } from "./project.ts";
 import type { ProjectScopedServerSettingKey, ServerSettings } from "./settings.ts";
 
+export const GS_PROJECT_FILE_NAME = "gs.json";
 export const T3_PROJECT_FILE_NAME = "t3.json";
 
-export const T3_PROJECT_FILE_SCHEMA_URL = "https://t3.codes/schema/t3.json";
+/** Candidate names in priority order. */
+export const PROJECT_FILE_NAMES = [GS_PROJECT_FILE_NAME, T3_PROJECT_FILE_NAME] as const;
+export type ProjectFileName = (typeof PROJECT_FILE_NAMES)[number];
+
+export const PROJECT_FILE_SCHEMA_URL = "https://thegradespace.com/schema/gs.json";
 
 const T3_PROJECT_FILE_PATH_MAX_LENGTH = 512;
 const T3_PROJECT_FILE_MAX_SCRIPTS = 50;
@@ -72,7 +77,7 @@ export type T3ProjectFileScript = typeof T3ProjectFileScript.Type;
 export const T3ProjectFile = Schema.Struct({
   $schema: Schema.optionalKey(
     Schema.String.annotate({
-      description: `URL of the JSON Schema for this file, typically "${T3_PROJECT_FILE_SCHEMA_URL}".`,
+      description: `URL of the JSON Schema for this file, typically "${PROJECT_FILE_SCHEMA_URL}".`,
     }),
   ),
   iconPath: Schema.optionalKey(
@@ -106,11 +111,11 @@ export const T3ProjectFile = Schema.Struct({
 }).annotate({
   title: "T3 project file",
   description:
-    "Checked-in project configuration for T3 Code (t3.json at the repository root). See https://t3.codes for documentation.",
+    "Checked-in project configuration for T3 Code (gs.json or t3.json at the repository root). See https://github.com/thegradespace/gradespace-ide/blob/mine/docs/user/project-settings.md for documentation.",
 });
 export type T3ProjectFile = typeof T3ProjectFile.Type;
 
-/** Keys must be nullable in ServerSettings so both environment and project overrides can inherit t3.json. */
+/** Keys must be nullable in ServerSettings so both environment and project overrides can inherit the project file. */
 export const PROJECT_FILE_BACKED_SETTINGS = {
   defaultThreadEnvMode: { field: "defaultThreadEnvMode", builtIn: "local" },
   worktreeSubmodules: { field: "worktreeSubmodules", builtIn: "recursive" },
