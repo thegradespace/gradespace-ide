@@ -231,20 +231,7 @@ const ICON_VARIANTS = [
       windowsIco: BRAND_ASSET_PATHS.nightlyWindowsIconIco,
     },
   },
-  {
-    label: "production",
-    source: BRAND_ASSET_PATHS.productionIconComposerProject,
-    outputs: {
-      ios: BRAND_ASSET_PATHS.productionIosIconPng,
-      macos: BRAND_ASSET_PATHS.productionMacIconPng,
-      universal: BRAND_ASSET_PATHS.productionLinuxIconPng,
-      appleTouch: BRAND_ASSET_PATHS.productionWebAppleTouchIconPng,
-      favicon16: BRAND_ASSET_PATHS.productionWebFavicon16Png,
-      favicon32: BRAND_ASSET_PATHS.productionWebFavicon32Png,
-      faviconIco: BRAND_ASSET_PATHS.productionWebFaviconIco,
-      windowsIco: BRAND_ASSET_PATHS.productionWindowsIconIco,
-    },
-  },
+  // Production art is Gradespace-owned PNG/ICO files with no Icon Composer source; see assets/README.md.
 ] as const satisfies ReadonlyArray<IconVariant>;
 
 const RepositoryRoot = Effect.service(Path.Path).pipe(
@@ -769,9 +756,7 @@ export const exportBrandIconsCommand = Command.make(
   },
   ({ check }) => exportBrandIcons(check).pipe(Effect.scoped),
 ).pipe(
-  Command.withDescription(
-    "Export development, preview, and production assets from Icon Composer projects.",
-  ),
+  Command.withDescription("Export development and preview assets from Icon Composer projects."),
 );
 
 if (import.meta.main) {
