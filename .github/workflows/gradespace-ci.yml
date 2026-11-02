@@ -26,6 +26,9 @@ jobs:
 
       - uses: ./.github/actions/setup-ci-deps
 
+      - name: Install libsecret for the native helper test
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+
       - name: Prepare Electron for the desktop tests
         run: vp run --filter @t3tools/desktop ensure:electron
 

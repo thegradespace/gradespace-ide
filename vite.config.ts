@@ -1,5 +1,6 @@
 import "vite-plus/test/config";
 import { defineConfig } from "vite-plus";
+// @effect-diagnostics-next-line nodeBuiltinImport:off -- Vite loads this before any Effect services exist.
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodeURL from "node:url";
