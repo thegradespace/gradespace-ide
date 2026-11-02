@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema";
 
 import { NodeId, RunAttemptId, TrimmedNonEmptyString } from "./index.ts";
 import {
+  OrchestrationV2PendingBackgroundTask,
   latestProviderTurnForAttempt,
   OrchestrationV2ProviderCapabilities,
   OrchestrationV2ProviderThread,
@@ -563,6 +564,22 @@ describe("background work kinds from older or newer servers", () => {
       storedNotification({ kind: "workflow", workflowId: "wf-1" }),
     );
     expect(item).toMatchObject({ type: "notification", source: { kind: "background_task" } });
+  });
+
+  it("reads back the start time of a stored task, including a kind from a newer server", () => {
+    const codec = Schema.fromJsonString(OrchestrationV2PendingBackgroundTask);
+    const startedAt = "2026-11-02T00:00:00.000Z";
+    const stored = JSON.stringify({ taskId: "task-1", kind: "command", startedAt });
+    const task = Schema.decodeSync(codec)(stored);
+
+    expect(task.startedAt && DateTime.formatIso(task.startedAt)).toBe(startedAt);
+    expect(JSON.parse(Schema.encodeSync(codec)(task))).toEqual(JSON.parse(stored));
+
+    const unknownKind = Schema.decodeSync(codec)(
+      JSON.stringify({ taskId: "task-2", kind: "from-the-future", startedAt }),
+    );
+    expect(unknownKind.kind).toBe("background_task");
+    expect(unknownKind.startedAt && DateTime.formatIso(unknownKind.startedAt)).toBe(startedAt);
   });
 
   it("decodes rosters stored before kinds existed, and kinds from a newer server, as generic tasks", () => {

@@ -1008,7 +1008,8 @@ const PendingBackgroundTaskFields = {
    */
   awaited: Schema.optional(Schema.Literal(true)),
   /** When the adapter first saw the task; for rosters with no turn item to time it from. */
-  startedAt: Schema.optional(Schema.DateTimeUtc),
+  // Stored rosters hold this as text; tasks in memory hold a DateTime.
+  startedAt: Schema.optional(Schema.Union([Schema.DateTimeUtc, Schema.DateTimeUtcFromString])),
 };
 
 export const OrchestrationV2PendingBackgroundTask = kindUnionWithFallback(
