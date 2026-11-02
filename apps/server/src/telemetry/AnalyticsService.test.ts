@@ -121,6 +121,10 @@ const sendFor = (
     AnalyticsService.AnalyticsService | Effect.Services<typeof getTelemetryIdentity>
   > = recordTwentyEvents,
   settings?: { readonly shareUsageData: boolean; readonly offlineMode: boolean },
+  posthog: Record<string, string> = {
+    T3CODE_POSTHOG_KEY: "phc_test_key",
+    T3CODE_POSTHOG_HOST: "http://localhost",
+  },
 ) =>
   Effect.gen(function* () {
     const batches: Array<ReadonlyArray<SentEvent>> = [];
@@ -143,8 +147,7 @@ const sendFor = (
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
             T3CODE_TELEMETRY_ENABLED: true,
-            T3CODE_POSTHOG_KEY: "phc_test_key",
-            T3CODE_POSTHOG_HOST: "http://localhost",
+            ...posthog,
           }),
         ),
       ),
@@ -208,6 +211,28 @@ it.layer(NodeServices.layer)("AnalyticsService test", (it) => {
       for (const { sent, ...settings } of cases) {
         const batches = yield* sendFor(1, respondWithStatus(204), recordTwentyEvents, settings);
         assert.equal(batches.flat().length, sent, JSON.stringify(settings));
+      }
+    }),
+  );
+
+  it.effect("sends nothing unless both a PostHog key and host are configured", () =>
+    Effect.gen(function* () {
+      const optedIn = { shareUsageData: true, offlineMode: false };
+      const cases = [
+        {},
+        { T3CODE_POSTHOG_KEY: "phc_test_key" },
+        { T3CODE_POSTHOG_HOST: "http://localhost" },
+        { T3CODE_POSTHOG_KEY: "", T3CODE_POSTHOG_HOST: "http://localhost" },
+      ];
+      for (const posthog of cases) {
+        const batches = yield* sendFor(
+          1,
+          respondWithStatus(204),
+          recordTwentyEvents,
+          optedIn,
+          posthog,
+        );
+        assert.equal(batches.flat().length, 0, JSON.stringify(posthog));
       }
     }),
   );
