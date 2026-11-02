@@ -14,7 +14,6 @@ run these commands on the machine that will host T3 Code:
 | See how your other devices reach it   | `t3 status`            |
 | Install and start                     | `t3 service install`   |
 | Inspect status and log location       | `t3 service status`    |
-| Move to a newer release               | `t3 update`            |
 | Restart                               | `t3 service restart`   |
 | Stop and remove from startup          | `t3 service uninstall` |
 
@@ -22,20 +21,12 @@ Uninstalling the service leaves your projects, threads, and settings intact.
 Running `t3 service install` again repairs a service that `t3 service status`
 reports as broken.
 
-`t3 update` downloads the newest release on your channel and switches `t3`
-and the service to it. Restarting interrupts running agent turns, terminals,
-and remote clients, so it asks first; answer no and the service keeps running
-the old version until you run `t3 service restart`. Pass `--yes` from a
-script. A server you started by hand is left running; stop and start it again
-to pick up the new version. Wait for any remote update already in progress
-before updating; to match a remote client's version, follow
-[Updating T3 Code](./updating.md).
-
-Pass an exact version (`t3 update 0.0.42`) to pin one, `--channel nightly` to
-switch trains, or `--allow-downgrade` to move backwards. `preview` is a
-maintainers' test train: its builds can be broken and are never offered as
-updates, so the installer and `t3 update` ask for confirmation before
-installing one.
+Gradespace IDE publishes no CLI builds, so there is no `gs update`: update the
+desktop app from [thegradespace.com/ide](https://thegradespace.com/ide), then
+run `gs service restart` to switch the service to it. Restarting interrupts
+running agent turns, terminals, and remote clients. A server you started by hand
+is left running; stop and start it again to pick up the new version. To match a
+remote client's version, follow [Updating](./updating.md).
 
 `t3 uninstall` removes the background service, the `t3` launcher, and the
 downloaded versions after showing you the list and asking once. Your projects,
@@ -50,7 +41,7 @@ T3 Connect, or directly once you choose the local network in `t3 up` (or run
 your local network and Tailscale addresses, so the desktop and mobile apps on
 the same network connect directly instead of through T3 Connect. It still does
 not answer on public addresses. Anyone on the same network can reach the port,
-so a pairing code is all that keeps them out. The hosted web app at app.t3.codes
+so a pairing code is all that keeps them out. A hosted web app, if you run one,
 stays on T3 Connect, because browsers block plain HTTP from an HTTPS page.
 
 A service installed before `T3CODE_LAN` existed keeps listening on the local

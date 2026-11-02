@@ -259,9 +259,7 @@ export function collectChannelSwitchTargets(
       move.selfUpdate === "boot-service" &&
       compareSemverVersions(release.version, serverVersion) <= 0
     ) {
-      skip(
-        `run \`gs update --channel ${release.channel === "nightly" ? "nightly" : "stable"} --allow-downgrade\` there`,
-      );
+      skip("reinstall the older Gradespace IDE version there");
       continue;
     }
     targets.push(target(move.selfUpdate, release.version));

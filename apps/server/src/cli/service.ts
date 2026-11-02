@@ -168,7 +168,7 @@ function formatServiceStatus(
       `  Logs: ${status.logPath}`,
       ...formatProtection(protection),
       ...problems,
-      `  Next: Run \`gs update ${installedVersion}\` to match it, or pass \`--allow-downgrade\` to \`gs service install\` explicitly.`,
+      `  Next: Update Gradespace IDE to ${installedVersion} to match it, or pass \`--allow-downgrade\` to \`gs service install\` explicitly.`,
     ].join("\n");
   }
   return [
@@ -224,14 +224,14 @@ const serviceInstallCommand = Command.make("install", serviceReconcileFlags).pip
 );
 
 const serviceUpdateCommand = Command.make("update", serviceReconcileFlags).pipe(
-  Command.withDescription("Deprecated. Run `gs update` to move to a newer release."),
+  Command.withDescription("Deprecated. Run `gs service install` to repair the service."),
   Command.unlisted,
   Command.withHandler((flags) =>
     runServiceCommand(
       flags,
       Effect.gen(function* () {
         yield* Console.log(
-          "`gs service update` is deprecated: run `gs update` to move to a newer release, or `gs service install` to repair the service. Repairing now.",
+          "`gs service update` is deprecated: run `gs service install` to repair the service. Repairing now.",
         );
         const result = yield* reconcileService({ allowDowngrade: flags.allowDowngrade });
         if (!result.changed) {
@@ -248,7 +248,7 @@ const serviceUpdateCommand = Command.make("update", serviceReconcileFlags).pipe(
 
 const serviceRestartCommand = Command.make("restart", projectLocationFlags).pipe(
   Command.withDescription(
-    "Restart the background service. Picks up a version installed by `gs update` that was not restarted at the time.",
+    "Restart the background service. Picks up a newer installed version that was not restarted at the time.",
   ),
   Command.withHandler((flags) =>
     runServiceCommand(

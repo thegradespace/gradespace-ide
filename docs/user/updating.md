@@ -45,8 +45,8 @@ apps reinstall on the new track. This app reinstalls last. Your threads,
 settings, and data stay.
 
 A background service cannot move to an older release remotely. When Stable is
-older than its Nightly, run `t3 update --channel stable --allow-downgrade` on
-that machine.
+older than its Nightly, reinstall the older Gradespace IDE version on that
+machine.
 
 A switch is blocked for a machine whose database already has changes the
 target release does not support, or when T3 Code cannot confirm that it does.
@@ -106,21 +106,12 @@ The offered action depends on how the server runs:
 | **Copy update command**    | Run the command on the named host to update the detected global npm install, then restart the server with your usual options.                                                                   |
 | **Copy relaunch command**  | Stop the command-line server on its host and relaunch with the copied command, keeping your usual subcommand and options. This does not update an installed `t3` command.                       |
 
-On the host, run:
-
-```sh
-t3 update <client-version>
-```
-
-Replace `<client-version>` with the version shown in the notice. The command
-asks before restarting the background service; if you decline, run
-`t3 service restart` when you are ready. For a server you started by hand,
-stop it and start it again afterwards with your usual options such as `--host`
-or `--tailscale-serve`.
-
-If you run the server with `npx` rather than an installed `t3`, there is
-nothing to update on the host: stop the server and relaunch it as
-`npx t3@<client-version>` with the same subcommand and options.
+On the host, install the version shown in the notice from
+[thegradespace.com/ide](https://thegradespace.com/ide), then run
+`gs service restart` if a background service is installed. For a server you
+started by hand, stop it and start it again afterwards with your usual options
+such as `--host` or `--tailscale-serve`. `gs update` does not install anything:
+Gradespace IDE publishes no CLI builds.
 
 ## If an update fails
 
@@ -158,13 +149,11 @@ details** to include the error in a bug report.
 
 ## Registries and proxies
 
-Each server checks T3 Code releases, and providers installed with npm, through
-its own npm, so the checks use npm's configured registry, authentication, and
-proxy settings. Providers installed with Homebrew or pnpm check through those
+Gradespace IDE checks no release registry for itself; the Mac app updates from
+its GitHub releases. Providers installed with npm are checked through the
+server's own npm, so those checks use npm's configured registry, authentication,
+and proxy settings. Providers installed with Homebrew or pnpm check through those
 tools.
-Configure npm on the server's machine. If that registry cannot be reached, the
-release shows as unavailable; T3 Code does not try the public registry instead.
-Machines without npm check the public npm registry directly.
 
 ## Update providers
 

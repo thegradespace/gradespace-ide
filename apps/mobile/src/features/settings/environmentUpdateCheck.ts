@@ -24,7 +24,7 @@ export const environmentReleaseCheckAtom = Atom.family((environmentId: Environme
     Effect.gen(function* () {
       const fromVersion = yield* Effect.tryPromise({ try: readServerVersion, catch: asError });
       const targetVersion = yield* Effect.tryPromise({
-        try: (signal) => findEnvironmentUpdate(fromVersion, signal),
+        try: findEnvironmentUpdate,
         catch: asError,
       }).pipe(
         Effect.timeoutOrElse({
