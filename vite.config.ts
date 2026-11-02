@@ -1,5 +1,7 @@
 import "vite-plus/test/config";
 import { defineConfig } from "vite-plus";
+import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
 import * as NodeURL from "node:url";
 import { remoteCacheUrl } from "./infra/task-cache/src/remoteCache.ts";
 import { cachedTestTasks } from "./scripts/lib/cached-tests.ts";
@@ -98,7 +100,12 @@ export default defineConfig({
   test: {
     environment: "node",
     // Fixture subprocesses must not inherit the outer task runner’s cache policy.
-    env: { VP_REMOTE_CACHE: "off", VP_REMOTE_CACHE_URL: "" },
+    env: {
+      VP_REMOTE_CACHE: "off",
+      VP_REMOTE_CACHE_URL: "",
+      // macOS links /var to /private/var, which code that resolves paths would report differently.
+      TMPDIR: NodeFS.realpathSync(NodeOS.tmpdir()),
+    },
     exclude: TEST_EXCLUDE,
     hookTimeout: 60_000,
     testTimeout: 60_000,
