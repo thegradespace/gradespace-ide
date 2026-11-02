@@ -1,8 +1,11 @@
 # Security policy
 
-Report security vulnerabilities affecting T3 Code or T3 Tools-operated infrastructure to
-[security@ping.gg](mailto:security@ping.gg). Please do not disclose them publicly until we have had
-a reasonable opportunity to investigate and remediate them.
+Report security problems in Gradespace IDE to
+[security@thegradespace.com](mailto:security@thegradespace.com). Please do not open a public issue
+or disclose the problem publicly until we have had a reasonable chance to investigate and fix it.
 
-See the [full security policy](https://t3.codes/security-policy) for reporting details, scope,
-and safe harbor terms for good-faith research.
+Include what you found, how to reproduce it, and the version you tested (Settings → About). We
+will acknowledge your report and keep you updated while we work on a fix.
+
+Problems in T3 Code itself, or in services run by T3 Tools Inc., should go to T3:
+[security@ping.gg](mailto:security@ping.gg).

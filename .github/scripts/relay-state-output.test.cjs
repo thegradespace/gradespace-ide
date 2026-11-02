@@ -5,7 +5,7 @@ const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { test } = require("node:test");
 
-const workflow = readFileSync(join(__dirname, "../workflows/release.yml"), "utf8");
+const workflow = readFileSync(join(__dirname, "../t3-workflows/release.yml"), "utf8");
 const step = workflow.match(
   /- name: Read production relay tracing config\n[\s\S]*?        run: \|\n((?:          .*\n|\n)+)/,
 );

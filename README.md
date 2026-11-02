@@ -1,152 +1,66 @@
-# T3 Code
+# Gradespace IDE
 
-T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
+Gradespace IDE (GS for short) is a desktop and web workspace for coding agents, made by [Gradespace](https://thegradespace.com). It runs the agents already on your computer, such as Claude Code, Codex, Cursor and OpenCode, and lets you manage their threads, terminals, diffs and files in one place.
 
-Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, OpenCode, and Google Antigravity. If they're set up on your computer, T3 Code can control them.
+## Where it comes from
 
-## "Wait, what are you selling me?"
+Gradespace IDE started as a fork of [T3 Code](https://github.com/pingdotgg/t3code) by T3 Tools Inc., and is now built on separately. It does not follow T3 Code's releases. Thanks to the T3 team for making their work open source under the MIT licence; their copyright notice is kept in [LICENSE](./LICENSE).
 
-Nothing. We built T3 Code because we wanted the best possible development experience with agents. We were inspired by existing solutions like the Codex desktop app, Conductor, Claude Desktop and Cursor Glass, but none met our bar.
+What Gradespace IDE adds or changes:
 
-We wanted something performant, remote-ready, and truly open. If we ever go the wrong direction, we want you to have everything you need to fork and build the editor that you want.
+- Gradespace name, logos and icons, and the `gs` command
+- Mac app signed by Gradespace, with updates from [gradespace-ide-releases](https://github.com/johnkoko/gradespace-ide-releases)
+- Settings for panel position, terminal position and the collapsed sidebar style
+- API-key spend on the Limits tab
+- Usage data is off unless you turn it on, plus an offline mode
 
-## Installation
+T3's hosted services, such as T3 Connect and the T3 Code mobile apps, are not part of Gradespace IDE.
 
-> [!WARNING]
-> T3 Code currently supports Codex, Claude, Cursor, Grok Build, OpenCode, and Antigravity. Install and authenticate at least one provider before use:
->
-> - Codex: install [Codex CLI](https://developers.openai.com/codex/cli) and run `codex login`
-> - Claude: install [Claude Code](https://claude.com/product/claude-code) and run `claude auth login`
-> - Cursor: install [Cursor CLI](https://cursor.com/cli) and run `agent login`
-> - Grok Build: install [Grok Build CLI](https://x.ai/cli) and run `grok login`
-> - OpenCode: install [OpenCode](https://opencode.ai) and run `opencode auth login`
-> - Antigravity: enable it in Settings, then use **Install Antigravity** and **Sign in with Google**. No CLI is required.
+## Install
 
-### Command line
+### Mac app
 
-```bash
-curl -fsSL https://t3.codes/install.sh | sh
-```
+Download it from [thegradespace.com/ide](https://thegradespace.com/ide). The app updates itself when a new version is published.
 
-On Windows, in PowerShell:
+### From source
 
-```powershell
-irm https://t3.codes/install.ps1 | iex
-```
+You need [Vite+](https://viteplus.dev/guide/) (`curl -fsSL https://vite.plus | bash`) and at least one agent installed and signed in:
 
-Then run `t3` to start the server and open the local web app. `t3 service install` keeps it running in the background, `t3 update` moves to a newer release, and `t3 --help` has the full reference.
+- Codex: install [Codex CLI](https://developers.openai.com/codex/cli) and run `codex login`
+- Claude: install [Claude Code](https://claude.com/product/claude-code) and run `claude auth login`
+- Cursor: install [Cursor CLI](https://cursor.com/cli) and run `agent login`
+- OpenCode: install [OpenCode](https://opencode.ai) and run `opencode auth login`
 
-To try it once without installing, run `npx t3@latest` instead.
-
-### Desktop app
-
-Install the latest version of the desktop app from [GitHub Releases](https://github.com/pingdotgg/t3code/releases), or from your favorite package registry:
-
-#### Windows (`winget`)
+Then:
 
 ```bash
-winget install T3Tools.T3Code
+vp i
+vp run dev
 ```
 
-#### Windows (`scoop`)
-
-```bash
-scoop install extras/t3code
-```
-
-#### macOS (Homebrew)
-
-```bash
-brew install --cask t3-code
-```
-
-#### Debian, Ubuntu (`.deb`)
-
-Download the `.deb` from [GitHub Releases](https://github.com/pingdotgg/t3code/releases), then:
-
-```bash
-sudo apt install ./T3-Code-*.deb
-```
-
-#### Arch Linux (AUR)
-
-Stable:
-
-```bash
-yay -S t3code-bin
-```
-
-Nightly:
-
-```bash
-yay -S t3code-nightly-bin
-```
-
-The AUR packaging is maintained in this repository under [`packaging/aur`](./packaging/aur).
-
-#### Nix (nixpkgs)
-
-```bash
-nix profile add github:NixOS/nixpkgs/nixos-unstable#t3code
-```
-
-The package is maintained in [nixpkgs](https://github.com/NixOS/nixpkgs/tree/nixos-unstable/pkgs/by-name/t3/t3code)
-and includes the desktop app (`t3code-desktop`) and the `t3` command.
-See [Nix installation](./docs/user/install.md#nix-nixpkgs) for NixOS configuration and updates.
-
-## Some notes
-
-We are very very early in this project. Expect bugs.
-
-We are (mostly) not accepting contributions yet. Small fixes may be considered. Big features will not be.
+`vp run gs:install` adds a `gs` command that runs this checkout from source.
 
 ## Documentation
 
-Full docs live in [docs/](./docs). There's no docs site yet.
+Docs live in [docs/](./docs). Some pages still describe T3 Code's install methods and services.
 
-- [FAQ](./docs/user/faq.md)
-- [Install and first run](./docs/user/install.md)
 - [Permission modes](./docs/user/permission-modes.md)
 - [Keyboard shortcuts](./docs/user/keybindings.md)
 - [Project settings](./docs/user/project-settings.md)
 - [Appearance preferences](./docs/user/appearance.md)
 - [Remote access from a phone or another machine](./docs/user/remote-access.md)
-- [Connect Claude Code, Codex, ChatGPT and other agents over MCP](./docs/user/outside-agents.md)
-- [Keeping app and server in sync](./docs/user/updating.md)
 - [Source control integrations](./docs/user/source-control.md)
-- Multiple accounts: [Codex](./docs/user/providers-codex.md) · [Claude](./docs/user/providers-claude.md)
-- [Run T3 Code as a background service](./docs/user/background-service.md)
 
 Building from source? Start at [docs/internals/overview.md](./docs/internals/overview.md).
 
-## If you REALLY want to contribute still.... read this first
+## Contributing
 
-### Install `vp`
+Gradespace IDE is developed by the Gradespace team. Pull requests from people who are not collaborators on this repository are not accepted. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-T3 Code uses Vite+ so you'll need to install the global `vp` command-line tool.
+## Security
 
-#### macOS / Linux
+Report security problems to [security@thegradespace.com](mailto:security@thegradespace.com), not in a public issue. See [SECURITY.md](./.github/SECURITY.md).
 
-```bash
-curl -fsSL https://vite.plus | bash
-```
+## Licence
 
-#### Windows
-
-```bash
-irm https://vite.plus/ps1 | iex
-```
-
-Checkout their getting started guide for more information: https://viteplus.dev/guide/
-
-### Install dependencies
-
-```bash
-vp i
-```
-
-Read [CONTRIBUTING.md](./CONTRIBUTING.md) before reporting a bug or opening a PR.
-
-Have a feature request? Start an [Ideas discussion](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
-
-Need support? Join the [Discord](https://discord.gg/jn4EGJjrvv).
+MIT. See [LICENSE](./LICENSE).

@@ -13,6 +13,8 @@
         ".coderabbit.config.ts",
         ".github/scripts/thread-transfer-report.cjs",
       ],
+      // T3's retired workflows still run these scripts if they are ever restored.
+      "github-actions": { "config": [".github/workflows/*.yml", ".github/t3-workflows/*.yml"] },
       "vite": { "entry": [".github/**/*.test.cjs"] },
       "vitest": { "entry": [".github/**/*.test.cjs"] },
     },
