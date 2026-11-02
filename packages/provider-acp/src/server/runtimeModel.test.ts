@@ -1289,7 +1289,7 @@ describe("extractMcpToolCallIdentity", () => {
           '/usr/bin/node /srv/t3/bin.ts acp-mcp-call delegate_task {"task":"x"}',
         ],
       }),
-    ).toEqual({ server: "t3-code", tool: "delegate_task", input: { task: "x" } });
+    ).toEqual({ server: "gradespace", tool: "delegate_task", input: { task: "x" } });
   });
 
   it("recovers T3 identity from pi-acp title-only fallback execs", () => {
@@ -1311,7 +1311,7 @@ describe("extractMcpToolCallIdentity", () => {
 
     expect(toolCall.title).toBe("Ran command");
     expect(extractMcpToolCallIdentity(toolCall)).toEqual({
-      server: "t3-code",
+      server: "gradespace",
       tool: "orchestrator_capabilities",
       input: {},
     });
@@ -1336,7 +1336,7 @@ describe("extractMcpToolCallIdentity", () => {
     const merged = mergeToolCallState(created, completed);
 
     expect(extractMcpToolCallIdentity(merged)).toEqual({
-      server: "t3-code",
+      server: "gradespace",
       tool: "orchestrator_capabilities",
     });
   });
@@ -1344,6 +1344,8 @@ describe("extractMcpToolCallIdentity", () => {
   it("recovers T3 identity across the registry agents' naming conventions", () => {
     for (const title of [
       "t3-code___delegate_task",
+      "gradespace___delegate_task",
+      'mcp__gradespace__delegate_task: {"mode":"async"}',
       "t3-code-delegate_task",
       'mcp__t3_code__delegate_task: {"mode":"async"}',
       't3-code__delegate_task: {"mode":"async"}',
@@ -1363,7 +1365,7 @@ describe("extractMcpToolCallIdentity", () => {
         status: "pending",
       });
       expect(extractMcpToolCallIdentity(toolCall), title).toEqual({
-        server: "t3-code",
+        server: "gradespace",
         tool: "delegate_task",
       });
     }
@@ -1396,7 +1398,7 @@ describe("extractMcpToolCallIdentity", () => {
     });
 
     expect(extractMcpToolCallIdentity(toolCall)).toEqual({
-      server: "t3-code",
+      server: "gradespace",
       tool: "task_status",
     });
   });
@@ -1413,7 +1415,7 @@ describe("extractMcpToolCallIdentity", () => {
     });
 
     expect(extractMcpToolCallIdentity(toolCall)).toEqual({
-      server: "t3-code",
+      server: "gradespace",
       tool: "t3_thread_send",
     });
   });

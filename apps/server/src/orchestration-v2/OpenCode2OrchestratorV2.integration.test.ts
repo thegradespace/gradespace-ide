@@ -62,8 +62,8 @@ const labelled = (entry: ProviderReplayEntry, label: string): ProviderReplayEntr
   entry.type === "runtime_exit" ? entry : { ...entry, label };
 /** MCP rules are last-match-wins; allow this thread after denying all T3 servers. */
 const mcpRules = (name: string) => [
-  { action: "t3-code-*", resource: "*", effect: "deny" },
-  { action: `t3-code-thread_${name}_*`, resource: "*", effect: "allow" },
+  { action: "gradespace-*", resource: "*", effect: "deny" },
+  { action: `gradespace-thread_${name}_*`, resource: "*", effect: "allow" },
 ];
 const FULL_ACCESS = [{ action: "*", resource: "*", effect: "allow" }];
 

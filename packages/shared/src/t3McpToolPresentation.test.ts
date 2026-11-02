@@ -12,6 +12,11 @@ describe("resolveT3McpToolPresentation", () => {
     for (const tool of T3_MCP_TOOL_NAMES) {
       const presentation = resolveT3McpToolPresentation(tool);
       for (const prefix of [
+        "mcp__gradespace__",
+        "gradespace.",
+        "gradespace · ",
+        "gradespace-thread_1_",
+        // Pre-rename server name, still present in saved threads.
         "mcp__t3-code__",
         "mcp__t3_code__",
         "mcp__t3code__",
