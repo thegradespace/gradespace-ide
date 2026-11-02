@@ -34,7 +34,7 @@ it("grades Codex shell and subagent calls with the shared rules", () => {
   const calls = [
     { name: "exec_command", input: { cmd: "sleep 60" } },
     { name: "collaboration.spawn_agent", input: { task: "review" } },
-    { name: "mcp__t3_code__delegate_task", input: {} },
+    { name: "mcp__gradespace__delegate_task", input: {} },
   ].map(({ name, input }) => ({
     step: 0,
     tool: normalizeToolName(name),
@@ -253,19 +253,19 @@ it("rebuilds the template from this checkout and sends a child T3's task prompt"
   assert.equal(base.environment.cwd, "/home/user/app");
   assert.include(system[2], "model named Sonnet 5.5. The exact model ID is claude-sonnet-5-5.");
   const deferred = system[2]?.split("Load them first:\n")[1]?.split("\n\n")[0]?.split("\n") ?? [];
-  assert.includeMembers(deferred, ["Monitor", "mcp__t3-code__delegate_task"]);
+  assert.includeMembers(deferred, ["Monitor", "mcp__gradespace__delegate_task"]);
   assert.notInclude(deferred, "mcp__t3-code__retired_tool");
   // A delegated child is never offered the tools T3 hides from subagents.
-  assert.include(deferred, "mcp__t3-code__watch_pull_request");
+  assert.include(deferred, "mcp__gradespace__watch_pull_request");
   const child = buildBase(template, {
     model: "claude-sonnet-5-5",
     keepUserInstructions: false,
     subagent: true,
   });
-  assert.notInclude(String(child.system[2]?.text), "mcp__t3-code__watch_pull_request");
+  assert.notInclude(String(child.system[2]?.text), "mcp__gradespace__watch_pull_request");
   assert.notInclude(
     child.t3.map((tool) => tool.name),
-    "mcp__t3-code__unwatch_pull_request",
+    "mcp__gradespace__unwatch_pull_request",
   );
   const reminders = buildMessages(makeSample(childCase, base))[0]?.content.map((b) => b.text);
   assert.equal(reminders?.[0], "<system-reminder>\n# currentDate\n</system-reminder>");
@@ -286,11 +286,11 @@ it("lists link tools only while a case turns the beta on, and sends chips as T3 
   });
   assert.notInclude(
     off.t3.map((tool) => tool.name),
-    "mcp__t3-code__t3_environment_link",
+    "mcp__gradespace__t3_environment_link",
   );
   assert.include(
     on.t3.map((tool) => tool.name),
-    "mcp__t3-code__t3_environment_link",
+    "mcp__gradespace__t3_environment_link",
   );
 
   const testCase: McpToolUseCase = {
@@ -348,7 +348,7 @@ it("does not record a deferred tool called before it was loaded", () => {
   const sample = makeSample(childCase, base);
   const use = (name: string) => ({ type: "tool_use" as const, id: name, name, input: {} });
   const ran = ranCalls(sample, 0, [
-    use("mcp__t3-code__link_pull_request"),
+    use("mcp__gradespace__link_pull_request"),
     use("mcp__host__term_Bash"),
   ]);
   assert.deepEqual(

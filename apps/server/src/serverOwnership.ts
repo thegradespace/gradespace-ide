@@ -15,6 +15,8 @@ import * as Schema from "effect/Schema";
 
 import {
   BOOT_SERVICE_LAUNCHD_LABEL,
+  BOOT_SERVICE_LEGACY_LAUNCHD_LABEL,
+  BOOT_SERVICE_LEGACY_PLIST_FILE,
   BOOT_SERVICE_PLIST_FILE,
   BOOT_SERVICE_UNIT_FILE,
   bootServiceBaseDirOf,
@@ -122,9 +124,17 @@ const olderBootServiceHome = Effect.fn("olderBootServiceHome")(
     const homeDir = yield* HostProcess.HomeDirectory;
     const fs = yield* FileSystem.FileSystem;
     const runner = yield* ProcessRunner.ProcessRunner;
+    const launchAgents = NodePath.join(homeDir, "Library", "LaunchAgents");
+    // An agent installed before the rebrand keeps the legacy label until a service command adopts it.
+    const launchdLabel =
+      platform === "darwin" &&
+      !(yield* fs.exists(NodePath.join(launchAgents, BOOT_SERVICE_PLIST_FILE))) &&
+      (yield* fs.exists(NodePath.join(launchAgents, BOOT_SERVICE_LEGACY_PLIST_FILE)))
+        ? BOOT_SERVICE_LEGACY_LAUNCHD_LABEL
+        : BOOT_SERVICE_LAUNCHD_LABEL;
     const unitPath =
       platform === "darwin"
-        ? NodePath.join(homeDir, "Library", "LaunchAgents", BOOT_SERVICE_PLIST_FILE)
+        ? NodePath.join(launchAgents, `${launchdLabel}.plist`)
         : NodePath.join(homeDir, ".config", "systemd", "user", BOOT_SERVICE_UNIT_FILE);
     const baseDir = bootServiceBaseDirOf(yield* fs.readFileString(unitPath));
     if (
@@ -142,15 +152,14 @@ const olderBootServiceHome = Effect.fn("olderBootServiceHome")(
       runner.run({ command, args, timeout: Duration.seconds(5), maxOutputBytes: 65_536 });
     let loaded: boolean;
     if (platform === "darwin") {
-      loaded =
-        (yield* run("launchctl", ["print", `gui/${uid}/${BOOT_SERVICE_LAUNCHD_LABEL}`])).code === 0;
+      loaded = (yield* run("launchctl", ["print", `gui/${uid}/${launchdLabel}`])).code === 0;
       if (!loaded) {
         const disabled = yield* run("launchctl", ["print-disabled", `gui/${uid}`]);
         // Older macOS versions print `true` instead of `disabled`.
         if (
           disabled.code !== 0 ||
-          disabled.stdout.includes(`"${BOOT_SERVICE_LAUNCHD_LABEL}" => disabled`) ||
-          disabled.stdout.includes(`"${BOOT_SERVICE_LAUNCHD_LABEL}" => true`)
+          disabled.stdout.includes(`"${launchdLabel}" => disabled`) ||
+          disabled.stdout.includes(`"${launchdLabel}" => true`)
         )
           return undefined;
       }
