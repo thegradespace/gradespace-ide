@@ -28,7 +28,6 @@ import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
-import { MobileAppSettingsRow } from "./MobileAppSettingsRow";
 import {
   canCheckForUpdate,
   getDesktopUpdateButtonTooltip,
@@ -367,9 +366,8 @@ function AboutVersionSection() {
               value={selectedHostedAppChannel}
               onValueChange={(value) => {
                 if (value === selectedHostedAppChannel) return;
-                window.location.assign(
-                  buildHostedChannelSelectionUrl({ channel: value as HostedAppChannel }),
-                );
+                const url = buildHostedChannelSelectionUrl({ channel: value as HostedAppChannel });
+                if (url !== null) window.location.assign(url);
               }}
             >
               <SelectTrigger size="sm" className="w-full sm:w-40" aria-label="Update track">
@@ -1896,7 +1894,7 @@ export function MaintenanceSettingsPanel() {
           serverScoped
           settingKeys={["shareUsageData"]}
           {...searchableSetting("share-usage-data")}
-          description="Send anonymous usage events, such as which features and providers you use, to T3 Code's analytics. Prompts, code and files are never sent."
+          description="Send anonymous usage events, such as which features and providers you use, to the analytics service this server is configured with. None is configured by default. Prompts, code and files are never sent."
           resetAction={
             settings.shareUsageData !== DEFAULT_UNIFIED_SETTINGS.shareUsageData ? (
               <SettingResetButton
@@ -2057,13 +2055,12 @@ export function AboutSettingsPanel() {
             />
           </>
         )}
-        <MobileAppSettingsRow />
       </SettingsSection>
 
       <SettingsSection id="legal" title="Legal">
         <SettingsRow
           {...searchableSetting("privacy-policy")}
-          description="Gradespace IDE sends no usage data unless you turn on Share usage data. If you do, it goes to T3 Code under their privacy policy."
+          description="Gradespace IDE sends no usage data unless an analytics service is configured and you turn on Share usage data."
           control={
             <div className="flex items-center gap-2">
               <Button render={<Link to="/settings/maintenance" />} size="sm" variant="outline">
@@ -2074,7 +2071,7 @@ export function AboutSettingsPanel() {
                 size="sm"
                 variant="outline"
               >
-                T3 policy
+                Privacy policy
               </Button>
             </div>
           }
