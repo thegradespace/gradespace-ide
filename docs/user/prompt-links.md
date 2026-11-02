@@ -8,6 +8,10 @@ change your permission mode, branch, or worktree. Your own defaults apply.
 
 ## Make a link
 
+Prompt links point at a hosted web app, and Gradespace IDE does not host one, so the copy
+actions below appear only in builds configured with a hosted app URL. The app also opens
+`t3code://new?prompt=…` links directly.
+
 Open the command palette and choose **Copy prompt link**. It copies the draft in the composer.
 When the project is on GitHub, **Copy prompt link with repo and model** also adds the repository
 and the model you picked. Sent messages have a **Copy prompt link** button too.
@@ -15,9 +19,9 @@ and the model you picked. Sent messages have a **Copy prompt link** button too.
 You can also write a link by hand:
 
 ```
-https://app.t3.codes/new?prompt=Rate%20my%20swearing
-https://app.t3.codes/new?prompt=Fix%20the%20build&repo=owner/name&provider=codex&model=gpt-5.5
-https://app.t3.codes/new?pr=owner/name/123&prompt=Fix%20the%20failing%20check
+https://<hosted-app>/new?prompt=Rate%20my%20swearing
+https://<hosted-app>/new?prompt=Fix%20the%20build&repo=owner/name&provider=codex&model=gpt-5.5
+https://<hosted-app>/new?pr=owner/name/123&prompt=Fix%20the%20failing%20check
 ```
 
 | Parameter  | Meaning                                                                       |
@@ -47,7 +51,7 @@ this step next time.
   worktree. T3 Code checks the code out only after you confirm, because the checkout runs your
   setup script on it.
 
-A thread link with a prompt, such as `https://app.t3.codes/<environment>/<thread>?prompt=…`,
+A thread link with a prompt, such as `https://<hosted-app>/<environment>/<thread>?prompt=…`,
 puts the prompt in that thread's composer. If you already typed a draft there, T3 Code asks
 before it replaces it.
 

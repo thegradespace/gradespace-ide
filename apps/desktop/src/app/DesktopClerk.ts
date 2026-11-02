@@ -210,7 +210,10 @@ export const make = Effect.gen(function* () {
         return true;
       };
       const openAppLink = (value: string | undefined) => {
-        if (!value || (promptLinkAppPath(value) === null && readPairingAppLink(value) === null))
+        if (
+          !value ||
+          (promptLinkAppPath(value, null) === null && readPairingAppLink(value) === null)
+        )
           return false;
         void runPromise(webLinks.receive(value));
         return true;

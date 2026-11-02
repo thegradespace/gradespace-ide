@@ -1,5 +1,3 @@
-import { DEFAULT_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";
-
 import { getPairingTokenFromUrl, setPairingTokenOnUrl } from "@t3tools/shared/remote";
 
 export interface HostedPairingRequest {
@@ -10,8 +8,9 @@ export interface HostedPairingRequest {
 
 export type HostedAppChannel = "latest" | "nightly";
 
-export function configuredHostedAppUrl(): string {
-  return import.meta.env.VITE_HOSTED_APP_URL?.trim() || DEFAULT_HOSTED_APP_URL;
+/** Gradespace hosts no web app, so there is no default; null unless VITE_HOSTED_APP_URL is set. */
+export function configuredHostedAppUrl(): string | null {
+  return import.meta.env.VITE_HOSTED_APP_URL?.trim() || null;
 }
 
 function configuredBackendUrl(): string {
@@ -44,7 +43,8 @@ export function isHostedStaticApp(url?: URL): boolean {
     return false;
   }
 
-  const hostedOrigin = originFromUrl(configuredHostedAppUrl());
+  const hostedUrl = configuredHostedAppUrl();
+  const hostedOrigin = hostedUrl === null ? null : originFromUrl(hostedUrl);
   return hostedOrigin !== null && (url ?? new URL(window.location.href)).origin === hostedOrigin;
 }
 
@@ -72,8 +72,10 @@ export function buildHostedPairingUrl(input: {
   readonly host: string;
   readonly token: string;
   readonly label?: string | null;
-}): string {
-  const url = new URL("/pair", configuredHostedAppUrl());
+}): string | null {
+  const hostedAppUrl = configuredHostedAppUrl();
+  if (hostedAppUrl === null) return null;
+  const url = new URL("/pair", hostedAppUrl);
   url.searchParams.set("host", input.host);
 
   const label = input.label?.trim();
@@ -86,8 +88,10 @@ export function buildHostedPairingUrl(input: {
 
 export function buildHostedChannelSelectionUrl(input: {
   readonly channel: HostedAppChannel;
-}): string {
-  const url = new URL("/__t3code/channel", configuredHostedAppUrl());
+}): string | null {
+  const hostedAppUrl = configuredHostedAppUrl();
+  if (hostedAppUrl === null) return null;
+  const url = new URL("/__t3code/channel", hostedAppUrl);
   url.searchParams.set("channel", input.channel);
   return url.toString();
 }
