@@ -145,6 +145,7 @@ import {
   markdownFileEditorTarget,
   resolveMarkdownFileHostPath,
 } from "../markdownFileHostPath";
+import { extractBareFilePaths } from "@t3tools/shared/markdownBareFilePaths";
 import { isMarkdownFileLinkLabel } from "@t3tools/shared/markdownLinks";
 import { isElectron } from "../env";
 import { readLocalApi } from "../localApi";
@@ -453,7 +454,10 @@ function fileLinkSourcesKey(
   cwd: string | undefined,
   imageBaseDir: string | undefined,
 ): string {
-  const hrefs = extractMarkdownLinkHrefs(renderCodexInlineDirectivesAsMarkdown(text))
+  const hrefs = [
+    ...extractMarkdownLinkHrefs(renderCodexInlineDirectivesAsMarkdown(text)),
+    ...extractBareFilePaths(text),
+  ]
     .filter((href) => !parseComposerContextHref(href))
     .map(normalizeMarkdownLinkHrefKey)
     .filter((href) => resolveMarkdownFileLinkMeta(href, cwd, imageBaseDir ?? cwd));
@@ -1319,9 +1323,11 @@ const CHAT_MARKDOWN_COMPONENTS = {
     const end = node?.position?.end.offset;
     const source = start !== undefined && end !== undefined ? text.slice(start, end) : "";
     const copyMarkdown =
-      source.startsWith("[") && source.includes("](")
-        ? source
-        : `[${(label || fileLinkMeta.basename).replace(/[\\[\]]/g, "\\$&")}](${normalizedHref})`;
+      node?.properties?.dataBareFilePath != null
+        ? label
+        : source.startsWith("[") && source.includes("](")
+          ? source
+          : `[${(label || fileLinkMeta.basename).replace(/[\\[\]]/g, "\\$&")}](${normalizedHref})`;
     const chip = fileLinkChip(fileLinkMeta, copyMarkdown, normalizedHref);
     return isMarkdownFileLinkLabel(label, normalizedHref) ? (
       chip

@@ -319,6 +319,33 @@ describe("ChatMarkdown workspace file opens", () => {
   });
 });
 
+describe("ChatMarkdown bare file paths", () => {
+  const threadRef = {
+    environmentId: EnvironmentId.make("workspace"),
+    threadId: ThreadId.make("thread"),
+  };
+
+  it("turns a path outside the workspace into a chip that opens in the panel", async () => {
+    setup();
+    using openFile = vi
+      .spyOn(useRightPanelStore.getState(), "openFile")
+      .mockImplementation(() => {});
+    await using screen = await renderText(
+      "Files:\n\n- Letter: /Users/me/Invoices/GS-Letter_2026.pdf.\n- Run `/Users/me/run.py` or /api/x",
+      { threadRef },
+    );
+    const chips = screen.container.querySelectorAll<HTMLAnchorElement>(".chat-markdown-file-link");
+    expect([...chips].map((chip) => chip.textContent)).toEqual(["GS-Letter_2026.pdf", "run.py"]);
+
+    await act(async () => chips[0]!.click());
+    expect(openFile).toHaveBeenCalledExactlyOnceWith(
+      threadRef,
+      "/Users/me/Invoices/GS-Letter_2026.pdf",
+      undefined,
+    );
+  });
+});
+
 describe("ChatMarkdown skill chips", () => {
   it("shows the skill's details and opens its instructions", async () => {
     setup();

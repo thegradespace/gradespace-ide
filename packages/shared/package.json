@@ -479,6 +479,10 @@
       "types": "./src/threadSearch.ts",
       "import": "./src/threadSearch.ts"
     },
+    "./markdownBareFilePaths": {
+      "types": "./src/markdownBareFilePaths.ts",
+      "import": "./src/markdownBareFilePaths.ts"
+    },
     "./markdownLinks": {
       "types": "./src/markdownLinks.ts",
       "import": "./src/markdownLinks.ts"

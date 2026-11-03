@@ -8,6 +8,7 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
+import { remarkLinkBareFilePaths } from "./markdownBareFilePaths.ts";
 import { remarkGithubAlerts } from "./markdownGithubAlerts.ts";
 import { remarkNormalizeListItemIndentation } from "./markdownListIndentation.ts";
 import {
@@ -142,7 +143,7 @@ const CHAT_MARKDOWN_SANITIZE_SCHEMA = {
     ],
     blockquote: [...(defaultSchema.attributes?.blockquote ?? []), "dataAlert"],
     div: [...(defaultSchema.attributes?.div ?? []), ...CODEX_ARTIFACT_TEMPLATE_HAST_PROPERTIES],
-    a: [...(defaultSchema.attributes?.a ?? []), "dataPullRequestAutolink"],
+    a: [...(defaultSchema.attributes?.a ?? []), "dataPullRequestAutolink", "dataBareFilePath"],
     img: [
       ...(defaultSchema.attributes?.img ?? []),
       "dataLocalSrc",
@@ -171,6 +172,7 @@ export const CHAT_MARKDOWN_REMARK_PLUGINS: PluggableList = [
   remarkCodexDirectives,
   remarkBreakAroundImageLines,
   remarkPreserveCodeMeta,
+  remarkLinkBareFilePaths,
   remarkNormalizeLinksAndTagInlineCode,
 ];
 
@@ -183,6 +185,7 @@ export const CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS: PluggableList = [
   remarkBreakAroundImageLines,
   remarkBreaks,
   remarkPreserveCodeMeta,
+  remarkLinkBareFilePaths,
   remarkNormalizeLinksAndTagInlineCode,
 ];
 
