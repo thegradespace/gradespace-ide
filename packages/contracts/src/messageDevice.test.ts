@@ -1,10 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
 
-import { MESSAGE_DEVICE_COLORS, nextMessageDeviceColor } from "./messageDevice.ts";
+import {
+  MESSAGE_DEVICE_COLORS,
+  type MessageDeviceColor,
+  nextMessageDeviceColor,
+} from "./messageDevice.ts";
 
 describe("nextMessageDeviceColor", () => {
   it("gives each new device a colour no other device has", () => {
-    const used = [];
+    const used: MessageDeviceColor[] = [];
     for (let index = 0; index < MESSAGE_DEVICE_COLORS.length; index++) {
       used.push(nextMessageDeviceColor(used));
     }
