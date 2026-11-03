@@ -69,6 +69,7 @@ function makeBridge(
 ): DesktopBridge {
   return {
     getClientPlatform: () => "linux",
+    getComputerName: () => "Dev box",
     getLocalEnvironmentEnabled: () => true,
     ensureSshEnvironment: async (
       target: DesktopSshEnvironmentTarget,

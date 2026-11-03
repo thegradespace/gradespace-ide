@@ -39,6 +39,7 @@ import * as ElectronWindow from "../../electron/ElectronWindow.ts";
 import * as Electron from "electron";
 import * as MacPermissions from "../../permissions/MacPermissions.ts";
 import { safariPermissionCheck } from "../../preview/BrowserImport/SafariPermission.ts";
+import { readComputerName } from "../../computerName.ts";
 import * as IpcChannels from "../channels.ts";
 import * as DesktopIpc from "../DesktopIpc.ts";
 import {
@@ -86,6 +87,17 @@ export const getSystemLocale = DesktopIpc.makeSyncIpcMethod({
   handler: Effect.fn("desktop.ipc.window.getSystemLocale")(function* () {
     const electronApp = yield* ElectronApp.ElectronApp;
     return yield* electronApp.systemLocale;
+  }),
+});
+
+export const getComputerName = DesktopIpc.makeSyncIpcMethod({
+  channel: IpcChannels.GET_COMPUTER_NAME_CHANNEL,
+  result: Schema.String,
+  handler: Effect.fn("desktop.ipc.window.getComputerName")(function* () {
+    return readComputerName({
+      platform: yield* HostProcess.Platform,
+      hostname: yield* HostProcess.Hostname,
+    });
   }),
 });
 

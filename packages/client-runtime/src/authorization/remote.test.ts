@@ -203,12 +203,13 @@ describe("remote environment authorization", () => {
           os: "Android",
           osMajorVersion: 15,
           deviceModel: "Pixel 9",
+          deviceName: "Work phone",
         },
         connectionMethod: "relay",
       }).pipe(provideRemoteHttp(fetch.fetchFn));
 
       expect(url).toBe(
-        "wss://remote.example.com/ws?wsTicket=ws-ticket&clientSurface=mobile&clientAppVersion=1.2.3&clientDeviceType=phone&clientOs=Android&clientOsMajorVersion=15&clientDeviceModel=Pixel+9&connectionMethod=relay",
+        "wss://remote.example.com/ws?wsTicket=ws-ticket&clientSurface=mobile&clientAppVersion=1.2.3&clientDeviceType=phone&clientOs=Android&clientDeviceName=Work+phone&clientOsMajorVersion=15&clientDeviceModel=Pixel+9&connectionMethod=relay",
       );
     }),
   );

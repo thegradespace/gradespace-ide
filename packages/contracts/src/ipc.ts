@@ -1016,6 +1016,8 @@ export interface DesktopBridge {
   getRelayTelemetryEnabled: () => boolean;
   getPathForFile: (file: File) => string;
   getClientPlatform: () => string;
+  /** What the owner calls this computer, or null when it cannot be read. */
+  getComputerName: () => string | null;
   setNotificationBadge: (badge: { count: number; image: string | null }) => Promise<void>;
   onNotificationBadgeClear: (listener: () => void) => () => void;
   onTrackpadScrollBegin: (listener: () => void) => () => void;

@@ -73,25 +73,30 @@ export function clientPresentationMetadata(input: {
   readonly appVersion: string;
   readonly hosted: boolean;
   readonly identity: BrowserIdentity;
-  readonly desktopBridge: Pick<DesktopBridge, "getClientPlatform"> | undefined;
+  readonly desktopBridge: Pick<DesktopBridge, "getClientPlatform" | "getComputerName"> | undefined;
 }): AuthClientPresentationMetadata {
   if (input.desktopBridge !== undefined) {
+    const os = clientOsFromElectronPlatform(input.desktopBridge.getClientPlatform());
     return {
       label: "GS Desktop",
       deviceType: "desktop",
-      os: clientOsFromElectronPlatform(input.desktopBridge.getClientPlatform()),
+      os,
+      deviceName: input.desktopBridge.getComputerName() ?? `Desktop on ${os}`,
       surface: "desktop",
       ...(input.appVersion === "0.0.0" ? {} : { appVersion: input.appVersion }),
     };
   }
 
+  const os = browserClientOs(input.identity);
+  const browser = browserFamily(input.identity.userAgent);
   return {
     label: "GS Web",
     deviceType: browserDeviceType(input.identity),
-    os: browserClientOs(input.identity),
+    os,
+    deviceName: `${browser === "other" || browser === "unknown" ? "Browser" : browser} on ${os}`,
     surface: "web",
     webDeployment: input.hosted ? "hosted" : "server",
-    browser: browserFamily(input.identity.userAgent),
+    browser,
     ...(input.appVersion === "0.0.0" ? {} : { appVersion: input.appVersion }),
   };
 }
