@@ -656,3 +656,51 @@ describe("latestProviderTurnForAttempt", () => {
     expect(latestProviderTurnForAttempt(turns, null)).toBeUndefined();
   });
 });
+
+describe("user message devices", () => {
+  const storedUserMessage = (extra: Record<string, unknown> = {}) => ({
+    id: "user-message-item",
+    threadId: "thread-1",
+    runId: null,
+    nodeId: null,
+    providerThreadId: null,
+    providerTurnId: null,
+    nativeItemRef: null,
+    parentItemId: null,
+    ordinal: 1,
+    status: "completed",
+    title: null,
+    startedAt: null,
+    completedAt: null,
+    updatedAt: "2026-09-09T00:00:00.000Z",
+    type: "user_message",
+    messageId: "message-1",
+    createdBy: "user",
+    creationSource: "web",
+    inputIntent: "turn_start",
+    text: "hello",
+    attachments: [],
+    ...extra,
+  });
+
+  it("decodes user messages stored before devices were recorded, and keeps the device on new ones", () => {
+    const device = { id: "device-1", name: "John's MacBook Air", kind: "desktop" };
+    const old = decodeOrchestrationV2TurnItemJson(storedUserMessage());
+    expect(old).toMatchObject({ type: "user_message" });
+    expect(old).not.toHaveProperty("device");
+
+    const recorded = decodeOrchestrationV2TurnItemJson(storedUserMessage({ device }));
+    expect(recorded).toMatchObject({ device });
+    expect(decodeOrchestrationV2TurnItemJson(encodeOrchestrationV2TurnItemJson(recorded))).toEqual(
+      recorded,
+    );
+  });
+
+  it("drops a device shape it does not know instead of rejecting the message", () => {
+    const item = decodeOrchestrationV2TurnItemJson(
+      storedUserMessage({ device: { id: "device-1", name: "Watch", kind: "watch" } }),
+    );
+    expect(item).toMatchObject({ type: "user_message", text: "hello" });
+    expect(item).toHaveProperty("device", undefined);
+  });
+});

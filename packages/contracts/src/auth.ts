@@ -209,6 +209,8 @@ export const AuthClientPresentationMetadata = Schema.Struct({
   os: Schema.optionalKey(TrimmedNonEmptyString),
   osMajorVersion: Schema.optionalKey(Schema.Int),
   deviceModel: Schema.optionalKey(TrimmedNonEmptyString),
+  /** The name its owner knows the device by, such as "John's MacBook Air". */
+  deviceName: Schema.optionalKey(TrimmedNonEmptyString),
   surface: Schema.optionalKey(ClientSurface),
   webDeployment: Schema.optionalKey(ClientWebDeployment),
   browser: Schema.optionalKey(TrimmedNonEmptyString),

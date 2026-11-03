@@ -291,6 +291,16 @@ describe("ClientSettings notifications", () => {
   });
 });
 
+describe("message device settings", () => {
+  it("shows the avatar style for settings saved before devices existed", () => {
+    expect(decodeClientSettings({})).toMatchObject({
+      showMessageDevice: true,
+      messageDeviceStyle: "avatar",
+    });
+    expect(decodeServerSettings({}).messageDevices).toEqual({});
+  });
+});
+
 describe("ClientSettings quit confirmation", () => {
   it.each([
     [true, "hold"],

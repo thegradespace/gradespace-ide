@@ -11,7 +11,9 @@ import {
   resolveProjectProviderInstanceEnabled,
   resolveProviderInstanceEnabled,
   isProviderTextGenerationCapable,
+  type MessageDevice,
   type ModelSelection,
+  nextMessageDeviceColor,
   type ProjectId,
   type ProjectScopedServerSettingKey,
   ProjectSettingsOverrides,
@@ -226,6 +228,21 @@ function mergeSettingsEntries<Value>(
   return Object.fromEntries(next);
 }
 
+function registerUnseenMessageDevice(
+  devices: ServerSettings["messageDevices"],
+  device: MessageDevice | undefined,
+): ServerSettings["messageDevices"] {
+  if (device === undefined || devices[device.id] !== undefined) return devices;
+  return {
+    ...devices,
+    [device.id]: {
+      name: device.name,
+      kind: device.kind,
+      color: nextMessageDeviceColor(Object.values(devices).map((entry) => entry.color)),
+    },
+  };
+}
+
 const knownProjectOverrideKeys = new Set(Object.keys(ProjectSettingsOverrides.fields));
 
 function pickOverrideKeys(entry: ProjectSettingsOverrides | undefined, known: boolean) {
@@ -373,6 +390,8 @@ export function applyServerSettingsPatch(
     sourceControlHosts: sourceControlHostsPatch,
     usagePriceOverrides: usagePriceOverridesPatch,
     usageModelAliases: usageModelAliasesPatch,
+    messageDevices: messageDevicesPatch,
+    registerMessageDevice,
     // Entry replacement: deepMerge would keep keys the client meant to clear.
     projectSettingsOverrides: projectSettingsOverridesPatch,
     projectAgentBrowserAccessOverrides: _legacyBrowserAccess,
@@ -583,6 +602,16 @@ export function applyServerSettingsPatch(
           usageModelAliases: mergeSettingsEntries(
             current.usageModelAliases,
             usageModelAliasesPatch,
+          ),
+        }
+      : {}),
+    ...(messageDevicesPatch !== undefined || registerMessageDevice !== undefined
+      ? {
+          messageDevices: registerUnseenMessageDevice(
+            messageDevicesPatch === undefined
+              ? current.messageDevices
+              : mergeSettingsEntries(current.messageDevices, messageDevicesPatch),
+            registerMessageDevice,
           ),
         }
       : {}),

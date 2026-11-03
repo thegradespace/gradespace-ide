@@ -87,6 +87,32 @@ describe("serverSettings helpers", () => {
     expect([on.idleCompaction, on.compactIdleThreads]).toEqual(["beforeCacheExpires", true]);
   });
 
+  it("registers each new device with its own colour and leaves a known device alone", () => {
+    const air = { id: "air", name: "John's MacBook Air", kind: "desktop" as const };
+    const phone = { id: "phone", name: "iPhone", kind: "mobile" as const };
+    const first = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, { registerMessageDevice: air });
+    const second = applyServerSettingsPatch(first, { registerMessageDevice: phone });
+    expect(second.messageDevices).toEqual({
+      air: { name: "John's MacBook Air", kind: "desktop", color: "blue" },
+      phone: { name: "iPhone", kind: "mobile", color: "emerald" },
+    });
+
+    const renamed = applyServerSettingsPatch(second, {
+      messageDevices: { air: { name: "Work Air", kind: "desktop", color: "pink" } },
+    });
+    const reconnected = applyServerSettingsPatch(renamed, {
+      registerMessageDevice: { ...air, name: "John's MacBook Air (2)" },
+    });
+    expect(reconnected.messageDevices.air).toEqual({
+      name: "Work Air",
+      kind: "desktop",
+      color: "pink",
+    });
+    expect(
+      applyServerSettingsPatch(reconnected, { messageDevices: { air: null } }).messageDevices,
+    ).toEqual({ phone: second.messageDevices.phone });
+  });
+
   it("changes a cleanup rule without replacing the machine's other rules", () => {
     const enabled = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
       storageCleanup: { worktreeAfterDays: 8, worktreeOnMerge: true, logsAfterDays: 30 },

@@ -23,6 +23,7 @@ import { UsageLimitSourceId } from "./usageLimitSourceId.ts";
 import { SecretProviderId, SecretProviderSlug } from "./secretReference.ts";
 import { EnvironmentMachineKind, ThreadEnvMode, WorktreeSubmodules } from "./environment.ts";
 import { KeybindingShortcut } from "./keybindings.ts";
+import { MessageDevice, MessageDeviceSetting, MessageDeviceStyle } from "./messageDevice.ts";
 import {
   CustomModelSetting,
   DEFAULT_TEXT_GENERATION_MODEL,
@@ -378,6 +379,10 @@ export const ClientSettingsSchema = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed("chat" as const)),
   ),
   effortDisplay: EffortDisplay.pipe(Schema.withDecodingDefault(Effect.succeed("label" as const))),
+  showMessageDevice: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  messageDeviceStyle: MessageDeviceStyle.pipe(
+    Schema.withDecodingDefault(Effect.succeed("avatar" as const)),
+  ),
   loadBalancingEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   loadBalancingWeights: LoadBalancingWeights.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
   appearanceContrast: AppearanceContrast.pipe(
@@ -1385,6 +1390,11 @@ export const ServerSettings = Schema.Struct({
   usageModelAliases: Schema.Record(TrimmedNonEmptyString, TrimmedNonEmptyString).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
+
+  /** Client devices this environment has seen, by device id. */
+  messageDevices: Schema.Record(MessageDevice.fields.id, MessageDeviceSetting).pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
+  ),
 });
 export type ServerSettings = typeof ServerSettings.Type;
 
@@ -1704,6 +1714,12 @@ export const ServerSettingsPatch = Schema.Struct({
   usageModelAliases: Schema.optionalKey(
     Schema.Record(TrimmedNonEmptyString, Schema.NullOr(TrimmedNonEmptyString)),
   ),
+  // Merge per device; null forgets one.
+  messageDevices: Schema.optionalKey(
+    Schema.Record(MessageDevice.fields.id, Schema.NullOr(MessageDeviceSetting)),
+  ),
+  // Applied under the settings service's write lock: adds an unseen device with the next unused colour.
+  registerMessageDevice: Schema.optionalKey(MessageDevice),
 });
 export type ServerSettingsPatch = typeof ServerSettingsPatch.Type;
 
@@ -1753,6 +1769,8 @@ export const ClientSettingsPatch = Schema.Struct({
   sidebarCollapsedStyle: Schema.optionalKey(SidebarCollapsedStyle),
   terminalPlacement: Schema.optionalKey(TerminalPlacement),
   effortDisplay: Schema.optionalKey(EffortDisplay),
+  showMessageDevice: Schema.optionalKey(Schema.Boolean),
+  messageDeviceStyle: Schema.optionalKey(MessageDeviceStyle),
   loadBalancingEnabled: Schema.optionalKey(Schema.Boolean),
   loadBalancingWeights: Schema.optionalKey(LoadBalancingWeights),
   appearanceContrast: Schema.optionalKey(AppearanceContrast),
