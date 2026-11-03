@@ -185,7 +185,13 @@ it("removes host actions after revocation while keeping file preview and copying
   using _setup = setup();
   await using screen = await renderMarkdown("[Readme](docs/readme.md)");
   await screen.openContextMenu();
-  expect(offeredActions()).toEqual(["open", "reveal", "copy-relative", "copy-full"]);
+  expect(offeredActions()).toEqual([
+    "open",
+    "open-default",
+    "reveal",
+    "copy-relative",
+    "copy-full",
+  ]);
   await setAllowed(false);
   state.choose.mockResolvedValue("copy-full");
   await screen.openContextMenu();
@@ -194,6 +200,19 @@ it("removes host actions after revocation while keeping file preview and copying
   await act(async () => screen.anchor().click());
   expect(state.openFile).toHaveBeenCalledWith(threadRef, "docs/readme.md", undefined);
   expect(state.openEditor).not.toHaveBeenCalled();
+});
+
+it("opens a path outside the workspace in its default app, without revealing it", async () => {
+  using _setup = setup();
+  state.choose.mockResolvedValue("open-default");
+  await using screen = await renderMarkdown("Receipt: /Users/me/Invoices/receipt.pdf");
+  await screen.openContextMenu();
+  await vi.waitFor(() =>
+    expect(state.openEditor).toHaveBeenCalledExactlyOnceWith({
+      environmentId: threadRef.environmentId,
+      input: { cwd: "/Users/me/Invoices/receipt.pdf", editor: "file-manager" },
+    }),
+  );
 });
 
 it("does not launch an editor after revocation during a native context menu", async () => {

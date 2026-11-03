@@ -44,7 +44,7 @@ import {
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
 import { mediaFileReference } from "@t3tools/client-runtime/media-reference";
-import { FolderTree, Globe2, WrapTextIcon } from "lucide-react";
+import { ExternalLinkIcon, FolderTree, Globe2, WrapTextIcon } from "lucide-react";
 import { Code2, Eye, Table2 } from "lucide";
 import * as Schema from "effect/Schema";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
@@ -74,6 +74,7 @@ import { usePreviewAvailable } from "~/browser/previewRuntime";
 import { useEnvironmentHttpBaseUrl, usePrimaryEnvironmentId } from "~/state/environments";
 import { previewEnvironment } from "~/state/preview";
 import { serverEnvironment } from "~/state/server";
+import { shellEnvironment } from "~/state/shell";
 import { useEnvironmentScope } from "~/state/session";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { useAtomQueryRunner } from "~/state/use-atom-query-runner";
@@ -1023,6 +1024,9 @@ export default function FilePreviewPanel({
   const openPreview = useAtomCommand(previewEnvironment.open, {
     reportFailure: false,
   });
+  const openInFileManager = useAtomCommand(shellEnvironment.openInEditor, {
+    reportFailure: false,
+  });
   const isVideo = relativePath !== null && isWorkspaceVideoPreviewPath(relativePath);
   const isAudio = relativePath !== null && !isVideo && isWorkspaceAudioPreviewPath(relativePath);
   const isImage = relativePath !== null && !isVideo && isWorkspaceImagePreviewPath(relativePath);
@@ -1227,6 +1231,31 @@ export default function FilePreviewPanel({
     })();
   };
 
+  // The file manager opens a file in the app the OS associates with it.
+  const canOpenInDefaultApp =
+    absolutePath !== null &&
+    !isFolder &&
+    (file.data !== null || file.error !== null) &&
+    remoteOpenState.mode === "local-exec" &&
+    availableEditors.includes("file-manager");
+  const handleOpenInDefaultApp = () => {
+    if (!absolutePath) return;
+    void openInFileManager({
+      environmentId,
+      input: { cwd: absolutePath, editor: "file-manager" },
+    }).then((result) => {
+      if (result._tag === "Success" || isAtomCommandInterrupted(result)) return;
+      const error = squashAtomCommandFailure(result);
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: "Unable to open file",
+          description: error instanceof Error ? error.message : "An error occurred.",
+        }),
+      );
+    });
+  };
+
   if (attachment === undefined && !canReadFiles) {
     if (fileAccess.isPending) {
       return (
@@ -1308,6 +1337,11 @@ export default function FilePreviewPanel({
               onPress={() => setWordWrapOverride(!wordWrap)}
             >
               <WrapTextIcon className="size-3.5" />
+            </FileSurfaceAction>
+          ) : null}
+          {canOpenInDefaultApp ? (
+            <FileSurfaceAction label="Open in default app" onPress={handleOpenInDefaultApp}>
+              <ExternalLinkIcon className="size-3.5" />
             </FileSurfaceAction>
           ) : null}
           {canOpenInBrowser ? (

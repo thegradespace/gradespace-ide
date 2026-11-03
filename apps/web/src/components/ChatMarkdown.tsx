@@ -640,7 +640,7 @@ function useChatMarkdownState({
   const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
     reportFailure: false,
   });
-  const revealFileInFileManager = (filePath: string) => {
+  const launchFileManager = (filePath: string, reveal: boolean) => {
     if (environmentId === null) {
       return Promise.resolve(
         AsyncResult.failure<void, PreferredEditorEnvironmentRequiredError>(
@@ -651,15 +651,20 @@ function useChatMarkdownState({
     if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
       return Promise.resolve(
         AsyncResult.failure<void, Error>(
-          Cause.fail(new Error("This connection cannot reveal files on this environment.")),
+          Cause.fail(
+            new Error(
+              `This connection cannot ${reveal ? "reveal" : "open"} files on this environment.`,
+            ),
+          ),
         ),
       );
     }
     return openInEditor({
       environmentId,
-      input: { cwd: filePath, editor: "file-manager", reveal: true },
+      input: { cwd: filePath, editor: "file-manager", ...(reveal ? { reveal: true } : {}) },
     });
   };
+  const canOpenInDefaultApp = availableEditors.includes("file-manager");
   const diffThemeName = resolveDiffThemeName(resolvedTheme);
   const handleCopy = (event: ReactClipboardEvent<HTMLElement>) => {
     const selection = window.getSelection();
@@ -880,10 +885,15 @@ function useChatMarkdownState({
         openInEditorMenuLabel={preferredEditorMenuLabel}
         onReveal={
           canUseShellActions && revealInFileManagerLabel !== undefined
-            ? async () => revealFileInFileManager((await resolveHostPath()).absolutePath)
+            ? async () => launchFileManager((await resolveHostPath()).absolutePath, true)
             : undefined
         }
         revealLabel={revealInFileManagerLabel}
+        onOpenInDefaultApp={
+          canUseShellActions && canOpenInDefaultApp
+            ? async () => launchFileManager((await resolveHostPath()).absolutePath, false)
+            : undefined
+        }
         onOpenInBrowser={
           threadRef &&
           canOperatePreview &&
