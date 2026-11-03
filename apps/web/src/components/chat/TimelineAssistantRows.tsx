@@ -23,6 +23,8 @@ import { formatChatTimestampTooltip, formatDayAwareTimestamp } from "../../times
 import { useV2ItemSupport } from "../../state/v2ItemSupport";
 import { TimelineRowCtx, TimelineRowActivityCtx, type TimelineRow } from "./timelineRowContext";
 import { MESSAGE_HEADING_LEVEL, MessageAuthorHeading } from "./TimelineRowParts";
+import { useMessageDevicePresentation } from "./MessageDevice";
+import { shortDeviceName } from "./messageDevice.logic";
 
 export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" }> }) {
   const ctx = use(TimelineRowCtx);
@@ -34,9 +36,28 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
   const text = liveText ?? row.message.text;
   const messageText = text || (row.message.streaming ? "" : "(empty response)");
 
+  const replyTo = useMessageDevicePresentation(
+    ctx.activeThreadEnvironmentId,
+    ctx.replyDevices?.get(row.id),
+  );
+  const replyStyle = replyTo?.style === "edge" || replyTo?.style === "tint" ? replyTo.style : null;
+
   return (
     <>
-      <div className="relative min-w-0 px-1 py-0.5">
+      <div
+        className={cn(
+          "relative min-w-0 px-1 py-0.5",
+          replyStyle === "edge" && "message-device-reply-edge border-s-2 ps-3",
+          replyStyle === "tint" && "message-device-reply-tint rounded-xl px-3 py-2",
+        )}
+        style={replyStyle === null ? undefined : replyTo?.cssVars}
+        data-reply-to-device={replyStyle === null ? undefined : replyTo?.name}
+      >
+        {replyStyle === "tint" && replyTo !== null ? (
+          <p className="mb-1 text-2xs text-muted-foreground">
+            Reply to {shortDeviceName(replyTo.name)}
+          </p>
+        ) : null}
         <MessageAuthorHeading>GS</MessageAuthorHeading>
         <div data-thread-find-text="true">
           <AssistantCitationSource

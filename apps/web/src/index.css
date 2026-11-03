@@ -1159,6 +1159,13 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --guest: var(--color-fuchsia-500);
   --guest-foreground: var(--color-fuchsia-600);
   --guest-surface: color-mix(in srgb, var(--guest) 14%, var(--message-surface));
+  /* Message device colours: fills and edges only. Text mixes them toward the foreground. */
+  --device-blue: var(--color-blue-600);
+  --device-emerald: var(--color-emerald-600);
+  --device-amber: var(--color-amber-600);
+  --device-pink: var(--color-pink-600);
+  --device-violet: var(--color-violet-600);
+  --device-red: var(--color-red-600);
   --success: var(--color-emerald-500);
   --success-foreground: var(--color-emerald-700);
   --warning: var(--color-amber-500);
@@ -1213,6 +1220,12 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
     --input: --alpha(var(--color-white) / 11%);
     --info-foreground: var(--color-blue-400);
     --guest-foreground: var(--color-fuchsia-300);
+    --device-blue: var(--color-blue-400);
+    --device-emerald: var(--color-emerald-400);
+    --device-amber: var(--color-amber-400);
+    --device-pink: var(--color-pink-400);
+    --device-violet: var(--color-violet-400);
+    --device-red: var(--color-red-400);
     --success-foreground: var(--color-emerald-400);
     --warning-foreground: var(--color-amber-400);
     --warning-surface: color-mix(in srgb, var(--warning) 16%, transparent);
@@ -2608,4 +2621,29 @@ code {
       height: calc(100dvh - var(--workspace-topbar-height)) !important;
     }
   }
+}
+
+/* Message device styles. Plain classes: the colour mixes have no theme-token equivalent. */
+.message-device-ink {
+  color: color-mix(in oklab, var(--message-device) 60%, var(--foreground));
+}
+.message-device-icon {
+  color: color-mix(in oklab, var(--message-device) 75%, var(--foreground));
+}
+.message-device-avatar {
+  border-color: color-mix(in srgb, var(--message-device) 45%, transparent);
+  background-color: color-mix(in srgb, var(--message-device) 20%, var(--background));
+}
+.message-device-bubble-tint {
+  background-color: color-mix(in srgb, var(--message-device) 20%, var(--message-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--message-device) 33%, transparent);
+}
+.message-device-bubble-edge {
+  box-shadow: inset -3px 0 0 var(--message-device);
+}
+.message-device-reply-edge {
+  border-inline-start-color: color-mix(in srgb, var(--message-device) 33%, transparent);
+}
+.message-device-reply-tint {
+  background-color: color-mix(in srgb, var(--message-device) 7%, transparent);
 }

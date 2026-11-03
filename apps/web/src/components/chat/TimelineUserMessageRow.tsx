@@ -83,6 +83,11 @@ import {
   MessageAuthorHeading,
   TimelineRowTimestamp,
 } from "./TimelineRowParts";
+import {
+  MessageDeviceAvatar,
+  MessageDeviceLine,
+  useMessageDevicePresentation,
+} from "./MessageDevice";
 import { UserMessageContextReferenceChip } from "./UserMessageContextChips";
 import {
   resolvePreviewAnnotationImage,
@@ -755,6 +760,18 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
       </div>
     ) : null;
 
+  const sentFrom = useMessageDevicePresentation(
+    ctx.activeThreadEnvironmentId,
+    folded || userMessage.attribution === "guest" ? undefined : row.message.device,
+  );
+  const hasBubble = !mediaOnly && !fileCardsOnly && !audioOnly;
+  // Colour styles need a bubble to colour; without one they fall back to the label.
+  const deviceStyle =
+    sentFrom === null
+      ? null
+      : hasBubble || sentFrom.style === "avatar" || sentFrom.style === "label"
+        ? sentFrom.style
+        : "label";
   // Touch shows actions all the time, and narrow lanes have no room beside the
   // bubble, so both keep the actions on their own line.
   const floatActions = row.groupedWithNext === true && !coarsePointer;
@@ -808,7 +825,11 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
   );
   return (
     <div
-      className="group @container flex flex-col items-end gap-1"
+      className={cn(
+        "group @container flex flex-col items-end gap-1",
+        deviceStyle === "avatar" && "pe-9",
+      )}
+      style={sentFrom?.cssVars}
       data-user-message-attribution={folded ? "agent" : undefined}
     >
       {userMessage.attribution === "t3code" ? (
@@ -830,6 +851,15 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
       !row.continuesSteer ? (
         <UserMessageIntentMarker intent={row.message.inputIntent} />
       ) : null}
+      {sentFrom !== null && deviceStyle === "label" ? (
+        <MessageDeviceLine
+          device={{ ...sentFrom, style: "label" }}
+          createdAt={row.message.createdAt}
+          timestampFormat={ctx.timestampFormat}
+          tone="muted"
+          className="me-1"
+        />
+      ) : null}
       {mediaAboveText ? (
         <div className="flex max-w-[80%] justify-end">
           {/* The heading leads the media so screen readers reach it before the images. */}
@@ -845,7 +875,8 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
           BUBBLE_CHIP_CLASS_NAME,
           userMessage.attribution === "guest"
             ? guestBubbleClassName(false)
-            : !mediaOnly && !fileCardsOnly && !audioOnly && "bg-message",
+            : hasBubble && (deviceStyle === "tint" ? "message-device-bubble-tint" : "bg-message"),
+          deviceStyle === "edge" && hasBubble && "message-device-bubble-edge",
           !folded && !mediaOnly && !fileCardsOnly && !audioOnly && "p-3",
           folded && expanded && "w-full",
         )}
@@ -860,6 +891,13 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
                 : `${userMessage.guestName} (guest)`}
           </MessageAuthorHeading>
         )}
+        {sentFrom !== null && deviceStyle === "tint" ? (
+          <MessageDeviceLine
+            device={{ ...sentFrom, style: "tint" }}
+            tone="device"
+            className="mb-1"
+          />
+        ) : null}
         {folded ? (
           <FoldedMessageHeader
             icon={MessagesSquareIcon}
@@ -998,6 +1036,9 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
             )}
           </div>
         ) : null}
+        {sentFrom !== null && deviceStyle === "avatar" ? (
+          <MessageDeviceAvatar device={sentFrom} />
+        ) : null}
         {floatActions ? (
           <div
             className={cn(
@@ -1009,6 +1050,15 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
           </div>
         ) : null}
       </div>
+      {sentFrom !== null && deviceStyle === "edge" ? (
+        <MessageDeviceLine
+          device={{ ...sentFrom, style: "edge" }}
+          createdAt={row.message.createdAt}
+          timestampFormat={ctx.timestampFormat}
+          tone="device"
+          className="me-1"
+        />
+      ) : null}
       <UserMessageProjectedStatus row={row} />
       {!folded || expanded ? (
         <div

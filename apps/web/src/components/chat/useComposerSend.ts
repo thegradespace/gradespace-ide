@@ -14,6 +14,7 @@ import {
   withMessageContext,
   makeThreadErrorSetter,
 } from "../ChatView.logic";
+import { thisMessageDevice } from "../../connection/thisDevice";
 import { isUsageLimitsCommand } from "@t3tools/shared/usageLimits";
 import {
   AuthOrchestrationOperateScope,
@@ -1191,12 +1192,14 @@ export function useComposerSend(input: ComposerSendInput) {
         messageIdForSend,
       );
     }
+    const sendingDevice = thisMessageDevice();
     const optimisticMessage: ChatMessage = {
       id: messageIdForSend,
       role: "user",
       text: outgoingMessageText,
       ...(optimisticAttachments.length > 0 ? { attachments: optimisticAttachments } : {}),
       ...(outgoingMessageContext !== undefined ? { context: outgoingMessageContext } : {}),
+      ...(sendingDevice === null ? {} : { device: sendingDevice }),
       runId: null,
       createdAt: messageCreatedAt,
       updatedAt: messageCreatedAt,

@@ -52,6 +52,11 @@ import {
   decodeComposerContextFragment,
 } from "@t3tools/shared/composerContextClipboard";
 import { collectComposerContextReferences } from "@t3tools/shared/composerContextReferences";
+import { DEFAULT_CLIENT_SETTINGS, type ClientSettings } from "@t3tools/contracts/settings";
+import {
+  __resetClientSettingsPersistenceForTests,
+  __setClientSettingsForTests,
+} from "../../hooks/useSettings";
 
 const environmentQuery = vi.hoisted(() => ({
   error: "Pull request not found",
@@ -625,6 +630,62 @@ describe("MessagesTimeline citations", () => {
     );
     await expect.element(screen.getByText("the cited answer")).toBeVisible();
     expect(toast).not.toHaveBeenCalled();
+  });
+});
+
+describe("MessagesTimeline message devices", () => {
+  const air = { id: "device-air", name: "MacBook Air", kind: "desktop" } as const;
+  const phone = { id: "device-phone", name: "iPhone", kind: "mobile" } as const;
+  const conversation = () => [
+    message("From the Air", { device: air }, "from-air"),
+    message("Answer to the Air", { role: "assistant" }, "answer-air"),
+    message("From the phone", { device: phone }, "from-phone"),
+    message("Answer to the phone", { role: "assistant" }, "answer-phone"),
+  ];
+  function setClientSettings(patch: Partial<ClientSettings>) {
+    __setClientSettingsForTests({ ...DEFAULT_CLIENT_SETTINGS, ...patch });
+    onTestFinished(__resetClientSettingsPersistenceForTests);
+  }
+
+  it("shows each sender as an avatar by default", async () => {
+    setup();
+    setClientSettings({});
+    await using screen = await renderTimeline(conversation());
+    await expect.element(screen.getByRole("img", { name: "Sent from MacBook Air" })).toBeVisible();
+    await expect.element(screen.getByRole("img", { name: "Sent from iPhone" })).toBeVisible();
+  });
+
+  it("shows nothing when the setting is off", async () => {
+    setup();
+    setClientSettings({ showMessageDevice: false });
+    await using screen = await renderTimeline(conversation());
+    await expect.element(screen.getByText("From the phone")).toBeVisible();
+    expect(screen.container.querySelector("[data-message-device-style]")).toBeNull();
+    expect(screen.container.querySelector("[data-reply-to-device]")).toBeNull();
+  });
+
+  it.each(["label", "edge", "tint"] as const)("names the device in the %s style", async (style) => {
+    setup();
+    setClientSettings({ messageDeviceStyle: style });
+    await using screen = await renderTimeline(conversation());
+    await expect.element(screen.getByText("MacBook Air")).toBeVisible();
+    await expect.element(screen.getByText("iPhone")).toBeVisible();
+    const replies = [...screen.container.querySelectorAll("[data-reply-to-device]")];
+    expect(replies.map((reply) => reply.getAttribute("data-reply-to-device"))).toEqual(
+      style === "label" ? [] : ["MacBook Air", "iPhone"],
+    );
+  });
+
+  it("leaves messages without a device alone", async () => {
+    setup();
+    setClientSettings({});
+    await using screen = await renderTimeline([
+      message("Sent before devices were recorded", {}, "old"),
+      message("Reply", { role: "assistant" }, "old-reply"),
+    ]);
+    await expect.element(screen.getByText("Sent before devices were recorded")).toBeVisible();
+    expect(screen.container.querySelector("[data-message-device-style]")).toBeNull();
+    expect(screen.container.querySelector("[data-reply-to-device]")).toBeNull();
   });
 });
 

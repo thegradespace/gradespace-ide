@@ -29,6 +29,18 @@ The controls retreat as the composer docks after you send the first message.
 Turn on **Composer context** to keep those controls visible after the thread starts. This preference
 applies to the web and desktop clients.
 
+## Message devices
+
+Messages you send show which device sent them, so you can tell your laptop, phone, and browsers
+apart. Under **Settings → Appearance → Message devices**, choose how it appears (an avatar beside
+the message by default, a label, a colour edge, or tinted bubbles), or turn it off. These two
+choices are saved separately on each client.
+
+The device list shows every device that has connected to the environment. Rename a device or give
+it a colour there; names and colours are saved on the environment, so every client shows the same
+ones. Each new device gets a colour no other device has. Messages sent before this existed, and
+messages from agents, show no device.
+
 ## Math
 
 Turn on **Render math** in **Settings → Appearance** to typeset LaTeX in messages and Markdown

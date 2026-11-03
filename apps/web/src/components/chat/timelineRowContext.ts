@@ -6,6 +6,7 @@ import type {
 } from "@t3tools/contracts";
 import {
   type EnvironmentId,
+  type MessageDevice,
   type MessageId,
   type OrchestrationV2TurnItem,
   type RunAttemptId,
@@ -97,6 +98,8 @@ export interface TimelineRowSharedState {
   onWorktreeSetupWorkLocally: (() => void) | null;
   onOpenWorktreeSetupTerminal: ((terminalId: string) => void) | null;
   workGroupViewState: WorkGroupViewState;
+  /** Per assistant message row, the device of the message it answers. Absent in the guest view. */
+  replyDevices?: ReadonlyMap<string, MessageDevice> | undefined;
 }
 
 export interface TimelineRowActivityState {

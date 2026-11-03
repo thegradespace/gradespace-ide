@@ -326,6 +326,25 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["wide full width column layout messages composer monitor"],
   },
   {
+    id: "message-device-show",
+    title: "Show sending device",
+    to: "/settings/appearance",
+    searchTerms: ["message devices which device sent laptop phone mobile computer"],
+  },
+  {
+    id: "message-device-style",
+    title: "Message device style",
+    to: "/settings/appearance",
+    searchTerms: ["avatar label colour color edge tinted bubbles device"],
+  },
+  {
+    id: "message-devices",
+    title: "Message devices",
+    to: "/settings/appearance",
+    searchTerms: ["devices rename colour color macbook iphone phone laptop browser this device"],
+    environmentOnly: true,
+  },
+  {
     id: "thread-details-items",
     title: "Thread details",
     to: "/settings/appearance",
