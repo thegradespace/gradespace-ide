@@ -10,6 +10,7 @@ import type {
 } from "./ProjectionStore.ts";
 import {
   type ChatAttachment,
+  type MessageDevice,
   CommandId,
   isListedThreadLineage,
   MessageId,
@@ -77,6 +78,7 @@ export interface ThreadManagementProvenance {
 export function withCreationProvenance(
   command: OrchestrationV2Command,
   provenance: ThreadManagementProvenance,
+  device?: MessageDevice,
 ): OrchestrationV2Command {
   switch (command.type) {
     case "thread.create": {
@@ -84,7 +86,11 @@ export function withCreationProvenance(
       const { linkOrigin: _linkOrigin, delegatedFrom: _delegatedFrom, ...rest } = command;
       return { ...rest, ...provenance };
     }
-    case "message.dispatch":
+    case "message.dispatch": {
+      // The connection decides the device; a client cannot name another one.
+      const { device: _device, ...rest } = command;
+      return { ...rest, ...provenance, ...(device === undefined ? {} : { device }) };
+    }
     case "thread.fork":
     case "thread.merge_back":
     case "delegated_task.request":
@@ -142,6 +148,7 @@ export interface ThreadManagementSendInput {
   readonly messageId: MessageId;
   readonly scheduledTaskId?: ScheduledTaskId;
   readonly senderThreadId?: ThreadId;
+  readonly device?: MessageDevice;
   readonly text: string;
   readonly attachments: ReadonlyArray<ChatAttachment>;
   readonly modelSelection?: ModelSelection;
@@ -847,6 +854,7 @@ const make = Effect.gen(function* () {
       messageId: input.messageId,
       ...(input.scheduledTaskId === undefined ? {} : { scheduledTaskId: input.scheduledTaskId }),
       ...(input.senderThreadId === undefined ? {} : { senderThreadId: input.senderThreadId }),
+      ...(input.device === undefined ? {} : { device: input.device }),
       text: input.text,
       attachments: input.attachments,
       ...(input.modelSelection === undefined ? {} : { modelSelection: input.modelSelection }),

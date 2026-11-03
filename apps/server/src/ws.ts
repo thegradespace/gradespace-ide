@@ -34,6 +34,7 @@ import {
   ClientDeviceType,
   ClientOs,
   ClientSurface,
+  MessageDevice,
   ClientWebDeployment,
   type DiscoveredLocalServerList,
   type EditorId,
@@ -626,6 +627,7 @@ function toAuthAccessStreamEvent(
 }
 
 const isClientSurface = Schema.is(ClientSurface);
+const decodeMessageDevice = Schema.decodeUnknownOption(MessageDevice);
 const isClientConnectionMethod = Schema.is(ClientConnectionMethod);
 const isClientDeviceType = Schema.is(ClientDeviceType);
 const isClientOs = Schema.is(ClientOs);
@@ -691,6 +693,23 @@ function readClientAnalyticsProps(request: HttpServerRequest.HttpServerRequest) 
     ...(hasDeviceModel ? { deviceModel, clientDeviceModel: deviceModel } : {}),
     ...(isClientConnectionMethod(connectionMethod) ? { connectionMethod } : {}),
   };
+}
+
+/**
+ * The device behind a connection: its hashed device id, the name it reports, and
+ * its surface. A client that sends none leaves its messages without a device.
+ */
+function readClientDevice(request: HttpServerRequest.HttpServerRequest): MessageDevice | undefined {
+  const url = HttpServerRequest.toURL(request);
+  if (Option.isNone(url)) return undefined;
+  const params = url.value.searchParams;
+  const id = params.get("clientDevice");
+  const surface = params.get("clientSurface");
+  const kind = surface === "desktop" || surface === "mobile" || surface === "web" ? surface : null;
+  if (id === null || !isTelemetryIdHash(id) || kind === null) return undefined;
+  return Option.getOrUndefined(
+    decodeMessageDevice({ id, name: params.get("clientDeviceName"), kind }),
+  );
 }
 
 /**
@@ -1226,6 +1245,7 @@ export const layerWsRpc = (
   clientAnalyticsProps: Readonly<Record<string, unknown>>,
   serverBrowser: ServerBrowser.ServerBrowser["Service"],
   reportProfiles: ServerBrowser.ProfileReporter,
+  clientDevice?: MessageDevice,
 ) =>
   Layer.effectContext(
     Effect.gen(function* () {
@@ -1340,6 +1360,18 @@ export const layerWsRpc = (
       const storageCleanup = yield* StorageCleanup.StorageCleanup;
       const databaseStorage = yield* DatabaseStorage.DatabaseStorage;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
+      if (clientDevice !== undefined) {
+        yield* serverSettings.getSettings.pipe(
+          Effect.flatMap((settings) =>
+            settings.messageDevices[clientDevice.id] === undefined
+              ? serverSettings.updateSettings({ registerMessageDevice: clientDevice })
+              : Effect.void,
+          ),
+          Effect.catch((cause) =>
+            Effect.logWarning("Could not record the connecting device", { cause }),
+          ),
+        );
+      }
       const secretResolver = yield* SecretResolver.SecretResolver;
       const peerLinks = yield* PeerLinks.PeerLinks;
       const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
@@ -1891,11 +1923,15 @@ export const layerWsRpc = (
                   (command.type === "prepared-run.retry"
                     ? threadLaunch.retryPreparation(command)
                     : ThreadMessageIntake.dispatchCommand(
-                        ThreadManagementService.withCreationProvenance(command, {
-                          createdBy: "user",
-                          creationSource:
-                            "creationSource" in command ? command.creationSource : "web",
-                        }),
+                        ThreadManagementService.withCreationProvenance(
+                          command,
+                          {
+                            createdBy: "user",
+                            creationSource:
+                              "creationSource" in command ? command.creationSource : "web",
+                          },
+                          clientDevice,
+                        ),
                       )
                   ).pipe(Effect.provide(intakeContext)),
                 )
@@ -2066,6 +2102,7 @@ export const layerWsRpc = (
                             ...(input.initialMessage.context === undefined
                               ? {}
                               : { context: input.initialMessage.context }),
+                            ...(clientDevice === undefined ? {} : { device: clientDevice }),
                           },
                         }),
                     createdBy: "user",
@@ -3313,6 +3350,7 @@ export const layer = Layer.unwrap(
           ),
         );
         const clientAnalyticsProps = readClientAnalyticsProps(request);
+        const clientDevice = readClientDevice(request);
         yield* analytics.recordOwners(readClientOwners(request), "client");
         const reportProfiles = yield* serverBrowser.profileReporter;
         const rpcWebSocketHttpEffect = yield* Effect.gen(function* () {
@@ -3344,7 +3382,13 @@ export const layer = Layer.unwrap(
           return httpEffect;
         }).pipe(
           Effect.provide(
-            layerWsRpc(session, clientAnalyticsProps, serverBrowser, reportProfiles).pipe(
+            layerWsRpc(
+              session,
+              clientAnalyticsProps,
+              serverBrowser,
+              reportProfiles,
+              clientDevice,
+            ).pipe(
               Layer.provideMerge(RpcSerialization.layerJson),
               // Handler-context reporters see only request defects, not server-wide defects.
               Layer.provide(DefectReporter.layer),

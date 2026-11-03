@@ -1677,6 +1677,7 @@ export const layer: Layer.Layer<
           ...(message.senderThreadId === undefined
             ? {}
             : { senderThreadId: message.senderThreadId }),
+          ...(message.device === undefined ? {} : { device: message.device }),
         },
         modelSelection: run.modelSelection,
         runtimePolicy: resolvedRuntimePolicy,

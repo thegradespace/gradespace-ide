@@ -74,6 +74,28 @@ it("stamps authoritative provenance on commands that create threads or messages"
   });
   expect(stamped).not.toHaveProperty("linkOrigin");
   expect(stamped).not.toHaveProperty("delegatedFrom");
+
+  const dispatch: OrchestrationV2Command = {
+    type: "message.dispatch",
+    createdBy: "agent",
+    creationSource: "mcp",
+    // A client cannot name the device it sent from.
+    device: { id: "forged", name: "Forged", kind: "web" },
+    commandId: CommandId.make("command:thread-management:dispatch"),
+    threadId: ThreadId.make("thread:thread-management:create"),
+    messageId: MessageId.make("message:thread-management:dispatch"),
+    text: "hello",
+    attachments: [],
+    dispatchMode: { type: "start_immediately" },
+  };
+  const provenance = { createdBy: "user", creationSource: "mobile" } as const;
+  const device = { id: "device-1", name: "iPhone", kind: "mobile" } as const;
+  expect(
+    ThreadManagementService.withCreationProvenance(dispatch, provenance, device),
+  ).toMatchObject({ createdBy: "user", creationSource: "mobile", device });
+  expect(ThreadManagementService.withCreationProvenance(dispatch, provenance)).not.toHaveProperty(
+    "device",
+  );
 });
 
 const layerReceiptsTest = CommandReceiptStore.layer.pipe(

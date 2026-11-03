@@ -5,6 +5,7 @@ import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import {
   CommandId,
   type ChatAttachment,
+  type MessageDevice,
   type MessageId,
   type ModelSelection,
   type OrchestrationV2Actor,
@@ -72,6 +73,7 @@ export interface ThreadLaunchInitialMessage {
   readonly messageId?: MessageId;
   readonly scheduledTaskId?: ScheduledTaskId;
   readonly senderThreadId?: ThreadId;
+  readonly device?: MessageDevice;
   readonly text: string;
   readonly attachments: ReadonlyArray<ChatAttachment>;
   readonly context?: import("@t3tools/contracts").OrchestrationMessageContext | undefined;
@@ -963,6 +965,9 @@ const make = Effect.gen(function* () {
               ...(input.initialMessage.senderThreadId === undefined
                 ? {}
                 : { senderThreadId: input.initialMessage.senderThreadId }),
+              ...(input.initialMessage.device === undefined
+                ? {}
+                : { device: input.initialMessage.device }),
               attachments: input.initialMessage.attachments,
               ...(input.initialMessage.context ? { context: input.initialMessage.context } : {}),
               ...(input.generateTitle === true ? { titleSeed: input.title } : {}),

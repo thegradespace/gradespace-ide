@@ -509,6 +509,55 @@ it.effect("retains automation and sender attribution while a message waits in th
   }).pipe(Effect.provide(harness.layer));
 });
 
+it.effect(
+  "keeps the sending device on the first message, its turn item, and a queued message",
+  () => {
+    const harness = makeHarness({ runSetup: () => Effect.never });
+    return Effect.gen(function* () {
+      const launches = yield* ThreadLaunch.ThreadLaunchService;
+      const threads = yield* ThreadManagement.ThreadManagementService;
+      const air = { id: "device-air", name: "John's MacBook Air", kind: "desktop" } as const;
+      const phone = { id: "device-phone", name: "iPhone", kind: "mobile" } as const;
+      const base = launchInput({
+        command: "command:device:launch",
+        thread: "thread:device:launch",
+        message: "From the Air",
+        workspace: { type: "worktree", baseRef: "main" },
+      });
+      const launched = yield* launches.launch({
+        ...base,
+        initialMessage: { ...base.initialMessage!, device: air },
+      });
+      const queued = yield* threads.sendToThread({
+        projectId,
+        commandId: CommandId.make("command:device:queued"),
+        threadId: launched.threadId,
+        messageId: MessageId.make("message:device:queued"),
+        device: phone,
+        text: "From the phone",
+        attachments: [],
+        mode: "queue",
+        createdBy: "user",
+        creationSource: "mobile",
+      });
+      assert.equal(queued.delivery, "queued");
+      const projection = yield* threads.getThreadProjection(launched.threadId);
+      const wire = yield* encodeThreadProjection(projection);
+      const first = projection.messages.find((item) => item.text === "From the Air");
+      assert.deepStrictEqual(first?.device, air);
+      assert.deepStrictEqual(
+        projection.messages.find((item) => item.id === queued.message.id)?.device,
+        phone,
+      );
+      const firstItem = wire.turnItems.find(
+        (item): item is Extract<typeof item, { type: "user_message" }> =>
+          item.type === "user_message" && item.messageId === first?.id,
+      );
+      assert.deepStrictEqual(firstItem?.device, air);
+    }).pipe(Effect.provide(harness.layer));
+  },
+);
+
 it.effect("provisions independent launches concurrently instead of behind a global semaphore", () =>
   Effect.gen(function* () {
     const setupCount = yield* Ref.make(0);
