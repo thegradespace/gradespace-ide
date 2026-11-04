@@ -25,6 +25,7 @@ import {
   injectMcpAppThemeBootstrap,
   MCP_APP_MAX_HTML_BYTES,
 } from "@t3tools/shared/mcpApp";
+import { STUDIO_MAX_HTML_BYTES } from "@t3tools/shared/studioZoom";
 import { ORCHESTRATION_PROTOCOL_HEADER } from "@t3tools/contracts";
 
 import * as ServerConfig from "./config.ts";
@@ -92,6 +93,53 @@ describe("MCP app asset responses", () => {
       yield* fs.writeFileString(file, "x".repeat(MCP_APP_MAX_HTML_BYTES + 128 * 1024 + 1));
       const response = yield* assetFileResponse({ path: file, renderIntent: "mcp-app" });
       expect(response.status).toBe(413);
+    }).pipe(Effect.provide(layerFileResponse)),
+  );
+});
+
+describe("Studio zoom bridge", () => {
+  it.effect("injects the wheel bridge into inline HTML only when requested", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-studio-zoom-" });
+      const html = path.join(directory, "design.html");
+      const text = path.join(directory, "notes.txt");
+      const source = "<!doctype html><html><head><title>A</title></head><body>Hi</body></html>";
+      yield* fs.writeFileString(html, source);
+      yield* fs.writeFileString(text, source);
+      const fetchBody = (asset: Parameters<typeof assetFileResponse>[0], studioZoom: boolean) =>
+        Effect.gen(function* () {
+          const response = HttpServerResponse.toWeb(
+            yield* assetFileResponse(asset, "bytes=0-3", undefined, "GET", { studioZoom }),
+          );
+          return { response, body: yield* Effect.promise(() => response.text()) };
+        });
+
+      const injected = yield* fetchBody({ path: html }, true);
+      expect(injected.response.status).toBe(200);
+      expect(injected.body).toContain("<head><script>");
+      expect(injected.body).toContain("gradespace:studio-wheel-zoom");
+      expect(injected.body.endsWith("<body>Hi</body></html>")).toBe(true);
+      expect(injected.response.headers.get("content-length")).toBe(
+        String(new TextEncoder().encode(injected.body).byteLength),
+      );
+
+      const plain = yield* fetchBody({ path: html }, false);
+      expect(plain.response.status).toBe(206);
+      expect(plain.body).toBe(source.slice(0, 4));
+
+      expect((yield* fetchBody({ path: text, mimeType: "text/plain" }, true)).body).toBe(
+        source.slice(0, 4),
+      );
+      expect((yield* fetchBody({ path: html, download: true }, true)).body).toBe(
+        source.slice(0, 4),
+      );
+
+      const large = path.join(directory, "large.html");
+      yield* fs.writeFileString(large, "x".repeat(STUDIO_MAX_HTML_BYTES + 1));
+      const oversized = yield* fetchBody({ path: large }, true);
+      expect(oversized.body).toHaveLength(4);
     }).pipe(Effect.provide(layerFileResponse)),
   );
 });

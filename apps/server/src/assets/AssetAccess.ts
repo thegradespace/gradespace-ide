@@ -31,6 +31,7 @@ import {
   type ImageDimensions,
 } from "@t3tools/shared/imageDimensions";
 import { MCP_APP_MAX_HTML_BYTES } from "@t3tools/shared/mcpApp";
+import { STUDIO_MAX_HTML_BYTES } from "@t3tools/shared/studioZoom";
 import {
   isProjectFaviconPath,
   PROJECT_FAVICON_FALLBACK_MARKER,
@@ -222,10 +223,11 @@ function decodeRelativePath(value: string): string | null {
   }
 }
 
-export const readMcpAppHtml = Effect.fn("AssetAccess.readMcpAppHtml")(function* (filePath: string) {
+const readFileWithLimit = Effect.fn("AssetAccess.readFileWithLimit")(function* (
+  filePath: string,
+  limit: number,
+) {
   const fileSystem = yield* FileSystem.FileSystem;
-  // Allow space for stored CSP tags, but bound reads if the attachment grows after minting.
-  const limit = MCP_APP_MAX_HTML_BYTES + 128 * 1024;
   const chunks = yield* Stream.runCollect(fileSystem.stream(filePath, { bytesToRead: limit + 1 }));
   const size = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
   if (size > limit) return null;
@@ -237,6 +239,13 @@ export const readMcpAppHtml = Effect.fn("AssetAccess.readMcpAppHtml")(function* 
   }
   return bytes;
 });
+
+export const readMcpAppHtml = (filePath: string) =>
+  // Allow space for stored CSP tags, but bound reads if the attachment grows after minting.
+  readFileWithLimit(filePath, MCP_APP_MAX_HTML_BYTES + 128 * 1024);
+
+export const readStudioHtml = (filePath: string) =>
+  readFileWithLimit(filePath, STUDIO_MAX_HTML_BYTES);
 
 const readToolOutputImage = Effect.fn("AssetAccess.readToolOutputImage")(function* (input: {
   readonly threadId: ThreadId;

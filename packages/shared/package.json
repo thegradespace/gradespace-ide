@@ -499,6 +499,10 @@
       "types": "./src/mcpApp.ts",
       "import": "./src/mcpApp.ts"
     },
+    "./studioZoom": {
+      "types": "./src/studioZoom.ts",
+      "import": "./src/studioZoom.ts"
+    },
     "./atomicWrite": {
       "types": "./src/atomicWrite.ts",
       "import": "./src/atomicWrite.ts"

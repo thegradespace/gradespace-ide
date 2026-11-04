@@ -6,6 +6,7 @@ import {
 } from "@t3tools/contracts";
 import { isDevProxiedPath } from "@t3tools/shared/devProxy";
 import { injectMcpAppCookieBootstrap, injectMcpAppThemeBootstrap } from "@t3tools/shared/mcpApp";
+import { injectStudioZoomBridge, STUDIO_ZOOM_QUERY_PARAM } from "@t3tools/shared/studioZoom";
 import { decodeOtlpTraceRecords } from "@t3tools/shared/observability";
 import * as ByteSize from "effect/ByteSize";
 import * as Data from "effect/Data";
@@ -30,7 +31,12 @@ import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
 import { OtlpTracer, OtlpSerialization } from "effect/observability";
 
 import * as ServerConfig from "./config.ts";
-import { ASSET_ROUTE_PREFIX, readMcpAppHtml, resolveAsset } from "./assets/AssetAccess.ts";
+import {
+  ASSET_ROUTE_PREFIX,
+  readMcpAppHtml,
+  readStudioHtml,
+  resolveAsset,
+} from "./assets/AssetAccess.ts";
 import { sourceControlMediaResponse } from "./assets/sourceControlMediaResponse.ts";
 import { statMediaFile, streamMediaFile, type OpenMediaFile } from "./assets/MediaFile.ts";
 import {
@@ -170,6 +176,7 @@ export const assetFileResponse = Effect.fn("assetFileResponse")(function* (
   rangeHeader?: string,
   ifRangeHeader?: string,
   method: "GET" | "HEAD" = "GET",
+  options?: { readonly studioZoom?: boolean },
 ) {
   const headers = assetResponseHeaders(asset.path, asset);
   if (
@@ -191,6 +198,24 @@ export const assetFileResponse = Effect.fn("assetFileResponse")(function* (
     return method === "HEAD"
       ? HttpServerResponse.empty({ status: 200, headers })
       : HttpServerResponse.uint8Array(body, { headers });
+  }
+  if (
+    options?.studioZoom &&
+    !asset.download &&
+    asset.renderIntent === undefined &&
+    headers["Content-Type"] === "text/html; charset=utf-8"
+  ) {
+    const bytes = yield* readStudioHtml(asset.path);
+    // Past the cap the page is served untouched; only wheel zoom over the design is lost.
+    if (bytes !== null) {
+      const body = new TextEncoder().encode(
+        injectStudioZoomBridge(new TextDecoder().decode(bytes)),
+      );
+      headers["Content-Length"] = String(body.byteLength);
+      return method === "HEAD"
+        ? HttpServerResponse.empty({ status: 200, headers })
+        : HttpServerResponse.uint8Array(body, { headers });
+    }
   }
   const mediaFile = asset.file;
   const mediaInfo = mediaFile ? yield* statMediaFile(asset.path, mediaFile) : undefined;
@@ -454,6 +479,7 @@ export const layerAssetRoute = HttpRouter.add(
       request.method === "GET" ? request.headers.range : undefined,
       request.headers["if-range"],
       request.method === "HEAD" ? "HEAD" : "GET",
+      { studioZoom: url.value.searchParams.get(STUDIO_ZOOM_QUERY_PARAM) === "1" },
     ).pipe(
       Effect.orElseSucceed(() => HttpServerResponse.text("Internal Server Error", { status: 500 })),
     );
