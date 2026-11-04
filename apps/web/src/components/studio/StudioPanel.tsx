@@ -1,23 +1,15 @@
 import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
 import { resolvePathLinkTarget } from "@t3tools/shared/fileLinks";
-import {
-  ArrowLeft,
-  Check,
-  ChevronDown,
-  DownloadIcon,
-  FileText,
-  PencilLine,
-  RefreshCw,
-} from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Check, ChevronDown, DownloadIcon, PencilLine, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-import { useAssetUrlRefresh, useAssetUrlState } from "~/assets/assetUrls";
+import { useAssetUrlRefresh } from "~/assets/assetUrls";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "~/components/ui/menu";
 import { Spinner } from "~/components/ui/spinner";
 import { Textarea } from "~/components/ui/textarea";
-import { stackedThreadToast, toastManager } from "~/components/ui/toast";
+import { useStableCallback } from "~/hooks/useStableCallback";
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { observeResize } from "~/lib/observeResize";
@@ -25,8 +17,6 @@ import { cn } from "~/lib/utils";
 import { useRightPanelStore } from "~/rightPanelStore";
 import { projectEnvironment } from "~/state/projects";
 
-import { FileMarkdownPreview } from "../files/FileMarkdownPreview";
-import { WorkspaceBrowserPreview } from "../files/FilePreviewPanel";
 import { workspaceAssetResource } from "../files/filePreviewMode";
 import {
   FileSurfaceAction,
@@ -34,6 +24,12 @@ import {
   FileSurfaceLoading,
 } from "../files/fileSurfaceChrome";
 import { useProjectEntriesQuery, useProjectFileQuery } from "../files/projectFilesQueryState";
+import {
+  preparePopupDocument,
+  StudioDesignStage,
+  StudioFullscreen,
+  StudioPopupWindow,
+} from "./StudioDesignViewer";
 import {
   parseStudioManifest,
   STUDIO_MANIFEST_NAME,
@@ -45,118 +41,8 @@ import {
   withStudioPicked,
   withStudioPickLine,
 } from "./studioManifest";
-
-// Pages lay out at a desktop width and shrink to fit, so a thumbnail shows the whole design.
-const THUMBNAIL_PAGE_WIDTH = 1280;
-
-interface StudioContext {
-  readonly environmentId: EnvironmentId;
-  readonly cwd: string;
-  readonly threadRef: ScopedThreadRef;
-  readonly draft: boolean;
-  readonly workspaceMutationId: string | null;
-}
-
-function showToast(type: "success" | "error", title: string, description?: string) {
-  toastManager.add(
-    stackedThreadToast({ type, title, ...(description === undefined ? {} : { description }) }),
-  );
-}
-
-function StudioImage(props: StudioContext & { readonly absolutePath: string; alt: string }) {
-  const assetUrl = useAssetUrlState(
-    props.environmentId,
-    workspaceAssetResource({
-      kind: "workspace-file",
-      threadRef: props.threadRef,
-      draft: props.draft,
-      workspaceRoot: props.cwd,
-      absolutePath: props.absolutePath,
-    }),
-    props.workspaceMutationId,
-  );
-  if (assetUrl._tag === "Failure") return <FileSurfaceFailure message="Unable to load image." />;
-  if (assetUrl._tag !== "Success") return <FileSurfaceLoading />;
-  const revision =
-    props.workspaceMutationId === null
-      ? ""
-      : `${assetUrl.url.includes("?") ? "&" : "?"}workspace-revision=${encodeURIComponent(props.workspaceMutationId)}`;
-  return (
-    <img
-      src={`${assetUrl.url}${revision}`}
-      alt={props.alt}
-      className="size-full min-h-0 flex-1 object-contain"
-    />
-  );
-}
-
-function StudioText(props: StudioContext & { readonly relativePath: string }) {
-  const file = useProjectFileQuery(
-    props.environmentId,
-    props.cwd,
-    props.relativePath,
-    true,
-    props.workspaceMutationId,
-  );
-  if (file.data === null) {
-    return file.error === null ? (
-      <FileSurfaceLoading />
-    ) : (
-      <FileSurfaceFailure message={file.error} />
-    );
-  }
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <FileMarkdownPreview
-        cwd={props.cwd}
-        relativePath={props.relativePath}
-        text={file.data.contents}
-        threadRef={props.threadRef}
-        workspaceMutationId={props.workspaceMutationId}
-      />
-    </div>
-  );
-}
-
-function StudioFilePlaceholder(props: { readonly file: string }) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground text-xs">
-      <FileText className="size-6" />
-      <span className="break-all">{props.file.split("/").at(-1)}</span>
-    </div>
-  );
-}
-
-function StudioVariantPreview(
-  props: StudioContext & {
-    readonly setPath: string;
-    readonly variant: StudioVariant;
-    readonly thumbnail: boolean;
-  },
-) {
-  const relativePath = `${props.setPath}/${props.variant.file}`;
-  const absolutePath = resolvePathLinkTarget(relativePath, props.cwd);
-  const kind = studioVariantKind(props.variant.file);
-  if (kind === "image") {
-    return <StudioImage {...props} absolutePath={absolutePath} alt={props.variant.title} />;
-  }
-  if (kind === "text") return <StudioText {...props} relativePath={relativePath} />;
-  if (kind === "html" || (kind === "pdf" && !props.thumbnail)) {
-    return (
-      <WorkspaceBrowserPreview
-        key={absolutePath}
-        environmentId={props.environmentId}
-        threadRef={props.threadRef}
-        draft={props.draft}
-        absolutePath={absolutePath}
-        workspaceRoot={props.cwd}
-        title={props.variant.title}
-        workspaceMutationId={props.workspaceMutationId}
-      />
-    );
-  }
-  return <StudioFilePlaceholder file={props.variant.file} />;
-}
+import { type StudioContext, showToast, StudioVariantPreview } from "./StudioVariantPreview";
+import { STUDIO_PAGE_WIDTH } from "./studioZoom";
 
 function ScaledThumbnail(props: { readonly fit: boolean; readonly children: React.ReactNode }) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
@@ -166,7 +52,7 @@ function ScaledThumbnail(props: { readonly fit: boolean; readonly children: Reac
       setSize({ width: element.clientWidth, height: element.clientHeight }),
     );
   };
-  const scale = size === null ? 0 : size.width / THUMBNAIL_PAGE_WIDTH;
+  const scale = size === null ? 0 : size.width / STUDIO_PAGE_WIDTH;
   return (
     <div ref={attach} className="pointer-events-none relative size-full overflow-hidden">
       {!props.fit ? (
@@ -175,7 +61,7 @@ function ScaledThumbnail(props: { readonly fit: boolean; readonly children: Reac
         <div
           className="absolute top-0 left-0 flex origin-top-left flex-col"
           style={{
-            width: THUMBNAIL_PAGE_WIDTH,
+            width: STUDIO_PAGE_WIDTH,
             height: size.height / scale,
             transform: `scale(${scale})`,
           }}
@@ -275,6 +161,17 @@ function StudioSet(
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
+  const [zoom, setZoom] = useState<number | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [popup, setPopup] = useState<Window | null>(null);
+  const popupRef = useRef<Window | null>(null);
+  const closePopup = useStableCallback(() => {
+    popupRef.current?.close();
+    popupRef.current = null;
+    setPopup(null);
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- the popup is an OS window React cannot unmount
+  useEffect(() => () => popupRef.current?.close(), []);
   const manifestPath = `${props.setPath}/${STUDIO_MANIFEST_NAME}`;
   const file = useProjectFileQuery(
     props.environmentId,
@@ -333,41 +230,79 @@ function StudioSet(
     const kind = studioVariantKind(focused.file);
     const canEdit = kind === "html" || kind === "text";
     const relativePath = `${props.setPath}/${focused.file}`;
+    const windowTitle = `${focused.id}: ${focused.title}`;
+    const stage = {
+      ...props,
+      manifest,
+      variant: focused,
+      zoom,
+      onZoomChange: setZoom,
+      saving,
+      onSelect: setFocusedId,
+      onTogglePick: () => void togglePick(focused),
+    };
+    const popOut = () => {
+      const name = props.setPath
+        .split("/")
+        .at(-1)
+        ?.replace(/[^\w-]/g, "-");
+      const next = window.open("", `gradespace-studio-${name}`, "popup,width=1400,height=900");
+      if (next === null) {
+        showToast("error", "Allow pop-ups to open designs in a new window");
+        return;
+      }
+      preparePopupDocument(next, windowTitle);
+      popupRef.current = next;
+      setPopup(next);
+      setFullscreen(false);
+    };
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center gap-1 border-b px-2 py-1.5">
-          <FileSurfaceAction label="Back to all options" onPress={() => setFocusedId(null)}>
-            <ArrowLeft className="size-3.5" />
-          </FileSurfaceAction>
-          {manifest.variants.map((variant) => (
-            <Button
-              key={variant.id}
-              type="button"
-              size="xs"
-              variant={variant.id === focused.id ? "secondary" : "ghost"}
-              aria-pressed={variant.id === focused.id}
-              onClick={() => setFocusedId(variant.id)}
-            >
-              {variant.id}
-            </Button>
-          ))}
-          <div className="min-w-0 flex-1" />
-          <StudioPickButton
-            picked={manifest.picked === focused.id}
-            disabled={saving}
-            onPress={() => void togglePick(focused)}
+        {popup !== null ? (
+          <>
+            <StudioPopupWindow popup={popup} title={windowTitle} onClosed={closePopup}>
+              <StudioDesignStage {...stage} native />
+            </StudioPopupWindow>
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-4 text-center text-muted-foreground text-xs">
+              <span>Showing in a separate window</span>
+              <Button type="button" size="xs" variant="outline" onClick={closePopup}>
+                Bring back
+              </Button>
+            </div>
+          </>
+        ) : fullscreen ? (
+          <StudioFullscreen onClose={() => setFullscreen(false)}>
+            <StudioDesignStage
+              {...stage}
+              onPopOut={popOut}
+              onExitFullscreen={() => setFullscreen(false)}
+            />
+          </StudioFullscreen>
+        ) : (
+          <StudioDesignStage
+            {...stage}
+            leading={
+              <FileSurfaceAction label="Back to all options" onPress={() => setFocusedId(null)}>
+                <ArrowLeft className="size-3.5" />
+              </FileSurfaceAction>
+            }
+            trailing={
+              <>
+                <FileSurfaceAction
+                  label={canEdit ? "Open to edit" : "Open in Files"}
+                  onPress={() =>
+                    useRightPanelStore.getState().openFile(props.threadRef, relativePath)
+                  }
+                >
+                  <PencilLine className="size-3.5" />
+                </FileSurfaceAction>
+                <StudioExportButton {...props} variant={focused} />
+              </>
+            }
+            onFullscreen={() => setFullscreen(true)}
+            onPopOut={popOut}
           />
-          <FileSurfaceAction
-            label={canEdit ? "Open to edit" : "Open in Files"}
-            onPress={() => useRightPanelStore.getState().openFile(props.threadRef, relativePath)}
-          >
-            <PencilLine className="size-3.5" />
-          </FileSurfaceAction>
-          <StudioExportButton {...props} variant={focused} />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col bg-background">
-          <StudioVariantPreview {...props} variant={focused} thumbnail={false} />
-        </div>
+        )}
         <div className="flex shrink-0 flex-col gap-2 border-t p-2">
           <div className="flex items-center gap-2 text-xs">
             <span className="min-w-0 truncate font-medium">{focused.title}</span>
@@ -420,7 +355,10 @@ function StudioSet(
               type="button"
               aria-label={`Open option ${variant.id}: ${variant.title}`}
               className="aspect-[4/3] w-full cursor-pointer overflow-hidden border-b bg-background"
-              onClick={() => setFocusedId(variant.id)}
+              onClick={() => {
+                setZoom(null);
+                setFocusedId(variant.id);
+              }}
             >
               <ScaledThumbnail fit={kind === "html"}>
                 <StudioVariantPreview {...props} variant={variant} thumbnail />

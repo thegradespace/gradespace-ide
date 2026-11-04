@@ -1,5 +1,5 @@
 export const STUDIO_ZOOM_QUERY_PARAM = "studio-zoom";
-const STUDIO_WHEEL_ZOOM_MESSAGE = "gradespace:studio-wheel-zoom";
+export const STUDIO_WHEEL_ZOOM_MESSAGE = "gradespace:studio-wheel-zoom";
 export const STUDIO_MAX_HTML_BYTES = 5 * 1024 * 1024;
 
 /**

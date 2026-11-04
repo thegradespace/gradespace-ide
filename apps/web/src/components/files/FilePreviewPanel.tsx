@@ -65,6 +65,7 @@ import { cn } from "~/lib/utils";
 import type { ChatFileAttachment } from "~/types";
 import { isHostPath } from "@t3tools/shared/path";
 import { resolvePathLinkTarget } from "@t3tools/shared/fileLinks";
+import { STUDIO_ZOOM_QUERY_PARAM } from "@t3tools/shared/studioZoom";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
@@ -231,6 +232,8 @@ export function WorkspaceBrowserPreview(props: {
   readonly workspaceRoot: string;
   readonly title: string;
   readonly workspaceMutationId: string | null;
+  /** Asks the server to add a script that forwards pinch and Ctrl/Cmd+wheel out of the frame. */
+  readonly studioZoom?: boolean;
 }) {
   const pdf = isPdfPreviewFile(props.absolutePath);
   const resource = workspaceAssetResource({
@@ -269,9 +272,14 @@ export function WorkspaceBrowserPreview(props: {
       </div>
     );
   }
+  const src = `${assetUrl.url}${revisionSuffix}`;
   return (
     <BrowserDocumentFrame
-      src={`${assetUrl.url}${revisionSuffix}`}
+      src={
+        props.studioZoom && !pdf
+          ? `${src}${src.includes("?") ? "&" : "?"}${STUDIO_ZOOM_QUERY_PARAM}=1`
+          : src
+      }
       documentKey={`${props.environmentId}:${resource._tag}:${props.threadRef.threadId}:${props.absolutePath}:${revision}`}
       documentId={`${props.environmentId}:${resource._tag}:${props.threadRef.threadId}:${props.absolutePath}`}
       title={props.title}
