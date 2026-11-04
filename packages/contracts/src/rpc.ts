@@ -82,6 +82,7 @@ import {
   EnvironmentAuthorizationError,
 } from "./auth.ts";
 import { ClientActivityReportInput } from "./background.ts";
+import { BackupError, BackupRestoreInput, BackupStatus } from "./backups.ts";
 import {
   FilesystemGetMetadataInput,
   FilesystemGetMetadataResult,
@@ -507,6 +508,10 @@ export const WS_METHODS = {
   serverRunStorageCleanup: "server.runStorageCleanup",
   serverGetStorageCleanupReport: "server.getStorageCleanupReport",
   serverGetDatabaseStorage: "server.getDatabaseStorage",
+  backupsList: "backups.list",
+  backupsCreate: "backups.create",
+  backupsRestore: "backups.restore",
+  backupsCancelRestore: "backups.cancelRestore",
   peerLinksList: "peerLinks.list",
   peerLinksLink: "peerLinks.link",
   peerLinksUnlink: "peerLinks.unlink",
@@ -793,6 +798,30 @@ const WsServerGetDatabaseStorageRpc = Rpc.make(WS_METHODS.serverGetDatabaseStora
   success: Schema.NullOr(DatabaseStorageStatus),
   stream: true,
   error: EnvironmentAuthorizationError,
+});
+
+const WsBackupsListRpc = Rpc.make(WS_METHODS.backupsList, {
+  payload: Schema.Struct({}),
+  success: BackupStatus,
+  error: Schema.Union([BackupError, EnvironmentAuthorizationError]),
+});
+
+const WsBackupsCreateRpc = Rpc.make(WS_METHODS.backupsCreate, {
+  payload: Schema.Struct({}),
+  success: BackupStatus,
+  error: Schema.Union([BackupError, EnvironmentAuthorizationError]),
+});
+
+const WsBackupsRestoreRpc = Rpc.make(WS_METHODS.backupsRestore, {
+  payload: BackupRestoreInput,
+  success: BackupStatus,
+  error: Schema.Union([BackupError, EnvironmentAuthorizationError]),
+});
+
+const WsBackupsCancelRestoreRpc = Rpc.make(WS_METHODS.backupsCancelRestore, {
+  payload: Schema.Struct({}),
+  success: BackupStatus,
+  error: Schema.Union([BackupError, EnvironmentAuthorizationError]),
 });
 
 const WsPeerLinksListRpc = Rpc.make(WS_METHODS.peerLinksList, {
@@ -1998,6 +2027,10 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerRunStorageCleanupRpc,
   WsServerGetStorageCleanupReportRpc,
   WsServerGetDatabaseStorageRpc,
+  WsBackupsListRpc,
+  WsBackupsCreateRpc,
+  WsBackupsRestoreRpc,
+  WsBackupsCancelRestoreRpc,
   WsServerUpdateSettingsRpc,
   WsPeerLinksListRpc,
   WsPeerLinksLinkRpc,

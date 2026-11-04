@@ -187,6 +187,7 @@ import * as ServerSettings from "./serverSettings.ts";
 import { invalidateSettingsSecrets } from "./sourceControl/sourceControlHostSecrets.ts";
 import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
 import * as StorageCleanup from "./storageCleanup.ts";
+import * as StateBackups from "./backup/StateBackups.ts";
 import * as TerminalManager from "./terminal/Manager.ts";
 import { terminalOutputStream, withTerminalOutputWindow } from "./terminal/OutputProtocol.ts";
 import * as ServerBrowser from "./preview/ServerBrowser.ts";
@@ -1359,6 +1360,7 @@ export const layerWsRpc = (
       const lifecycleEvents = yield* ServerLifecycleEvents.ServerLifecycleEvents;
       const storageCleanup = yield* StorageCleanup.StorageCleanup;
       const databaseStorage = yield* DatabaseStorage.DatabaseStorage;
+      const stateBackups = yield* StateBackups.StateBackups;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
       if (clientDevice !== undefined) {
         yield* serverSettings.getSettings.pipe(
@@ -2540,6 +2542,10 @@ export const layerWsRpc = (
         [WS_METHODS.serverRunStorageCleanup]: () => storageCleanup.runNow,
         [WS_METHODS.serverGetStorageCleanupReport]: () => storageCleanup.reports,
         [WS_METHODS.serverGetDatabaseStorage]: () => databaseStorage.status,
+        [WS_METHODS.backupsList]: () => stateBackups.status,
+        [WS_METHODS.backupsCreate]: () => stateBackups.create,
+        [WS_METHODS.backupsRestore]: ({ fileName }) => stateBackups.restore(fileName),
+        [WS_METHODS.backupsCancelRestore]: () => stateBackups.cancelRestore,
         [WS_METHODS.peerLinksList]: (_input) =>
           peerLinks.list.pipe(Effect.map((links) => ({ links }))),
         [WS_METHODS.peerLinksLink]: (input) => peerLinks.link(input),

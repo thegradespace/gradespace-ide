@@ -2,6 +2,7 @@ import * as Schema from "effect/Schema";
 import { GitPreparePullRequestThreadInput, GitRunStackedActionInput } from "./git.ts";
 import {
   AuthAccessWriteScope,
+  AuthEnvironmentMaintainScope,
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthPreviewOperateScope,
@@ -20,6 +21,11 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.previewStopLocalServer]: AuthTerminalOperateScope,
   [WS_METHODS.serverRunStorageCleanup]: AuthSettingsWriteScope,
   [WS_METHODS.serverCheckOtlpEndpoint]: AuthSettingsWriteScope,
+  // Backups hold every chat, and a restore replaces them on the next start.
+  [WS_METHODS.backupsList]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.backupsCreate]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.backupsRestore]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.backupsCancelRestore]: AuthEnvironmentMaintainScope,
   [WS_METHODS.pullRequestsRunAction]: AuthSourceControlWriteScope,
   [WS_METHODS.pullRequestsUpdate]: AuthSourceControlWriteScope,
   [WS_METHODS.pullRequestsComment]: AuthSourceControlWriteScope,
