@@ -278,13 +278,17 @@ export function StudioFullscreen(props: {
   readonly children: ReactNode;
 }) {
   const { onClose } = props;
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Esc exits full screen; the listener lives on the document
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Esc exits full screen; the listener lives on the window
   useEffect(() => {
+    // Capture and stop it, or the app's own Esc handling also closes the side panel.
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onClose();
     };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
   }, [onClose]);
   return createPortal(
     <div
