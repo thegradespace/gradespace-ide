@@ -75,6 +75,10 @@ No. Your code and prompts go from your machine to your provider (Anthropic, Open
 
 Open **Settings > Storage** and turn on automatic worktree cleanup. You can also run it now from there. Worktrees add up fast. One user cleared 500 GB. [Storage cleanup](./project-settings.md#storage-cleanup)
 
+## Are my chats backed up?
+
+Yes. Once a day the server copies its state database to a `backups` folder in its data folder and keeps the last 7. Open **Settings > Maintenance > Backups** to back up now or restore one. A restore saves your current chats first, then swaps the backup in the next time the server starts. Backups hold projects, threads, and messages. They do not include settings, secrets, or attachments.
+
 ## Is there voice input?
 
 On iPhone, yes. You need iOS 26 or later. Tap the mic in the composer, talk, check the text, then send. Web, desktop, and Android do not have it yet. [Voice input on iPhone](./composer.md#voice-input-on-iphone)
