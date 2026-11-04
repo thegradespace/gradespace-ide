@@ -21,8 +21,8 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.previewStopLocalServer]: AuthTerminalOperateScope,
   [WS_METHODS.serverRunStorageCleanup]: AuthSettingsWriteScope,
   [WS_METHODS.serverCheckOtlpEndpoint]: AuthSettingsWriteScope,
-  // Backups hold every chat, and a restore replaces them on the next start.
-  [WS_METHODS.backupsList]: AuthEnvironmentMaintainScope,
+  // Backups hold every chat, and a restore replaces them on the next start. Listing is a query,
+  // which the client cannot guard; the server still requires the same scope.
   [WS_METHODS.backupsCreate]: AuthEnvironmentMaintainScope,
   [WS_METHODS.backupsRestore]: AuthEnvironmentMaintainScope,
   [WS_METHODS.backupsCancelRestore]: AuthEnvironmentMaintainScope,

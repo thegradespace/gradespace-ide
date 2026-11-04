@@ -9,6 +9,7 @@ import { vi } from "vite-plus/test";
 import {
   AuthAccessReadScope,
   AuthAccessWriteScope,
+  AuthEnvironmentMaintainScope,
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthPreviewOperateScope,
@@ -118,6 +119,27 @@ describe("command permissions", () => {
         yield* cleanup.authorize(registry, env);
         registry.set(sessions(other), AsyncResult.success(grant(false)));
         expect(registry.get(cleanup.permissionAtom(other))).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("requires the destination maintain grant to restore a backup", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const registry = yield* setup;
+        const restore = createCommandPermissions(runtime, WS_METHODS.backupsRestore);
+        registry.set(sessions(env), AsyncResult.success(grant(true)));
+        expect(registry.get(restore.permissionAtom(env))).toBe(false);
+        registry.set(
+          sessions(env),
+          AsyncResult.success({
+            ...grant(false),
+            scopes: [AuthEnvironmentMaintainScope],
+            permissions: [AuthEnvironmentMaintainScope],
+          }),
+        );
+        expect(registry.get(restore.permissionAtom(env))).toBe(true);
+        yield* restore.authorize(registry, env);
       }),
     ),
   );

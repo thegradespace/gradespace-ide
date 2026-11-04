@@ -234,6 +234,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["storage cleanup run now results report removed kept failed"],
   },
   {
+    id: "storage-backups",
+    targetId: "backups-section",
+    title: "Backups",
+    to: "/settings/maintenance",
+    scope: "environment-defaults",
+    searchTerms: ["back up now restore daily copy database chats projects history recover"],
+  },
+  {
     id: "storage-worktrees",
     title: "Worktree cleanup",
     to: "/settings/worktrees",

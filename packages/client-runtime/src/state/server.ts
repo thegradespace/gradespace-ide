@@ -1180,6 +1180,25 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.serverRunStorageCleanup,
       concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
     }),
+    backups: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:backups",
+      tag: WS_METHODS.backupsList,
+    }),
+    createBackup: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:create-backup",
+      tag: WS_METHODS.backupsCreate,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
+    restoreBackup: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:restore-backup",
+      tag: WS_METHODS.backupsRestore,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
+    cancelBackupRestore: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:cancel-backup-restore",
+      tag: WS_METHODS.backupsCancelRestore,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
     prepareTriage: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:prepare-triage",
       tag: WS_METHODS.serverPrepareTriage,
