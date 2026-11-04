@@ -94,7 +94,7 @@ function makeFakeBrowserWindow() {
     replaceMisspelling: vi.fn(),
     send: vi.fn(),
     setBackgroundThrottling: vi.fn(),
-    setWindowOpenHandler: vi.fn(),
+    setWindowOpenHandler: vi.fn<(handler: (details: unknown) => unknown) => void>(),
     toggleDevTools: vi.fn(),
   };
 
@@ -142,6 +142,7 @@ function makeFakeBrowserWindow() {
     reload: webContents.reload,
     reloadIgnoringCache: webContents.reloadIgnoringCache,
     toggleDevTools: webContents.toggleDevTools,
+    setWindowOpenHandler: webContents.setWindowOpenHandler,
     navigationHistory: webContents.navigationHistory,
     send: webContents.send,
     setZoomLevel: webContents.setZoomLevel,
@@ -1076,6 +1077,78 @@ describe("DesktopWindow", () => {
 
         assert.isTrue(prevented);
         assert.deepEqual(openedExternalUrls, ["https://accounts.microsoft.com/oauth"]);
+      }).pipe(Effect.provide(layer));
+    }),
+  );
+
+  it.effect("allows only Studio about:blank popups and locks their navigation down", () =>
+    Effect.gen(function* () {
+      const fakeWindow = makeFakeBrowserWindow();
+      const createCount = yield* Ref.make(0);
+      const mainWindow = yield* Ref.make<Option.Option<Electron.BrowserWindow>>(Option.none());
+      const openedExternalUrls: unknown[] = [];
+      const layer = layerTest({
+        window: fakeWindow.window,
+        createCount,
+        mainWindow,
+        openedExternalUrls,
+      });
+
+      yield* Effect.gen(function* () {
+        const desktopWindow = yield* DesktopWindow.DesktopWindow;
+        yield* desktopWindow.handleBackendReady(new URL("http://127.0.0.1:3773"));
+
+        const handler = fakeWindow.setWindowOpenHandler.mock.calls[0]?.[0];
+        if (!handler) return yield* Effect.die("window open handler was not registered");
+        const studio = handler({ url: "about:blank", frameName: "gradespace-studio-set-1" });
+        assert.deepEqual(studio, {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            width: 1400,
+            height: 900,
+            minWidth: 640,
+            minHeight: 480,
+            title: "Studio",
+            autoHideMenuBar: true,
+            backgroundColor: "#ffffff",
+            webPreferences: {
+              contextIsolation: true,
+              nodeIntegration: false,
+              sandbox: true,
+              webviewTag: false,
+            },
+          },
+        });
+        assert.deepEqual(handler({ url: "about:blank", frameName: "other" }), { action: "deny" });
+        assert.deepEqual(handler({ url: "about:blank", frameName: "" }), { action: "deny" });
+        assert.deepEqual(
+          handler({ url: "https://example.com/a", frameName: "gradespace-studio-x" }),
+          { action: "deny" },
+        );
+        yield* Effect.promise(() => Promise.resolve());
+        assert.deepEqual(openedExternalUrls, ["https://example.com/a"]);
+
+        const popupHandlers = new Map<string, (...args: readonly unknown[]) => void>();
+        const popupOpenHandler = vi.fn<(handler: (details: unknown) => unknown) => void>();
+        fakeWindow.webContentsListeners.get("did-create-window")?.({
+          webContents: {
+            on: (name: string, listener: (...args: readonly unknown[]) => void) =>
+              popupHandlers.set(name, listener),
+            setWindowOpenHandler: popupOpenHandler,
+          },
+        });
+        const preventDefault = vi.fn();
+        popupHandlers.get("will-navigate")?.({ preventDefault }, "https://example.org/");
+        yield* Effect.promise(() => Promise.resolve());
+        assert.equal(preventDefault.mock.calls.length, 1);
+        assert.deepEqual(openedExternalUrls, ["https://example.com/a", "https://example.org/"]);
+        assert.deepEqual(
+          popupOpenHandler.mock.calls[0]?.[0]({
+            url: "about:blank",
+            frameName: "gradespace-studio-x",
+          }),
+          { action: "deny" },
+        );
       }).pipe(Effect.provide(layer));
     }),
   );

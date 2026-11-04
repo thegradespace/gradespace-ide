@@ -131,6 +131,8 @@ function getIconOption(
   });
 }
 
+const STUDIO_POPUP_FRAME_PREFIX = "gradespace-studio-";
+
 function getInitialWindowBackgroundColor(shouldUseDarkColors: boolean): string {
   return shouldUseDarkColors ? "#000000" : "#ffffff";
 }
@@ -605,11 +607,45 @@ export const make = Effect.gen(function* () {
       void runPromise(previewManager.prepareWebview(contents));
     });
 
-    window.webContents.setWindowOpenHandler(({ url }) => {
+    const openSafeExternalUrl = (url: string) => {
       if (Option.isSome(ElectronShell.parseSafeExternalUrl(url))) {
         void runPromise(electronShell.openExternal(url));
       }
+    };
+    window.webContents.setWindowOpenHandler(({ url, frameName }) => {
+      // Studio pops a design out with window.open("", "gradespace-studio-…") and renders into it.
+      if (url === "about:blank" && frameName.startsWith(STUDIO_POPUP_FRAME_PREFIX)) {
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            width: 1400,
+            height: 900,
+            minWidth: 640,
+            minHeight: 480,
+            title: "Studio",
+            autoHideMenuBar: true,
+            backgroundColor: getInitialWindowBackgroundColor(shouldUseDarkColors),
+            webPreferences: {
+              contextIsolation: true,
+              nodeIntegration: false,
+              sandbox: true,
+              webviewTag: false,
+            },
+          },
+        };
+      }
+      openSafeExternalUrl(url);
       return { action: "deny" };
+    });
+    window.webContents.on("did-create-window", (popup) => {
+      popup.webContents.setWindowOpenHandler(({ url }) => {
+        openSafeExternalUrl(url);
+        return { action: "deny" };
+      });
+      popup.webContents.on("will-navigate", (event, url) => {
+        event.preventDefault();
+        openSafeExternalUrl(url);
+      });
     });
     window.webContents.on("will-navigate", (event, url) => {
       if (
