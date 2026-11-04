@@ -57,6 +57,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   CornerLeftUpIcon,
+  FileOutputIcon,
   FileSearchIcon,
   FolderGit2Icon,
   FolderIcon,
@@ -1393,6 +1394,20 @@ function OpenCommandPaletteDialog(props: {
       icon: <UserPlusIcon className={ITEM_ICON_CLASS} />,
       run: async () => {
         openGuestShareDialog(threadRef);
+      },
+    });
+  }
+
+  if (activeThread !== null) {
+    const threadRef = scopeThreadRef(activeThread.environmentId, activeThread.id);
+    actionItems.push({
+      kind: "action",
+      value: "action:open-thread-files",
+      searchTerms: ["files", "made", "created", "edited", "outputs", "agent", "written", "thread"],
+      title: "Show files made in this thread",
+      icon: <FileOutputIcon className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        useRightPanelStore.getState().open(threadRef, "thread-files");
       },
     });
   }

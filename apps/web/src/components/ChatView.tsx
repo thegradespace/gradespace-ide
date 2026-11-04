@@ -2362,6 +2362,7 @@ export default function ChatView(props: ChatViewProps) {
     addDiffSurfaceStable,
     addFilesSurfaceStable,
     addStudioSurfaceStable,
+    addThreadFilesSurfaceStable,
     addPullRequestSurfaceStable,
     addPullRequestsSurfaceStable,
     closePreviewPanelStable,
@@ -4000,6 +4001,7 @@ export default function ChatView(props: ChatViewProps) {
           onAddDiff={addDiffSurfaceStable}
           onAddFiles={addFilesSurfaceStable}
           onAddStudio={addStudioSurfaceStable}
+          onAddThreadFiles={addThreadFilesSurfaceStable}
           onAddPullRequest={addPullRequestSurfaceStable}
           onAddPullRequests={addPullRequestsSurfaceStable}
           onAddDevice={addDeviceSurfaceStable}
@@ -4009,6 +4011,7 @@ export default function ChatView(props: ChatViewProps) {
           diffAvailable={isServerThread && isGitRepo}
           filesAvailable={activeProject !== null}
           studioAvailable={activeProject !== null}
+          threadFilesAvailable={activeThreadRef !== null && isServerThread}
           pullRequestAvailable={pullRequestSurfaceAvailable}
           pullRequestsAvailable={pullRequestsSurfaceAvailable}
           deviceAvailable={activeThreadRef !== null}

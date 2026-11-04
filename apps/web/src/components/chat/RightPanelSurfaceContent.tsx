@@ -11,6 +11,7 @@ import type {
 import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import { lazy, Suspense } from "react";
 import SideChatPane from "./SideChatPane";
+import { ThreadFilesPanel } from "./ThreadFilesPanel";
 import type { ComposerImageAttachment, DraftId } from "../../composerDraftStore";
 import type { ShortcutMatchContext } from "../../keybindings";
 import type { SideChatParentPanel } from "../../lib/sideChatPane";
@@ -209,6 +210,14 @@ export function RightPanelSurfaceContent(props: {
             workspaceMutationId={props.workspaceMutationId}
           />
         </Suspense>
+      );
+    case "thread-files":
+      return (
+        <ThreadFilesPanel
+          environmentId={props.environmentId}
+          threadRef={threadRef}
+          cwd={props.files.workspaceRoot ?? null}
+        />
       );
     case "files":
     case "file": {

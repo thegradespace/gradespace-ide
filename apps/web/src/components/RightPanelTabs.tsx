@@ -41,6 +41,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileDiff,
+  FileOutput,
   Files,
   Globe2,
   MessagesSquare,
@@ -149,6 +150,8 @@ export interface RightPanelTabsProps {
   onAddSideChat?: (() => void) | undefined;
   /** Absent where Studio is not offered. */
   onAddStudio?: (() => void) | undefined;
+  /** Absent where the thread has no file list to show. */
+  onAddThreadFiles?: (() => void) | undefined;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
@@ -157,6 +160,7 @@ export interface RightPanelTabsProps {
   pullRequestsAvailable: boolean;
   deviceAvailable: boolean;
   studioAvailable?: boolean;
+  threadFilesAvailable?: boolean;
   sideChatAvailable?: boolean;
   /** Overrides the default reason while side chats are available but cannot start. */
   sideChatDisabledReason?: string | null;
@@ -188,6 +192,7 @@ const SURFACE_DISABLED_REASONS = {
   device: "Devices are only available from a thread.",
   sideChat: "Side chats start after the first message.",
   studio: "Studio is only available when a project is open.",
+  threadFiles: "Thread files are only available from a project thread.",
 } as const;
 
 // Closed keepMounted popups must stop blocking shortcuts once their exit transition ends.
@@ -214,6 +219,7 @@ const SURFACE_UNAVAILABLE_HINTS = {
   device: "Available from a thread.",
   sideChat: "Available after the first message.",
   studio: "Available when a project is open.",
+  threadFiles: "Available from a project thread.",
 } as const;
 
 type TabContextMenuAction =
@@ -334,6 +340,7 @@ function RightPanelEmptyState(props: {
   /** Absent where side chats are not offered. */
   onAddSideChat?: (() => void) | undefined;
   onAddStudio?: (() => void) | undefined;
+  onAddThreadFiles?: (() => void) | undefined;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
@@ -342,6 +349,7 @@ function RightPanelEmptyState(props: {
   pullRequestsAvailable: boolean;
   deviceAvailable: boolean;
   studioAvailable: boolean;
+  threadFilesAvailable: boolean;
   sideChatAvailable: boolean;
   sideChatDisabledReason: string | null;
 }) {
@@ -414,6 +422,19 @@ function RightPanelEmptyState(props: {
             available: props.studioAvailable,
             disabledReason: SURFACE_UNAVAILABLE_HINTS.studio,
             onClick: props.onAddStudio,
+          },
+        ]
+      : []),
+    ...(props.onAddThreadFiles
+      ? [
+          {
+            label: "Thread files",
+            description: "Files the agent created or edited here.",
+            icon: FileOutput,
+            shortcut: "H",
+            available: props.threadFilesAvailable,
+            disabledReason: SURFACE_UNAVAILABLE_HINTS.threadFiles,
+            onClick: props.onAddThreadFiles,
           },
         ]
       : []),
@@ -619,6 +640,8 @@ function surfaceTitle(
       return "Side chat";
     case "studio":
       return "Studio";
+    case "thread-files":
+      return "Thread files";
     case "preview": {
       const snapshot = surface.resourceId ? sessions[surface.resourceId] : null;
       if (!snapshot || snapshot.navStatus._tag === "Idle") return "Browser";
@@ -709,6 +732,8 @@ function SurfaceIcon({
       return <PullRequestGlyph.link className="size-3 shrink-0" />;
     case "studio":
       return <Palette className="size-3 shrink-0" />;
+    case "thread-files":
+      return <FileOutput className="size-3 shrink-0" />;
     case "side-chat":
       return <SideChatTabIcon environmentId={environmentId} threadId={surface.threadId} />;
     case "device":
@@ -1187,6 +1212,18 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           },
         ]
       : []),
+    ...(props.onAddThreadFiles
+      ? [
+          {
+            label: "Thread files",
+            icon: FileOutput,
+            shortcut: "H",
+            available: props.threadFilesAvailable === true,
+            disabledReason: SURFACE_DISABLED_REASONS.threadFiles,
+            onClick: props.onAddThreadFiles,
+          },
+        ]
+      : []),
     ...(props.onAddSideChat
       ? [
           {
@@ -1577,6 +1614,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             onAddDevice={props.onAddDevice}
             onAddSideChat={props.onAddSideChat}
             onAddStudio={props.onAddStudio}
+            onAddThreadFiles={props.onAddThreadFiles}
             browserAvailable={props.browserAvailable}
             terminalAvailable={props.terminalAvailable}
             diffAvailable={props.diffAvailable}
@@ -1585,6 +1623,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             pullRequestsAvailable={props.pullRequestsAvailable}
             deviceAvailable={props.deviceAvailable}
             studioAvailable={props.studioAvailable === true}
+            threadFilesAvailable={props.threadFilesAvailable === true}
             sideChatAvailable={props.sideChatAvailable === true}
             sideChatDisabledReason={props.sideChatDisabledReason ?? null}
           />
