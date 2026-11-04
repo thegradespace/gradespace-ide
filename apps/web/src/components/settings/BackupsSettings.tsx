@@ -47,7 +47,8 @@ function backupLabel(entry: BackupEntry) {
     return formatDay(new Date(year!, month! - 1, day!).toISOString());
   }
   if (entry.fileName.startsWith("statev2-before-restore-")) {
-    return `Saved before a restore, ${new Date(entry.createdAt).toLocaleString()}`;
+    const time = new Date(entry.createdAt).toLocaleTimeString(undefined, { timeStyle: "short" });
+    return `Saved before a restore, ${formatDay(entry.createdAt)}, ${time}`;
   }
   return entry.fileName.replace(/^statev2-/, "").replace(/\.sqlite$/, "");
 }
