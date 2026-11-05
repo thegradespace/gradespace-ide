@@ -1,0 +1,63 @@
+name: Windows test build
+
+# Unsigned Windows x64 installer for hands-on testing. Uploads a workflow
+# artifact only; nothing is published to the releases repo.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without the v, such as 0.1.11-test"
+        required: true
+        default: "0.1.11-test"
+  # Temporary: workflow_dispatch only works once this file is on the default branch.
+  push:
+    branches: [feat/windows-build]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ inputs.version || '0.1.11-test' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # .repos holds read-only references the build never reads.
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - uses: ./.github/actions/setup-ci-deps
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Align package versions to the build version
+        run: node scripts/update-release-package-versions.ts "$VERSION"
+
+      # Without --wsl-runtime the app runs its server natively on Windows only;
+      # the WSL backend needs the Linux CLI archive, which this test build skips.
+      - name: Build the installer
+        env:
+          T3CODE_DESKTOP_UPDATE_REPOSITORY: johnkoko/gradespace-ide-releases
+        run: |
+          vp run dist:desktop:artifact --platform win --target nsis --arch x64 --build-version "$VERSION" --verbose
+          ls -la release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gradespace-ide-${{ env.VERSION }}-win-x64
+          path: |
+            release/*.exe
+            release/*.blockmap
+            release/latest*.yml
+          if-no-files-found: error
+          retention-days: 14
