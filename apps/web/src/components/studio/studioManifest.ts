@@ -149,6 +149,22 @@ export const studioShownVariant = (
 ): StudioVariant =>
   version === null ? variant : { ...variant, file: studioVersionFile(variant, version) };
 
+const fileNamePart = (text: string) => text.replace(/[^\w.-]+/g, "-").replace(/^[.-]+|[.-]+$/g, "");
+
+/** `<set-folder>-<option>.<ext>`, with `-v<N>` once the option has more than one version. */
+export function studioDownloadFileName(
+  setPath: string,
+  variant: StudioVariant,
+  version: StudioViewedVersion,
+  extension: string,
+): string {
+  const set = fileNamePart(setPath.split("/").at(-1) ?? "") || "design";
+  const option = fileNamePart(variant.id) || "option";
+  const latest = studioLatestVersion(variant);
+  const suffix = latest > 1 ? `-v${version ?? latest}` : "";
+  return `${set}-${option}${suffix}.${extension}`;
+}
+
 const studioOptionLabel = (variant: StudioVariant, version: StudioViewedVersion) =>
   version === null ? variant.id : `${variant.id} v${version}`;
 

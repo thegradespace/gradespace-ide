@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   parseStudioManifest,
   studioCompareDefault,
+  studioDownloadFileName,
   studioPinLine,
   studioShownVariant,
   studioVariantKind,
@@ -98,6 +99,18 @@ describe("revisions", () => {
     expect(studioViewedVersion(variant("A"), 1)).toBeNull();
     expect(studioShownVariant(b, 2).file).toBe("b.v2.html");
     expect(studioShownVariant(b, null)).toBe(b);
+  });
+
+  it("names downloads after the set and option, with the version once there are several", () => {
+    const set = ".gradespace/studio/2026-11-05-launch";
+    const b = { ...variant("B"), revisions };
+    expect(studioDownloadFileName(set, variant("A"), null, "png")).toBe("2026-11-05-launch-A.png");
+    expect(studioDownloadFileName(set, b, null, "pdf")).toBe("2026-11-05-launch-B-v3.pdf");
+    expect(studioDownloadFileName(set, b, 1, "html")).toBe("2026-11-05-launch-B-v1.html");
+    expect(studioDownloadFileName("studio/my set!", variant("a/b c"), null, "png")).toBe(
+      "my-set-a-b-c.png",
+    );
+    expect(studioDownloadFileName("", variant("../"), null, "png")).toBe("design-option.png");
   });
 });
 

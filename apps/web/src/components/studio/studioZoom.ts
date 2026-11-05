@@ -1,4 +1,7 @@
-import { STUDIO_WHEEL_ZOOM_MESSAGE } from "@t3tools/shared/studioZoom";
+import type { ResolvedKeybindingsConfig } from "@t3tools/contracts";
+import { STUDIO_KEY_ZOOM_MESSAGE, STUDIO_WHEEL_ZOOM_MESSAGE } from "@t3tools/shared/studioZoom";
+
+import { resolveShortcutCommand, type ShortcutEventLike } from "~/keybindings";
 
 // Pages lay out at a desktop width and shrink to fit, so a thumbnail shows the whole design.
 export const STUDIO_PAGE_WIDTH = 1280;
@@ -58,4 +61,38 @@ export function parseStudioWheelZoomMessage(
   if (typeof deltaY !== "number" || !Number.isFinite(deltaY)) return null;
   if (deltaMode !== 0 && deltaMode !== 1 && deltaMode !== 2) return null;
   return { deltaY, deltaMode };
+}
+
+/** The zoom a key asks for while Studio has focus: a step, null to fit, or undefined for other keys. */
+export function studioZoomForKey(
+  event: ShortcutEventLike,
+  keybindings: ResolvedKeybindingsConfig,
+  current: number,
+  platform?: string,
+): number | null | undefined {
+  const command = resolveShortcutCommand(event, keybindings, {
+    ...(platform === undefined ? {} : { platform }),
+    context: { studioFocus: true },
+  });
+  if (command === "studio.zoomIn") return stepZoom(current, 1);
+  if (command === "studio.zoomOut") return stepZoom(current, -1);
+  if (command === "studio.zoomFit") return null;
+  return undefined;
+}
+
+export function parseStudioKeyZoomMessage(data: unknown): ShortcutEventLike | null {
+  if (typeof data !== "object" || data === null) return null;
+  const message = data as Record<string, unknown>;
+  if (message.type !== STUDIO_KEY_ZOOM_MESSAGE) return null;
+  const { key, code, metaKey, ctrlKey, shiftKey, altKey } = message;
+  if (typeof key !== "string" || typeof code !== "string") return null;
+  if (
+    typeof metaKey !== "boolean" ||
+    typeof ctrlKey !== "boolean" ||
+    typeof shiftKey !== "boolean" ||
+    typeof altKey !== "boolean"
+  ) {
+    return null;
+  }
+  return { key, code, metaKey, ctrlKey, shiftKey, altKey };
 }

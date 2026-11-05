@@ -38,6 +38,7 @@ import {
   StudioFullscreen,
   StudioPopupWindow,
 } from "./StudioDesignViewer";
+import { downloadStudioFile } from "./StudioDownloadButton";
 import {
   parseStudioManifest,
   STUDIO_MANIFEST_NAME,
@@ -105,14 +106,7 @@ function StudioExportButton(
   const exportFile = async () => {
     const url = await refreshAssetUrl();
     if (!url) throw new Error("Reconnect to the environment and try again.");
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("The file could not be loaded. Try again.");
-    const downloadUrl = URL.createObjectURL(await response.blob());
-    setTimeout(() => URL.revokeObjectURL(downloadUrl), 30_000);
-    const anchor = document.createElement("a");
-    anchor.href = downloadUrl;
-    anchor.download = props.variant.file.split("/").at(-1) ?? props.variant.file;
-    anchor.click();
+    await downloadStudioFile(url, props.variant.file.split("/").at(-1) ?? props.variant.file);
   };
   return (
     <FileSurfaceAction
@@ -512,17 +506,14 @@ function StudioSet(
               </FileSurfaceAction>
             }
             trailing={
-              <>
-                <FileSurfaceAction
-                  label={canEdit ? "Open to edit" : "Open in Files"}
-                  onPress={() =>
-                    useRightPanelStore.getState().openFile(props.threadRef, relativePath)
-                  }
-                >
-                  <PencilLine className="size-3.5" />
-                </FileSurfaceAction>
-                <StudioExportButton {...props} variant={shown} />
-              </>
+              <FileSurfaceAction
+                label={canEdit ? "Open to edit" : "Open in Files"}
+                onPress={() =>
+                  useRightPanelStore.getState().openFile(props.threadRef, relativePath)
+                }
+              >
+                <PencilLine className="size-3.5" />
+              </FileSurfaceAction>
             }
             onFullscreen={() => setFullscreen(true)}
             onPopOut={popOut}
