@@ -18,6 +18,8 @@ const isShelfHeader = (item: SidebarListItem | undefined) =>
   (item.marker === "working-header" ||
     item.marker === "snoozed-header" ||
     item.marker === "settled-header");
+const isWorkingEnd = (item: SidebarListItem) =>
+  item.kind === "marker" && item.marker === "working-end";
 
 export function restrictBelowSidebarLabel(
   { transform, containerNodeRect, draggingNodeRect }: Parameters<Modifier>[0],
@@ -56,7 +58,12 @@ export function createSidebarCollisionDetection(
       if (pointer.x >= boundary.left && pointer.x <= boundary.right) {
         if (pointer.y < previousY && pointer.y <= boundary.bottom) boundarySection = "pinned";
         else if (pointer.y > previousY && pointer.y >= boundary.top) boundarySection = "active";
-        const nextHeader = (["working-header", "snoozed-header", "settled-header"] as const)
+        const workingAbove = items.some(isWorkingEnd);
+        const nextHeader = (
+          workingAbove
+            ? (["snoozed-header", "settled-header"] as const)
+            : (["working-header", "snoozed-header", "settled-header"] as const)
+        )
           .map((marker) =>
             args.droppableContainers.find((container) => container.id === sidebarMarkerId(marker)),
           )
@@ -172,11 +179,20 @@ export function createSidebarSortingStrategy(input: {
       if (groups[name].length > 0) projected.push(...groups[name]);
       else marker(`${name}-placeholder`);
     };
+    const hasWorking = items.some(
+      (item) => item.kind === "marker" && item.marker === "working-header",
+    );
+    const workingAbove = items.some(isWorkingEnd);
     marker("pinned-header");
     projected.push(...groups.pinned);
     marker("pinned-divider");
+    if (hasWorking && workingAbove) {
+      marker("working-header");
+      projected.push(...groups.working);
+      marker("working-end");
+    }
     section("active");
-    if (items.some((item) => item.kind === "marker" && item.marker === "working-header")) {
+    if (hasWorking && !workingAbove) {
       marker("working-header");
       projected.push(...groups.working);
     }
@@ -208,7 +224,11 @@ export function createSidebarSortingStrategy(input: {
             ? fallback
             : (rect?.height ?? fallback);
     });
-    const firstShelf = items.findIndex(isShelfHeader);
+    // Shelves pinned to the bottom take the free space; a Working section listed first does not.
+    const isBottomShelf = (item: SidebarListItem | undefined) =>
+      isShelfHeader(item) &&
+      !(workingAbove && item?.kind === "marker" && item.marker === "working-header");
+    const firstShelf = items.findIndex(isBottomShelf);
     const shelfRect = rects[firstShelf];
     const beforeShelf = rects[firstShelf - 1];
     const lastRect = rects.at(-1);
@@ -222,7 +242,7 @@ export function createSidebarSortingStrategy(input: {
     const result = items.map(() => hidden);
     let top = rects[0].top;
     for (const [projectedIndex, item] of projected.entries()) {
-      if (isShelfHeader(item)) {
+      if (isBottomShelf(item)) {
         top += shelfSpace;
         shelfSpace = 0;
       }

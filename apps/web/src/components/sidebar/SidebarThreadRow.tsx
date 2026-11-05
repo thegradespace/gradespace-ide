@@ -535,7 +535,12 @@ type SidebarThreadRowProps = {
   thread: SidebarThreadSummary;
   // "folder" is a one-line row inside a boring sidebar project folder;
   // "folder-multiline" adds the card's branch and PR line under it.
-  variant: "card" | "slim" | "folder" | "folder-multiline";
+  // "compact" is a one-line inbox row: project, title, and a status-coloured time.
+  variant: "card" | "slim" | "folder" | "folder-multiline" | "compact";
+  /** Compact rows only: lead with the status icon. */
+  showStatusIcon?: boolean | undefined;
+  /** A thin left edge coloured by the thread's status. */
+  statusRail?: boolean | undefined;
   navigationParent?: string | undefined;
   variantAction: SidebarSweepAction;
   settlementSupported: boolean;
@@ -713,13 +718,16 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     wokeAtDate !== null &&
     (lastVisitedDate === null || lastVisitedDate < wokeAtDate) &&
     thread.settledOverride !== "settled";
-  const shouldRecede = shouldRecedeSidebarThread({
-    status,
-    isUnread,
-    isWoke,
-    isActive: props.isActive,
-    isSelected,
-  });
+  // One-line rows mark working threads in colour, so they stay at full strength.
+  const shouldRecede =
+    !(variant === "compact" && status === "working") &&
+    shouldRecedeSidebarThread({
+      status,
+      isUnread,
+      isWoke,
+      isActive: props.isActive,
+      isSelected,
+    });
   const topStatus =
     status === "working"
       ? {
@@ -777,6 +785,25 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                         }
                       : null;
   const isWokeStatus = topStatus?.icon === "woke";
+  const statusRailClassName = !props.statusRail
+    ? null
+    : status === "working" || status === "waiting"
+      ? "bg-info"
+      : status === "approval" || status === "input" || status === "request"
+        ? "bg-warning"
+        : topStatus?.icon === "done"
+          ? "bg-success"
+          : null;
+  const statusRail =
+    statusRailClassName === null ? null : (
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-y-1 left-0 z-20 w-[3px] rounded-full",
+          statusRailClassName,
+        )}
+      />
+    );
 
   const branchMismatch = resolveLocalCheckoutBranchMismatch({
     effectiveEnvMode: thread.worktreePath === null ? "local" : "worktree",
@@ -1190,6 +1217,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   if (variant !== "card") {
     const multiline = variant === "folder-multiline";
     const inFolder = variant === "folder" || multiline;
+    const compact = variant === "compact";
     return (
       <li
         data-thread-item={threadKey}
@@ -1198,6 +1226,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
         className={cn(
           "list-none [content-visibility:auto] [contain-intrinsic-size:auto_36px]",
           metaLine !== null && multiline && "[contain-intrinsic-size:auto_54px]",
+          compact && "[contain-intrinsic-size:auto_32px]",
           sortable?.isDragging && "relative z-20",
         )}
       >
@@ -1212,13 +1241,21 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                 data-sidebar-parent={props.navigationParent}
                 aria-label={accessibility.label}
                 aria-current={accessibility.current}
-                data-testid={inFolder ? "sidebar-row-folder" : "sidebar-row-slim"}
+                data-testid={
+                  inFolder
+                    ? "sidebar-row-folder"
+                    : compact
+                      ? "sidebar-row-compact"
+                      : "sidebar-row-slim"
+                }
                 aria-busy={isRegeneratingTitle || undefined}
                 className={cn(
                   rowSurfaceClassName,
                   multiline
                     ? "flex flex-col justify-center px-2.5 py-1.5"
-                    : "flex h-9 items-center gap-2.5 px-2.5",
+                    : compact
+                      ? "flex h-8 items-center gap-2 px-2.5"
+                      : "flex h-9 items-center gap-2.5 px-2.5",
                   // Lines titles up with the folder name, past its chevron and icon.
                   inFolder && "ps-9",
                 )}
@@ -1230,13 +1267,25 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
             }
           >
             {/* `contents` keeps one-line rows a single flex row. */}
+            {statusRail}
             <div className={multiline ? "flex h-6 min-w-0 items-center gap-2.5" : "contents"}>
               {accessibleTitle}
+              {compact && props.showStatusIcon ? (
+                <span className="flex size-3.5 shrink-0 items-center justify-center">
+                  {topStatus ? (
+                    <TopStatusIcon
+                      icon={topStatus.icon}
+                      className={cn("size-3.5", topStatus.className)}
+                    />
+                  ) : null}
+                </span>
+              ) : null}
               {inFolder ? null : (
                 <span
                   className={cn(
                     "flex shrink-0 items-center transition-opacity",
-                    (!props.isActive || variantAction === "unsettle") &&
+                    !compact &&
+                      (!props.isActive || variantAction === "unsettle") &&
                       "opacity-40 grayscale group-focus-within/sidebar-row:opacity-100 group-focus-within/sidebar-row:grayscale-0 group-hover/sidebar-row:opacity-100 group-hover/sidebar-row:grayscale-0",
                   )}
                 >
@@ -1304,8 +1353,12 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                         <TopStatusIcon icon={topStatus.icon} className="size-3" />
                         {topStatus.label}
                       </span>
+                    ) : compact && status === "working" ? (
+                      <span className="text-xs text-info-foreground">
+                        <WorkingDuration startedAt={resolveWorkingStartedAt(thread)} />
+                      </span>
                     ) : (
-                      <span className="text-xs">
+                      <span className={cn("text-xs", compact && topStatus?.className)}>
                         <RelativeTimeLabel
                           timestamp={
                             variantAction === "unsettle"
@@ -1417,6 +1470,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
             />
           }
         >
+          {statusRail}
           {accessibleTitle}
           <div
             className={cn(

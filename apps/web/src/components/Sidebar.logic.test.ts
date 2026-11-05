@@ -36,6 +36,8 @@ import {
   resolveSidebarDropVerb,
   groupSidebarThreadsByProject,
   resolveSidebarFolderDot,
+  groupSidebarCompactThreads,
+  resolveThreadLastVisitedAt,
   sidebarFolderExpansionKeys,
 } from "./Sidebar.logic";
 import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
@@ -1169,6 +1171,28 @@ describe("Working shelf (beta)", () => {
       expect(resolveSidebarDropVerb("active", "working")).toBeNull();
     });
 
+    it("keeps a Working section listed above the inbox out of the drop order", () => {
+      const workingFirst: readonly SidebarListItem[] = [
+        marker("pinned-header"),
+        row("p1", "pinned"),
+        marker("pinned-divider"),
+        marker("working-header"),
+        row("w1", "working"),
+        marker("working-end"),
+        row("a1", "active"),
+        row("a2", "active"),
+        marker("settled-header"),
+        row("s1", "settled"),
+      ];
+      expect(resolveSidebarDropTarget(workingFirst, "a1", "w1")).toBeNull();
+      expect(resolveSidebarDropTarget(workingFirst, "p1", "a2")).toEqual({
+        section: "active",
+        pinnedOrder: [],
+        activeOrder: ["a1", "a2", "p1"],
+      });
+      expect(resolveSidebarDropTarget(workingFirst, "a2", "p1")?.section).toBe("pinned");
+    });
+
     it.each([
       ["pinned", "p1"],
       ["active", "a2"],
@@ -1661,6 +1685,53 @@ describe("groupSidebarThreadsByProject", () => {
       { projectKey: "t3code", threads: ["a", "b"] },
       { projectKey: "fleet", threads: [] },
     ]);
+  });
+});
+
+describe("groupSidebarCompactThreads", () => {
+  it("sorts inbox threads into Working, Needs you and Done, leaving seen idle threads out", () => {
+    const runtime = {
+      status: "running" as const,
+      activeRunId: null,
+      providerInstanceId: ProviderInstanceId.make("codex"),
+      providerName: "Codex",
+      lastError: null,
+      updatedAt: "2026-03-09T10:00:00.000Z",
+    };
+    const seen = {
+      id: "seen",
+      hasActionableProposedPlan: false,
+      hasPendingApprovals: false,
+      hasPendingUserInput: false,
+      interactionMode: "default" as const,
+      latestRun: makeLatestRun(),
+      lastVisitedAt: "2026-03-09T10:06:00.000Z",
+      runtime: null,
+    };
+    const threads = [
+      seen,
+      { ...seen, id: "working", runtime },
+      { ...seen, id: "idle", runtime: { ...runtime, status: "idle" as const } },
+      { ...seen, id: "approval", runtime, hasPendingApprovals: true },
+      { ...seen, id: "input", hasPendingUserInput: true },
+      { ...seen, id: "request", pendingGuestMessageCount: 1 },
+      { ...seen, id: "failed", runtime: { ...runtime, status: "failed" as const } },
+      { ...seen, id: "unread", lastVisitedAt: "2026-03-09T10:04:00.000Z" },
+      { ...seen, id: "locally-read", lastVisitedAt: undefined },
+    ];
+    const localVisits: Record<string, string> = {
+      unread: "2026-03-09T10:10:00.000Z",
+      "locally-read": "2026-03-09T10:10:00.000Z",
+    };
+    const groups = groupSidebarCompactThreads(threads, (thread) =>
+      resolveThreadLastVisitedAt(thread.lastVisitedAt, localVisits[thread.id]),
+    );
+    const ids = (list: readonly { id: string }[]) => list.map((thread) => thread.id);
+
+    expect(ids(groups.working)).toEqual(["working", "idle"]);
+    expect(ids(groups["needs-you"])).toEqual(["approval", "input", "request", "failed"]);
+    // The server's visit wins over a newer local one, so "unread" stays Done.
+    expect(ids(groups.done)).toEqual(["unread"]);
   });
 });
 

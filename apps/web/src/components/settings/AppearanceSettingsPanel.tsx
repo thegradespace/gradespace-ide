@@ -7,6 +7,7 @@ import {
   type ChatWidth,
   type PanelSide,
   SidebarCollapsedStyle,
+  SidebarStyle,
   type TerminalPlacement,
   type EffortDisplay,
   type EnvironmentIdentificationMode,
@@ -86,6 +87,14 @@ const CHAT_WIDTH_LABELS: Record<ChatWidth, string> = {
 const PANEL_SIDE_LABELS: Record<PanelSide, string> = {
   right: "Right",
   left: "Left",
+};
+
+const isSidebarStyle = Schema.is(SidebarStyle);
+
+const SIDEBAR_STYLE_LABELS: Record<SidebarStyle, string> = {
+  dock: "Live dock",
+  rail: "Status rail",
+  compact: "Compact with filters",
 };
 
 const isSidebarCollapsedStyle = Schema.is(SidebarCollapsedStyle);
@@ -323,6 +332,39 @@ export function AppearanceSettingsPanel() {
                 <SelectPopup align="end" alignItemWithTrigger={false}>
                   <SelectItem value="right">Right (default)</SelectItem>
                   <SelectItem value="left">Left</SelectItem>
+                </SelectPopup>
+              </Select>
+            </div>
+          }
+        />
+        <SettingsRow
+          {...searchableSetting("sidebar-style")}
+          description="Choose how working threads and threads that need you stand out in the sidebar."
+          resetAction={
+            settings.sidebarStyle !== DEFAULT_UNIFIED_SETTINGS.sidebarStyle ? (
+              <SettingResetButton
+                label="sidebar style"
+                onClick={() =>
+                  updateSettings({ sidebarStyle: DEFAULT_UNIFIED_SETTINGS.sidebarStyle })
+                }
+              />
+            ) : null
+          }
+          control={
+            <div className="w-full sm:w-40">
+              <Select
+                value={settings.sidebarStyle}
+                onValueChange={(value) => {
+                  if (isSidebarStyle(value)) updateSettings({ sidebarStyle: value });
+                }}
+              >
+                <SelectTrigger size="sm" className="w-full min-w-0" aria-label="Sidebar style">
+                  <SelectValue>{SIDEBAR_STYLE_LABELS[settings.sidebarStyle]}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup align="end" alignItemWithTrigger={false}>
+                  <SelectItem value="dock">Live dock (default)</SelectItem>
+                  <SelectItem value="rail">Status rail</SelectItem>
+                  <SelectItem value="compact">Compact with filters</SelectItem>
                 </SelectPopup>
               </Select>
             </div>

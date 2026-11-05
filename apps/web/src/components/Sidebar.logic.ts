@@ -192,6 +192,8 @@ export type SidebarListMarker =
   | "settled-placeholder"
   | "pinned-divider"
   | "working-header"
+  // Closes a Working section listed above the inbox, so the rows after it are active again.
+  | "working-end"
   | "snoozed-header"
   | "settled-header";
 
@@ -214,6 +216,7 @@ function sectionAtSidebarSlot(items: readonly SidebarListItem[], index: number):
     if (item.kind !== "marker") continue;
     if (item.marker === "pinned-divider") section = "active";
     else if (item.marker === "working-header") section = "working";
+    else if (item.marker === "working-end") section = "active";
     else if (item.marker === "snoozed-header") section = "snoozed";
     else if (item.marker === "settled-header") section = "settled";
   }
@@ -243,15 +246,12 @@ export function resolveSidebarDropTarget(
   let currentSection: SidebarSection = "pinned";
   for (const item of moved) {
     if (item.kind === "marker") {
-      if (item.marker === "pinned-divider") currentSection = "active";
-      else if (
-        item.marker === "working-header" ||
-        item.marker === "snoozed-header" ||
-        item.marker === "settled-header"
-      )
-        break;
+      if (item.marker === "pinned-divider" || item.marker === "working-end")
+        currentSection = "active";
+      else if (item.marker === "working-header") currentSection = "working";
+      else if (item.marker === "snoozed-header" || item.marker === "settled-header") break;
     } else if (currentSection === "pinned") pinnedOrder.push(item.key);
-    else activeOrder.push(item.key);
+    else if (currentSection === "active") activeOrder.push(item.key);
   }
   return { section, pinnedOrder, activeOrder };
 }
@@ -952,6 +952,26 @@ export function resolveSidebarFolderDot(
   if (hasUnread) return "unread";
   if (statuses.has("working")) return "working";
   return null;
+}
+
+export type SidebarCompactGroup = "working" | "needs-you" | "done";
+export type SidebarCompactFilter = "all" | SidebarCompactGroup;
+
+/** Groups inbox threads for the compact sidebar's filter tabs; idle, seen threads join none. */
+export function groupSidebarCompactThreads<T extends ThreadStatusInput & SidebarThreadStatusInput>(
+  threads: readonly T[],
+  lastVisitedAt: (thread: T) => string | null | undefined,
+): Record<SidebarCompactGroup, T[]> {
+  const groups: Record<SidebarCompactGroup, T[]> = { working: [], "needs-you": [], done: [] };
+  for (const thread of threads) {
+    const status = resolveSidebarThreadStatus(thread);
+    if (status === "working" || status === "waiting") groups.working.push(thread);
+    else if (status !== "ready") groups["needs-you"].push(thread);
+    else if (hasUnseenCompletion({ ...thread, lastVisitedAt: lastVisitedAt(thread) })) {
+      groups.done.push(thread);
+    }
+  }
+  return groups;
 }
 
 /**

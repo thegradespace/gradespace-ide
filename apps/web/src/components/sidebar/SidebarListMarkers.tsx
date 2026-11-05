@@ -116,6 +116,8 @@ export function SidebarSectionHeader(props: {
   dragging?: boolean;
   isDropTarget?: boolean;
   toggle: { expanded: boolean; onToggle: () => void };
+  /** A status dot before the label, for the status rail style. */
+  dotClassName?: string | undefined;
 }) {
   const shelf =
     props.marker === "working-header"
@@ -139,8 +141,37 @@ export function SidebarSectionHeader(props: {
         data-testid={`sidebar-${shelf}-shelf-toggle`}
         accessory={<span className="font-normal tabular-nums">{props.count}</span>}
       >
-        {props.label}
+        {props.dotClassName ? (
+          <span className="inline-flex items-center gap-1.5">
+            <SidebarSectionDot className={props.dotClassName} />
+            {props.label}
+          </span>
+        ) : (
+          props.label
+        )}
       </CollapsibleSectionHeader>
+    </SortableSidebarMarker>
+  );
+}
+
+function SidebarSectionDot(props: { className: string }) {
+  return <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", props.className)} />;
+}
+
+/** Ends a Working section listed above the inbox and labels the inbox rows that follow. */
+export function SidebarWorkingEnd(props: { label: string | null }) {
+  return (
+    <SortableSidebarMarker
+      marker="working-end"
+      data-testid="sidebar-working-end"
+      className={cn("relative mx-0.5", props.label === null ? "h-0" : "h-8")}
+    >
+      {props.label === null ? null : (
+        <div className="flex h-8 items-center gap-1.5 px-2 text-xs font-medium text-sidebar-muted-foreground">
+          <SidebarSectionDot className="bg-sidebar-muted-foreground/60" />
+          {props.label}
+        </div>
+      )}
     </SortableSidebarMarker>
   );
 }
