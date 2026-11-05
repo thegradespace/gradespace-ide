@@ -52,7 +52,8 @@ interface ChatHeaderProps {
   activeProject: EnvironmentProject | null;
   parentThreadLink: { threadId: ThreadId; title: string } | null;
   onOpenThread: (threadId: ThreadId) => void;
-  rightPanelOpen: boolean;
+  /** Which top-right controls sit over the header's right end. */
+  titleBarControls: "thread" | "window" | "windowWithMaximize";
   onNewThreadInProject: () => void;
   onOpenProjectSettings?: (() => void) | undefined;
   onFindInThread?: ((threadRef: ScopedThreadRef) => void) | undefined;
@@ -79,7 +80,7 @@ export const ChatHeader = memo(function ChatHeader({
   activeProject,
   parentThreadLink,
   onOpenThread,
-  rightPanelOpen,
+  titleBarControls,
   onNewThreadInProject,
   onOpenProjectSettings,
   onFindInThread,
@@ -281,7 +282,9 @@ export const ChatHeader = memo(function ChatHeader({
       ref={breadcrumbContainerRef}
       className={cn(
         "flex min-w-0 flex-1 items-center gap-2 sm:gap-3",
-        rightPanelOpen ? "pr-10" : "pr-24",
+        titleBarControls === "thread" && "pr-10",
+        titleBarControls === "window" && "pr-24",
+        titleBarControls === "windowWithMaximize" && "pr-36",
       )}
       onContextMenu={handleHeaderContextMenu}
     >

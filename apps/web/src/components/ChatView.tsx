@@ -1267,6 +1267,8 @@ export default function ChatView(props: ChatViewProps) {
     hasMultipleEnvironments && !envLocked && draftId !== null && !draftThread?.promotedTo;
 
   const panelSide = useClientSettings((settings) => settings.panelSide);
+  // A left-side panel leaves the window's top-right controls over the chat header.
+  const chatHeaderHasWindowControls = !inlineRightPanelOwnsTitleBar || panelSide === "left";
   const terminalPlacement = useClientSettings((settings) => settings.terminalPlacement);
   const loadBalancingSettings = useClientSettings((settings) => ({
     loadBalancingEnabled: settings.loadBalancingEnabled,
@@ -3275,7 +3277,7 @@ export default function ChatView(props: ChatViewProps) {
   const panelToggleControls = (
     <PanelLayoutControls
       {...panelToggleControlProps}
-      showThreadPanelControl={!inlineRightPanelOwnsTitleBar}
+      showThreadPanelControl={chatHeaderHasWindowControls}
     />
   );
   const threadPanelHeaderControl = <ThreadPanelHeaderControl {...panelToggleControlProps} />;
@@ -3369,7 +3371,7 @@ export default function ChatView(props: ChatViewProps) {
               />
             ) : null}
             {!rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}
-            {inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
+            {chatHeaderHasWindowControls ? null : threadPanelHeaderControl}
             <ChatHeader
               activeThreadEnvironmentId={activeThread.environmentId}
               activeThreadId={activeThread.id}
@@ -3379,7 +3381,13 @@ export default function ChatView(props: ChatViewProps) {
               activeProject={activeProject ?? null}
               parentThreadLink={headerParentThreadLink}
               onOpenThread={onOpenRelatedThreadStable}
-              rightPanelOpen={inlineRightPanelOwnsTitleBar}
+              titleBarControls={
+                !chatHeaderHasWindowControls
+                  ? "thread"
+                  : inlineRightPanelOwnsTitleBar
+                    ? "windowWithMaximize"
+                    : "window"
+              }
               onNewThreadInProject={handleNewThreadInActiveProjectStable}
               {...(activeDraftLogicalProjectKey
                 ? { onOpenProjectSettings: handleOpenDraftProjectSettingsStable }
