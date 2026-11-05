@@ -242,6 +242,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["back up now restore daily copy database chats projects history recover"],
   },
   {
+    id: "share-links",
+    targetId: "share-links-section",
+    title: "Share links",
+    to: "/settings/maintenance",
+    scope: "environment-defaults",
+    searchTerms: ["share studio design link public private key token stop sharing expire website"],
+  },
+  {
     id: "storage-worktrees",
     title: "Worktree cleanup",
     to: "/settings/worktrees",

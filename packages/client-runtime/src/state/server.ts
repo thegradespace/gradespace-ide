@@ -1202,10 +1202,14 @@ export function createServerEnvironmentAtoms<R, E>(
     studioShareStatus: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:studio-share-status",
       tag: WS_METHODS.studioShareStatus,
+      staleTimeMs: 0,
+      idleTtlMs: 0,
     }),
     studioShareList: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:studio-share-list",
       tag: WS_METHODS.studioShareList,
+      staleTimeMs: 0,
+      idleTtlMs: 0,
     }),
     setStudioShareToken: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:set-studio-share-token",

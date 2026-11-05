@@ -27,6 +27,7 @@ import {
 } from "./studioManifest";
 import type { NewStudioPin, Size, StudioPin, StudioPinDraft } from "./studioPins";
 import { StudioPinLayer } from "./StudioPinLayer";
+import { StudioShareButton } from "./StudioShareButton";
 import {
   fitImageZoom,
   fitPageZoom,
@@ -316,6 +317,7 @@ function StudioPaneHeader(props: {
   readonly variant: StudioVariant;
   readonly saving: boolean;
   readonly label: string;
+  readonly share: ReactNode;
   readonly onSelect: (id: string) => void;
   readonly onTogglePick: () => void;
 }) {
@@ -339,6 +341,7 @@ function StudioPaneHeader(props: {
         </Button>
       ))}
       <div className="min-w-0 flex-1" />
+      {props.share}
       <Button
         type="button"
         size="xs"
@@ -508,6 +511,17 @@ export function StudioDesignStage(
     setPath: props.setPath,
   };
   const picked = props.manifest.picked === props.variant.id;
+  // Compare has one toolbar per option, so each pane shares its own option at the version it shows.
+  const shareButton = (variant: StudioVariant, version: StudioViewedVersion) => (
+    <StudioShareButton
+      environmentId={props.environmentId}
+      cwd={props.cwd}
+      setPath={props.setPath}
+      variant={studioShownVariant(variant, version)}
+      optionLabel={compare === null ? undefined : variant.id}
+      native={native}
+    />
+  );
 
   return (
     <div ref={setRoot} className="flex min-h-0 flex-1 flex-col">
@@ -553,6 +567,7 @@ export function StudioDesignStage(
             onZoomChange={props.onZoomChange}
           />
         ) : null}
+        {compare === null ? shareButton(props.variant, leadVersion) : null}
         {compare === null ? (
           <Button
             type="button"
@@ -604,6 +619,7 @@ export function StudioDesignStage(
                 variant={props.variant}
                 saving={props.saving}
                 label="Left option"
+                share={shareButton(props.variant, leadVersion)}
                 onSelect={props.onSelect}
                 onTogglePick={() => props.onTogglePick(props.variant)}
               />
@@ -632,6 +648,7 @@ export function StudioDesignStage(
                 variant={compare}
                 saving={props.saving}
                 label="Right option"
+                share={shareButton(compare, compareVersion)}
                 onSelect={props.onSelectCompare}
                 onTogglePick={() => props.onTogglePick(compare)}
               />
