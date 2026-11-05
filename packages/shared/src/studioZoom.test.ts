@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { injectStudioZoomBridge } from "./studioZoom.ts";
+import {
+  injectStudioZoomBridge,
+  STUDIO_PICK_POINT_MESSAGE,
+  STUDIO_PIN_EXIT_MESSAGE,
+  STUDIO_PIN_MODE_MESSAGE,
+  STUDIO_SCROLL_MESSAGE,
+  STUDIO_WHEEL_ZOOM_MESSAGE,
+} from "./studioZoom.ts";
 
 describe("injectStudioZoomBridge", () => {
   it("places the script where the document still parses the same way", () => {
@@ -13,5 +20,22 @@ describe("injectStudioZoomBridge", () => {
     );
     expect(script("<p>hi</p>")).toMatch(/^<script>[\s\S]*<\/script><p>hi<\/p>$/);
     expect(script("<header>x</header>")).toMatch(/^<script>/);
+  });
+
+  it("ships a script that parses and carries every bridge message", () => {
+    const injected = injectStudioZoomBridge("<head></head>");
+    const source = /<script>([\s\S]*)<\/script>/.exec(injected)?.[1] ?? "";
+    expect(() => new Function(source)).not.toThrow();
+    expect(source).toContain(String.raw`.replace(/\s+/g, " ")`);
+    expect(source).toContain(String.raw`.replace(/[^\w-]/g, "")`);
+    for (const type of [
+      STUDIO_WHEEL_ZOOM_MESSAGE,
+      STUDIO_SCROLL_MESSAGE,
+      STUDIO_PICK_POINT_MESSAGE,
+      STUDIO_PIN_MODE_MESSAGE,
+      STUDIO_PIN_EXIT_MESSAGE,
+    ]) {
+      expect(source).toContain(JSON.stringify(type));
+    }
   });
 });

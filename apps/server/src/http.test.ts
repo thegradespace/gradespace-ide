@@ -120,6 +120,8 @@ describe("Studio zoom bridge", () => {
       expect(injected.response.status).toBe(200);
       expect(injected.body).toContain("<head><script>");
       expect(injected.body).toContain("gradespace:studio-wheel-zoom");
+      expect(injected.body).toContain("gradespace:studio-scroll");
+      expect(injected.body).toContain("gradespace:studio-pick-point");
       expect(injected.body.endsWith("<body>Hi</body></html>")).toBe(true);
       expect(injected.response.headers.get("content-length")).toBe(
         String(new TextEncoder().encode(injected.body).byteLength),

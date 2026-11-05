@@ -1,13 +1,24 @@
-import { Maximize2, Minus, Plus, SquareArrowOutUpRight, X } from "lucide-react";
+import {
+  Columns2,
+  Crosshair,
+  Maximize2,
+  Minus,
+  Plus,
+  SquareArrowOutUpRight,
+  X,
+} from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "~/components/ui/button";
 import { useStableCallback } from "~/hooks/useStableCallback";
 import { observeResize } from "~/lib/observeResize";
+import { cn } from "~/lib/utils";
 
 import { FileSurfaceAction } from "../files/fileSurfaceChrome";
 import { type StudioManifest, type StudioVariant, studioVariantKind } from "./studioManifest";
+import type { NewStudioPin, Size, StudioPin, StudioPinDraft } from "./studioPins";
+import { StudioPinLayer } from "./StudioPinLayer";
 import {
   fitImageZoom,
   fitPageZoom,
@@ -16,15 +27,14 @@ import {
   wheelZoom,
   zoomPercent,
 } from "./studioZoom";
-import { type StudioContext, StudioVariantPreview } from "./StudioVariantPreview";
-
-type Size = { readonly width: number; readonly height: number };
+import { type StudioContext, type StudioView, StudioVariantPreview } from "./StudioVariantPreview";
 
 // Base UI portals tooltips into the main window, so a popped-out window uses native titles.
 function StudioAction(props: {
   readonly label: string;
   readonly native: boolean;
   readonly disabled?: boolean;
+  readonly pressed?: boolean;
   readonly onPress: () => void;
   readonly children: ReactNode;
 }) {
@@ -32,9 +42,10 @@ function StudioAction(props: {
     <Button
       type="button"
       className="shrink-0"
-      variant="ghost"
+      variant={props.pressed ? "secondary" : "ghost"}
       size="icon-sm"
       aria-label={props.label}
+      aria-pressed={props.pressed}
       title={props.label}
       disabled={props.disabled ?? false}
       onClick={props.onPress}
@@ -45,6 +56,7 @@ function StudioAction(props: {
     <FileSurfaceAction
       label={props.label}
       disabled={props.disabled ?? false}
+      {...(props.pressed === undefined ? {} : { pressed: props.pressed })}
       onPress={props.onPress}
     >
       {props.children}
@@ -90,38 +102,19 @@ function StudioZoomControls(props: {
   );
 }
 
+type PaneFrame = ReturnType<typeof usePaneFrame>;
+
 /**
- * One design with its toolbar. `zoom` is null while fitting, so Fit follows the container as it
+ * Sizing for one design. `zoom` is null while fitting, so Fit follows the container as it
  * resizes; a number is a fixed browser-style zoom owned by the caller so it survives remounts.
  */
-export function StudioDesignStage(
-  props: StudioContext & {
-    readonly setPath: string;
-    readonly manifest: StudioManifest;
-    readonly variant: StudioVariant;
-    readonly zoom: number | null;
-    readonly onZoomChange: (zoom: number | null) => void;
-    readonly saving: boolean;
-    readonly onSelect: (id: string) => void;
-    readonly onTogglePick: () => void;
-    readonly leading?: ReactNode;
-    readonly trailing?: ReactNode;
-    readonly onFullscreen?: () => void;
-    readonly onExitFullscreen?: () => void;
-    readonly onPopOut?: () => void;
-    /** Rendering into a popped-out window. */
-    readonly native?: boolean;
-  },
-) {
-  const kind = studioVariantKind(props.variant.file);
-  const zoomable = kind === "html" || kind === "image";
-  const native = props.native ?? false;
-  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+function usePaneFrame(variant: StudioVariant | null, zoomSetting: number | null) {
+  const file = variant?.file ?? "";
+  const kind = variant === null ? "other" : studioVariantKind(file);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [size, setSize] = useState<Size | null>(null);
   const [image, setImage] = useState<(Size & { readonly file: string }) | null>(null);
-
-  const imageSize = image?.file === props.variant.file ? image : null;
+  const imageSize = image?.file === file ? image : null;
   const fitZoom =
     size === null
       ? 1
@@ -130,18 +123,6 @@ export function StudioDesignStage(
           ? 1
           : fitImageZoom(size, imageSize)
         : fitPageZoom(size.width);
-  const zoom = props.zoom ?? fitZoom;
-  const latestZoom = useRef(zoom);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- gesture events can outpace renders, so they accumulate on this ref
-  useEffect(() => {
-    latestZoom.current = zoom;
-  });
-  const zoomBy = useStableCallback((deltaY: number, deltaMode: number) => {
-    const next = wheelZoom(latestZoom.current, deltaY, deltaMode);
-    latestZoom.current = next;
-    props.onZoomChange(next);
-  });
-
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- measures the frame element, which may live in another window
   useEffect(() => {
     if (frame === null) return;
@@ -149,105 +130,58 @@ export function StudioDesignStage(
       setSize({ width: frame.clientWidth, height: frame.clientHeight }),
     );
   }, [frame]);
-
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes to wheel and iframe messages on the window that owns this element
-  useEffect(() => {
-    if (root === null || frame === null || !zoomable) return;
-    const owner = root.ownerDocument.defaultView;
-    if (owner === null) return;
-    // React's wheel listeners are passive, which cannot stop the browser zooming the whole app.
-    const onWheel = (event: WheelEvent) => {
-      if (!(event.ctrlKey || event.metaKey)) return;
-      event.preventDefault();
-      zoomBy(event.deltaY, event.deltaMode);
-    };
-    // The design is a cross-origin frame; its injected bridge posts the gestures it sees.
-    const onMessage = (event: MessageEvent) => {
-      if (event.source === null || event.source !== frame.querySelector("iframe")?.contentWindow) {
-        return;
-      }
-      const message = parseStudioWheelZoomMessage(event.data);
-      if (message !== null) zoomBy(message.deltaY, message.deltaMode);
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
-    owner.addEventListener("message", onMessage);
-    return () => {
-      root.removeEventListener("wheel", onWheel);
-      owner.removeEventListener("message", onMessage);
-    };
-  }, [root, frame, zoomable, zoomBy]);
-
-  const view = zoomable
+  const zoomable = kind === "html" || kind === "image";
+  const zoom = zoomSetting ?? fitZoom;
+  const view: StudioView | undefined = zoomable
     ? {
         zoom,
-        fit: props.zoom === null,
+        fit: zoomSetting === null,
         imageSize,
-        onImageSize: (next: Size) =>
+        onImageSize: (next) =>
           setImage((current) =>
-            current?.file === props.variant.file &&
-            current.width === next.width &&
-            current.height === next.height
+            current?.file === file && current.width === next.width && current.height === next.height
               ? current
-              : { ...next, file: props.variant.file },
+              : { ...next, file },
           ),
       }
     : undefined;
+  return { kind, zoomable, setFrame, size, zoom, view };
+}
+
+type PinProps = {
+  readonly pins: readonly StudioPin[];
+  readonly pinMode: boolean;
+  readonly pinDraft: StudioPinDraft | null;
+  readonly onDraft: (draft: StudioPinDraft) => void;
+  readonly onSubmitDraft: (comment: string) => void;
+  readonly onCancelDraft: () => void;
+  readonly onEscape: () => void;
+};
+
+function StudioPane(
+  props: StudioContext &
+    PinProps & {
+      readonly setPath: string;
+      readonly variant: StudioVariant;
+      readonly paneFrame: PaneFrame;
+      readonly pane: 0 | 1;
+      readonly header?: ReactNode;
+      readonly separator?: "left" | "top" | undefined;
+    },
+) {
+  const { size, zoom, kind, view, setFrame } = props.paneFrame;
   const preview = (
     <StudioVariantPreview {...props} variant={props.variant} thumbnail={false} view={view} />
   );
-
   return (
-    <div ref={setRoot} className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1.5">
-        {props.leading}
-        {props.manifest.variants.map((variant) => (
-          <Button
-            key={variant.id}
-            type="button"
-            size="xs"
-            variant={variant.id === props.variant.id ? "secondary" : "ghost"}
-            aria-pressed={variant.id === props.variant.id}
-            onClick={() => props.onSelect(variant.id)}
-          >
-            {variant.id}
-          </Button>
-        ))}
-        <div className="min-w-0 flex-1" />
-        {zoomable ? (
-          <StudioZoomControls
-            zoom={zoom}
-            fit={props.zoom === null}
-            native={native}
-            onZoomChange={props.onZoomChange}
-          />
-        ) : null}
-        <Button
-          type="button"
-          size="xs"
-          variant={props.manifest.picked === props.variant.id ? "default" : "outline"}
-          aria-pressed={props.manifest.picked === props.variant.id}
-          disabled={props.saving}
-          onClick={props.onTogglePick}
-        >
-          {props.manifest.picked === props.variant.id ? "Picked" : "Pick"}
-        </Button>
-        {props.onFullscreen ? (
-          <StudioAction label="Full screen" native={native} onPress={props.onFullscreen}>
-            <Maximize2 className="size-3.5" />
-          </StudioAction>
-        ) : null}
-        {props.onPopOut ? (
-          <StudioAction label="Open in new window" native={native} onPress={props.onPopOut}>
-            <SquareArrowOutUpRight className="size-3.5" />
-          </StudioAction>
-        ) : null}
-        {props.trailing}
-        {props.onExitFullscreen ? (
-          <StudioAction label="Exit full screen" native={native} onPress={props.onExitFullscreen}>
-            <X className="size-3.5" />
-          </StudioAction>
-        ) : null}
-      </div>
+    <div
+      className={cn(
+        "flex min-h-0 min-w-0 flex-1 flex-col",
+        props.separator === "left" && "border-l",
+        props.separator === "top" && "border-t",
+      )}
+    >
+      {props.header}
       <div
         ref={setFrame}
         className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
@@ -268,6 +202,329 @@ export function StudioDesignStage(
         ) : (
           preview
         )}
+        <StudioPinLayer
+          key={props.variant.id}
+          pins={props.pins}
+          size={size}
+          zoom={zoom}
+          pinMode={props.pinMode}
+          pane={props.pane}
+          draft={props.pinDraft}
+          onDraft={props.onDraft}
+          onSubmit={props.onSubmitDraft}
+          onCancel={props.onCancelDraft}
+          onEscape={props.onEscape}
+        />
+      </div>
+    </div>
+  );
+}
+
+function StudioPaneHeader(props: {
+  readonly manifest: StudioManifest;
+  readonly variant: StudioVariant;
+  readonly saving: boolean;
+  readonly label: string;
+  readonly onSelect: (id: string) => void;
+  readonly onTogglePick: () => void;
+}) {
+  const picked = props.manifest.picked === props.variant.id;
+  return (
+    <div
+      role="group"
+      aria-label={props.label}
+      className="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1"
+    >
+      {props.manifest.variants.map((variant) => (
+        <Button
+          key={variant.id}
+          type="button"
+          size="xs"
+          variant={variant.id === props.variant.id ? "secondary" : "ghost"}
+          aria-pressed={variant.id === props.variant.id}
+          onClick={() => props.onSelect(variant.id)}
+        >
+          {variant.id}
+        </Button>
+      ))}
+      <div className="min-w-0 flex-1" />
+      <Button
+        type="button"
+        size="xs"
+        variant={picked ? "default" : "outline"}
+        aria-pressed={picked}
+        disabled={props.saving}
+        onClick={props.onTogglePick}
+      >
+        {picked ? "Picked" : "Pick"}
+      </Button>
+    </div>
+  );
+}
+
+// Side by side needs room for two readable pages.
+const STACK_BELOW_WIDTH = 640;
+
+/**
+ * One design, or two when comparing, under one toolbar. Zoom is shared by both panes, and pin
+ * mode applies to whichever pane is clicked.
+ */
+export function StudioDesignStage(
+  props: StudioContext & {
+    readonly setPath: string;
+    readonly manifest: StudioManifest;
+    readonly variant: StudioVariant;
+    /** The option in the second pane while comparing. */
+    readonly compare: StudioVariant | null;
+    readonly onCompareChange: (on: boolean) => void;
+    readonly zoom: number | null;
+    readonly onZoomChange: (zoom: number | null) => void;
+    readonly saving: boolean;
+    readonly onSelect: (id: string) => void;
+    readonly onSelectCompare: (id: string) => void;
+    readonly onTogglePick: (variant: StudioVariant) => void;
+    readonly pinMode: boolean;
+    readonly onPinModeChange: (on: boolean) => void;
+    readonly pins: readonly StudioPin[];
+    readonly onAddPin: (pin: NewStudioPin) => void;
+    readonly leading?: ReactNode;
+    readonly trailing?: ReactNode;
+    readonly onFullscreen?: () => void;
+    readonly onExitFullscreen?: () => void;
+    readonly onPopOut?: () => void;
+    /** Rendering into a popped-out window. */
+    readonly native?: boolean;
+  },
+) {
+  const native = props.native ?? false;
+  const compare = props.compare;
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  const [rootWidth, setRootWidth] = useState<number | null>(null);
+  const [draft, setDraft] = useState<StudioPinDraft | null>(null);
+  const lead = usePaneFrame(props.variant, props.zoom);
+  const second = usePaneFrame(compare, props.zoom);
+  const zoomed = lead.zoomable ? lead : compare !== null && second.zoomable ? second : null;
+  const zoom = zoomed?.zoom ?? 1;
+  const latestZoom = useRef(zoom);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- gesture events can outpace renders, so they accumulate on this ref
+  useEffect(() => {
+    latestZoom.current = zoom;
+  });
+  const zoomBy = useStableCallback((deltaY: number, deltaMode: number) => {
+    const next = wheelZoom(latestZoom.current, deltaY, deltaMode);
+    latestZoom.current = next;
+    props.onZoomChange(next);
+  });
+
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- measures the root element, which may live in another window
+  useEffect(() => {
+    if (root === null) return;
+    return observeResize(root, () => setRootWidth(root.clientWidth));
+  }, [root]);
+  const stacked = rootWidth !== null && rootWidth < STACK_BELOW_WIDTH;
+
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes to wheel and iframe messages on the window that owns this element
+  useEffect(() => {
+    if (root === null || zoomed === null) return;
+    const owner = root.ownerDocument.defaultView;
+    if (owner === null) return;
+    // React's wheel listeners are passive, which cannot stop the browser zooming the whole app.
+    const onWheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      event.preventDefault();
+      zoomBy(event.deltaY, event.deltaMode);
+    };
+    // The design is a cross-origin frame; its injected bridge posts the gestures it sees.
+    const onMessage = (event: MessageEvent) => {
+      if (
+        event.source === null ||
+        !Array.from(root.querySelectorAll("iframe")).some(
+          (frame) => frame.contentWindow === event.source,
+        )
+      ) {
+        return;
+      }
+      const message = parseStudioWheelZoomMessage(event.data);
+      if (message !== null) zoomBy(message.deltaY, message.deltaMode);
+    };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    owner.addEventListener("message", onMessage);
+    return () => {
+      root.removeEventListener("wheel", onWheel);
+      owner.removeEventListener("message", onMessage);
+    };
+  }, [root, zoomed, zoomBy]);
+
+  const activeDraft = props.pinMode && (draft?.pane !== 1 || compare !== null) ? draft : null;
+  const escapePin = useStableCallback(() => {
+    if (activeDraft !== null) setDraft(null);
+    else props.onPinModeChange(false);
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Esc leaves pin mode; the listener lives on the window that owns this element
+  useEffect(() => {
+    const owner = root?.ownerDocument.defaultView;
+    if (!owner || !props.pinMode) return;
+    // Capture and stop it, or the app's own Esc handling also closes the side panel.
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      escapePin();
+    };
+    owner.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => owner.removeEventListener("keydown", onKeyDown, { capture: true });
+  }, [root, props.pinMode, escapePin]);
+
+  const submitDraft = (comment: string) => {
+    if (activeDraft === null) return;
+    const variant = activeDraft.pane === 0 ? props.variant : compare;
+    if (variant === null) return;
+    props.onAddPin({
+      variantId: variant.id,
+      comment,
+      fx: activeDraft.fx,
+      fy: activeDraft.fy,
+      page: activeDraft.page,
+      zoom,
+    });
+    setDraft(null);
+  };
+  const pinProps = {
+    pinMode: props.pinMode,
+    onDraft: setDraft,
+    onSubmitDraft: submitDraft,
+    onCancelDraft: () => setDraft(null),
+    onEscape: escapePin,
+  };
+  const paneContext = {
+    environmentId: props.environmentId,
+    cwd: props.cwd,
+    threadRef: props.threadRef,
+    draft: props.draft,
+    workspaceMutationId: props.workspaceMutationId,
+    setPath: props.setPath,
+  };
+  const picked = props.manifest.picked === props.variant.id;
+
+  return (
+    <div ref={setRoot} className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1.5">
+        {props.leading}
+        {compare === null
+          ? props.manifest.variants.map((variant) => (
+              <Button
+                key={variant.id}
+                type="button"
+                size="xs"
+                variant={variant.id === props.variant.id ? "secondary" : "ghost"}
+                aria-pressed={variant.id === props.variant.id}
+                onClick={() => props.onSelect(variant.id)}
+              >
+                {variant.id}
+              </Button>
+            ))
+          : null}
+        <div className="min-w-0 flex-1" />
+        <StudioAction
+          label="Comment on a spot"
+          native={native}
+          pressed={props.pinMode}
+          onPress={() => props.onPinModeChange(!props.pinMode)}
+        >
+          <Crosshair className="size-3.5" />
+        </StudioAction>
+        <StudioAction
+          label="Compare side by side"
+          native={native}
+          pressed={compare !== null}
+          disabled={props.manifest.variants.length < 2}
+          onPress={() => props.onCompareChange(compare === null)}
+        >
+          <Columns2 className="size-3.5" />
+        </StudioAction>
+        {zoomed !== null ? (
+          <StudioZoomControls
+            zoom={zoom}
+            fit={props.zoom === null}
+            native={native}
+            onZoomChange={props.onZoomChange}
+          />
+        ) : null}
+        {compare === null ? (
+          <Button
+            type="button"
+            size="xs"
+            variant={picked ? "default" : "outline"}
+            aria-pressed={picked}
+            disabled={props.saving}
+            onClick={() => props.onTogglePick(props.variant)}
+          >
+            {picked ? "Picked" : "Pick"}
+          </Button>
+        ) : null}
+        {props.onFullscreen ? (
+          <StudioAction label="Full screen" native={native} onPress={props.onFullscreen}>
+            <Maximize2 className="size-3.5" />
+          </StudioAction>
+        ) : null}
+        {props.onPopOut ? (
+          <StudioAction label="Open in new window" native={native} onPress={props.onPopOut}>
+            <SquareArrowOutUpRight className="size-3.5" />
+          </StudioAction>
+        ) : null}
+        {props.trailing}
+        {props.onExitFullscreen ? (
+          <StudioAction label="Exit full screen" native={native} onPress={props.onExitFullscreen}>
+            <X className="size-3.5" />
+          </StudioAction>
+        ) : null}
+      </div>
+      <div className={cn("flex min-h-0 flex-1", stacked ? "flex-col" : "flex-row")}>
+        <StudioPane
+          key="lead"
+          {...paneContext}
+          {...pinProps}
+          variant={props.variant}
+          paneFrame={lead}
+          pane={0}
+          pins={props.pins.filter((pin) => pin.variantId === props.variant.id)}
+          pinDraft={activeDraft?.pane === 0 ? activeDraft : null}
+          header={
+            compare === null ? undefined : (
+              <StudioPaneHeader
+                manifest={props.manifest}
+                variant={props.variant}
+                saving={props.saving}
+                label="Left option"
+                onSelect={props.onSelect}
+                onTogglePick={() => props.onTogglePick(props.variant)}
+              />
+            )
+          }
+        />
+        {compare === null ? null : (
+          <StudioPane
+            key="second"
+            {...paneContext}
+            {...pinProps}
+            variant={compare}
+            paneFrame={second}
+            pane={1}
+            separator={stacked ? "top" : "left"}
+            pins={props.pins.filter((pin) => pin.variantId === compare.id)}
+            pinDraft={activeDraft?.pane === 1 ? activeDraft : null}
+            header={
+              <StudioPaneHeader
+                manifest={props.manifest}
+                variant={compare}
+                saving={props.saving}
+                label="Right option"
+                onSelect={props.onSelectCompare}
+                onTogglePick={() => props.onTogglePick(compare)}
+              />
+            }
+          />
+        )}
       </div>
     </div>
   );
@@ -275,21 +532,23 @@ export function StudioDesignStage(
 
 export function StudioFullscreen(props: {
   readonly onClose: () => void;
+  /** Something inside owns Esc, such as pin mode. */
+  readonly busy: boolean;
   readonly children: ReactNode;
 }) {
-  const { onClose } = props;
+  const { onClose, busy } = props;
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Esc exits full screen; the listener lives on the window
   useEffect(() => {
     // Capture and stop it, or the app's own Esc handling also closes the side panel.
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (event.key !== "Escape" || event.defaultPrevented || busy) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       onClose();
     };
     window.addEventListener("keydown", onKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
-  }, [onClose]);
+  }, [onClose, busy]);
   return createPortal(
     <div
       role="dialog"

@@ -1,6 +1,14 @@
 import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
 import { resolvePathLinkTarget } from "@t3tools/shared/fileLinks";
-import { ArrowLeft, Check, ChevronDown, DownloadIcon, PencilLine, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  DownloadIcon,
+  PencilLine,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useAssetUrlRefresh } from "~/assets/assetUrls";
@@ -36,11 +44,13 @@ import {
   STUDIO_ROOT,
   type StudioManifest,
   type StudioVariant,
+  studioCompareDefault,
   studioVariantKind,
-  withStudioComment,
+  withStudioFeedback,
   withStudioPicked,
   withStudioPickLine,
 } from "./studioManifest";
+import type { NewStudioPin, StudioPin } from "./studioPins";
 import { type StudioContext, showToast, StudioVariantPreview } from "./StudioVariantPreview";
 import { STUDIO_PAGE_WIDTH } from "./studioZoom";
 
@@ -152,6 +162,67 @@ function StudioVariantBadges(props: {
   ) : null;
 }
 
+function StudioFeedback(props: {
+  readonly manifest: StudioManifest;
+  readonly variant: StudioVariant;
+  readonly comment: string;
+  readonly pins: readonly StudioPin[];
+  readonly onCommentChange: (comment: string) => void;
+  readonly onRemovePin: (id: number) => void;
+  readonly onSend: () => void;
+}) {
+  const { variant } = props;
+  return (
+    <div className="flex min-w-60 flex-1 flex-col gap-2">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="shrink-0 font-semibold">{variant.id}</span>
+        <span className="min-w-0 truncate font-medium">{variant.title}</span>
+        <StudioVariantBadges manifest={props.manifest} variant={variant} />
+      </div>
+      {variant.note ? <p className="text-muted-foreground text-xs">{variant.note}</p> : null}
+      {props.pins.length > 0 ? (
+        <ul className="flex flex-col gap-1" aria-label={`Pinned comments on option ${variant.id}`}>
+          {props.pins.map((pin) => (
+            <li key={pin.id} className="flex items-start gap-1.5 text-xs">
+              <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-3xs text-primary-foreground">
+                {pin.number}
+              </span>
+              <span className="min-w-0 flex-1 break-words">{pin.comment}</span>
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                aria-label={`Remove pin ${pin.number} on option ${variant.id}`}
+                onClick={() => props.onRemovePin(pin.id)}
+              >
+                <X className="size-3" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <Textarea
+        size="sm"
+        aria-label={`Comment on option ${variant.id}`}
+        placeholder={`What should change in option ${variant.id}?`}
+        value={props.comment}
+        onChange={(event) => props.onCommentChange(event.target.value)}
+      />
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          size="xs"
+          variant="outline"
+          disabled={props.comment.trim().length === 0 && props.pins.length === 0}
+          onClick={props.onSend}
+        >
+          Add to message
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function StudioSet(
   props: StudioContext & {
     readonly setPath: string;
@@ -159,9 +230,14 @@ function StudioSet(
   },
 ) {
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const [comment, setComment] = useState("");
+  const [comments, setComments] = useState<Readonly<Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
   const [zoom, setZoom] = useState<number | null>(null);
+  const [comparing, setComparing] = useState(false);
+  const [compareId, setCompareId] = useState<string | null>(null);
+  const [pinMode, setPinMode] = useState(false);
+  const [pins, setPins] = useState<readonly StudioPin[]>([]);
+  const nextPinId = useRef(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [popup, setPopup] = useState<Window | null>(null);
   const popupRef = useRef<Window | null>(null);
@@ -224,6 +300,37 @@ function StudioSet(
     );
   };
 
+  const addPin = (pin: NewStudioPin) => {
+    const id = nextPinId.current++;
+    setPins((current) => [
+      ...current,
+      {
+        ...pin,
+        id,
+        number:
+          Math.max(
+            0,
+            ...current.filter((other) => other.variantId === pin.variantId).map((o) => o.number),
+          ) + 1,
+      },
+    ]);
+  };
+  const sendFeedback = (variant: StudioVariant) => {
+    const own = pins.filter((pin) => pin.variantId === variant.id);
+    updatePrompt((prompt) =>
+      withStudioFeedback(prompt, manifest, props.setPath, variant, {
+        comment: comments[variant.id] ?? "",
+        pins: own,
+      }),
+    );
+    setPins((current) => current.filter((pin) => pin.variantId !== variant.id));
+    setComments((current) => ({ ...current, [variant.id]: "" }));
+    showToast(
+      "success",
+      own.length > 0 ? "Comments added to your message" : "Comment added to your message",
+    );
+  };
+
   const focused = manifest.variants.find((variant) => variant.id === focusedId) ?? null;
 
   if (focused !== null) {
@@ -231,16 +338,31 @@ function StudioSet(
     const canEdit = kind === "html" || kind === "text";
     const relativePath = `${props.setPath}/${focused.file}`;
     const windowTitle = `${focused.id}: ${focused.title}`;
+    const compareVariant = comparing
+      ? (manifest.variants.find((variant) => variant.id === compareId) ??
+        studioCompareDefault(manifest, focused.id))
+      : null;
     const stage = {
       ...props,
       manifest,
       variant: focused,
+      compare: compareVariant,
+      onCompareChange: setComparing,
       zoom,
       onZoomChange: setZoom,
       saving,
       onSelect: setFocusedId,
-      onTogglePick: () => void togglePick(focused),
+      onSelectCompare: setCompareId,
+      onTogglePick: (variant: StudioVariant) => void togglePick(variant),
+      pinMode,
+      onPinModeChange: setPinMode,
+      pins,
+      onAddPin: addPin,
     };
+    const feedbackVariants =
+      compareVariant === null || compareVariant.id === focused.id
+        ? [focused]
+        : [focused, compareVariant];
     const popOut = () => {
       const name = props.setPath
         .split("/")
@@ -271,7 +393,7 @@ function StudioSet(
             </div>
           </>
         ) : fullscreen ? (
-          <StudioFullscreen onClose={() => setFullscreen(false)}>
+          <StudioFullscreen onClose={() => setFullscreen(false)} busy={pinMode}>
             <StudioDesignStage
               {...stage}
               onPopOut={popOut}
@@ -303,36 +425,21 @@ function StudioSet(
             onPopOut={popOut}
           />
         )}
-        <div className="flex shrink-0 flex-col gap-2 border-t p-2">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="min-w-0 truncate font-medium">{focused.title}</span>
-            <StudioVariantBadges manifest={manifest} variant={focused} />
-          </div>
-          {focused.note ? <p className="text-muted-foreground text-xs">{focused.note}</p> : null}
-          <Textarea
-            size="sm"
-            aria-label={`Comment on option ${focused.id}`}
-            placeholder={`What should change in option ${focused.id}?`}
-            value={comment}
-            onChange={(event) => setComment(event.target.value)}
-          />
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              size="xs"
-              variant="outline"
-              disabled={comment.trim().length === 0}
-              onClick={() => {
-                updatePrompt((prompt) =>
-                  withStudioComment(prompt, manifest, props.setPath, focused, comment),
-                );
-                setComment("");
-                showToast("success", "Comment added to your message");
-              }}
-            >
-              Add to message
-            </Button>
-          </div>
+        <div className="flex max-h-[45%] shrink-0 flex-wrap gap-x-3 gap-y-3 overflow-y-auto border-t p-2">
+          {feedbackVariants.map((variant) => (
+            <StudioFeedback
+              key={variant.id}
+              manifest={manifest}
+              variant={variant}
+              comment={comments[variant.id] ?? ""}
+              pins={pins.filter((pin) => pin.variantId === variant.id)}
+              onCommentChange={(comment) =>
+                setComments((current) => ({ ...current, [variant.id]: comment }))
+              }
+              onRemovePin={(id) => setPins((current) => current.filter((pin) => pin.id !== id))}
+              onSend={() => sendFeedback(variant)}
+            />
+          ))}
         </div>
       </div>
     );
