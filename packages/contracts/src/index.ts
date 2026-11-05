@@ -4,6 +4,7 @@ export * from "./composerContext.ts";
 export * from "./composerContextClipboard.ts";
 export * from "./background.ts";
 export * from "./backups.ts";
+export * from "./studioShare.ts";
 export * from "./acpRegistry.ts";
 export * from "./auth.ts";
 export * from "./environment.ts";

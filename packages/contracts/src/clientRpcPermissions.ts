@@ -26,6 +26,11 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.backupsCreate]: AuthEnvironmentMaintainScope,
   [WS_METHODS.backupsRestore]: AuthEnvironmentMaintainScope,
   [WS_METHODS.backupsCancelRestore]: AuthEnvironmentMaintainScope,
+  // Sharing publishes a project file on the web with the server's own key. Status and list are
+  // queries, which the client cannot guard; the server still requires the same scope.
+  [WS_METHODS.studioShareSetToken]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.studioShareCreate]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.studioShareRevoke]: AuthEnvironmentMaintainScope,
   [WS_METHODS.pullRequestsRunAction]: AuthSourceControlWriteScope,
   [WS_METHODS.pullRequestsUpdate]: AuthSourceControlWriteScope,
   [WS_METHODS.pullRequestsComment]: AuthSourceControlWriteScope,

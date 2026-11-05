@@ -123,13 +123,18 @@ describe("command permissions", () => {
     ),
   );
 
-  it.effect("requires the destination maintain grant to restore a backup", () =>
+  it.effect.each([
+    WS_METHODS.backupsRestore,
+    WS_METHODS.studioShareSetToken,
+    WS_METHODS.studioShareCreate,
+    WS_METHODS.studioShareRevoke,
+  ])("requires the destination maintain grant for %s", (method) =>
     Effect.scoped(
       Effect.gen(function* () {
         const registry = yield* setup;
-        const restore = createCommandPermissions(runtime, WS_METHODS.backupsRestore);
+        const guarded = createCommandPermissions(runtime, method);
         registry.set(sessions(env), AsyncResult.success(grant(true)));
-        expect(registry.get(restore.permissionAtom(env))).toBe(false);
+        expect(registry.get(guarded.permissionAtom(env))).toBe(false);
         registry.set(
           sessions(env),
           AsyncResult.success({
@@ -138,8 +143,8 @@ describe("command permissions", () => {
             permissions: [AuthEnvironmentMaintainScope],
           }),
         );
-        expect(registry.get(restore.permissionAtom(env))).toBe(true);
-        yield* restore.authorize(registry, env);
+        expect(registry.get(guarded.permissionAtom(env))).toBe(true);
+        yield* guarded.authorize(registry, env);
       }),
     ),
   );

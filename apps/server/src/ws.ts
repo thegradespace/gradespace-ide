@@ -188,6 +188,7 @@ import { invalidateSettingsSecrets } from "./sourceControl/sourceControlHostSecr
 import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
 import * as StorageCleanup from "./storageCleanup.ts";
 import * as StateBackups from "./backup/StateBackups.ts";
+import * as StudioShare from "./studioShare/StudioShare.ts";
 import * as TerminalManager from "./terminal/Manager.ts";
 import { terminalOutputStream, withTerminalOutputWindow } from "./terminal/OutputProtocol.ts";
 import * as ServerBrowser from "./preview/ServerBrowser.ts";
@@ -1361,6 +1362,7 @@ export const layerWsRpc = (
       const storageCleanup = yield* StorageCleanup.StorageCleanup;
       const databaseStorage = yield* DatabaseStorage.DatabaseStorage;
       const stateBackups = yield* StateBackups.StateBackups;
+      const studioShare = yield* StudioShare.StudioShare;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
       if (clientDevice !== undefined) {
         yield* serverSettings.getSettings.pipe(
@@ -2546,6 +2548,11 @@ export const layerWsRpc = (
         [WS_METHODS.backupsCreate]: () => stateBackups.create,
         [WS_METHODS.backupsRestore]: ({ fileName }) => stateBackups.restore(fileName),
         [WS_METHODS.backupsCancelRestore]: () => stateBackups.cancelRestore,
+        [WS_METHODS.studioShareStatus]: () => studioShare.status,
+        [WS_METHODS.studioShareSetToken]: ({ token }) => studioShare.setToken(token),
+        [WS_METHODS.studioShareCreate]: (input) => studioShare.create(input),
+        [WS_METHODS.studioShareList]: () => studioShare.list,
+        [WS_METHODS.studioShareRevoke]: ({ id }) => studioShare.revoke(id),
         [WS_METHODS.peerLinksList]: (_input) =>
           peerLinks.list.pipe(Effect.map((links) => ({ links }))),
         [WS_METHODS.peerLinksLink]: (input) => peerLinks.link(input),

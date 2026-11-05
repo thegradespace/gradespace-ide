@@ -84,6 +84,15 @@ import {
 import { ClientActivityReportInput } from "./background.ts";
 import { BackupError, BackupRestoreInput, BackupStatus } from "./backups.ts";
 import {
+  StudioShareCreateInput,
+  StudioShareEntry,
+  StudioShareError,
+  StudioShareList,
+  StudioShareRevokeInput,
+  StudioShareSetTokenInput,
+  StudioShareStatus,
+} from "./studioShare.ts";
+import {
   FilesystemGetMetadataInput,
   FilesystemGetMetadataResult,
   FilesystemBrowseInput,
@@ -512,6 +521,11 @@ export const WS_METHODS = {
   backupsCreate: "backups.create",
   backupsRestore: "backups.restore",
   backupsCancelRestore: "backups.cancelRestore",
+  studioShareStatus: "studioShare.status",
+  studioShareSetToken: "studioShare.setToken",
+  studioShareCreate: "studioShare.create",
+  studioShareList: "studioShare.list",
+  studioShareRevoke: "studioShare.revoke",
   peerLinksList: "peerLinks.list",
   peerLinksLink: "peerLinks.link",
   peerLinksUnlink: "peerLinks.unlink",
@@ -822,6 +836,38 @@ const WsBackupsCancelRestoreRpc = Rpc.make(WS_METHODS.backupsCancelRestore, {
   payload: Schema.Struct({}),
   success: BackupStatus,
   error: Schema.Union([BackupError, EnvironmentAuthorizationError]),
+});
+
+const StudioShareRpcError = Schema.Union([StudioShareError, EnvironmentAuthorizationError]);
+
+const WsStudioShareStatusRpc = Rpc.make(WS_METHODS.studioShareStatus, {
+  payload: Schema.Struct({}),
+  success: StudioShareStatus,
+  error: StudioShareRpcError,
+});
+
+const WsStudioShareSetTokenRpc = Rpc.make(WS_METHODS.studioShareSetToken, {
+  payload: StudioShareSetTokenInput,
+  success: StudioShareStatus,
+  error: StudioShareRpcError,
+});
+
+const WsStudioShareCreateRpc = Rpc.make(WS_METHODS.studioShareCreate, {
+  payload: StudioShareCreateInput,
+  success: StudioShareEntry,
+  error: StudioShareRpcError,
+});
+
+const WsStudioShareListRpc = Rpc.make(WS_METHODS.studioShareList, {
+  payload: Schema.Struct({}),
+  success: StudioShareList,
+  error: StudioShareRpcError,
+});
+
+const WsStudioShareRevokeRpc = Rpc.make(WS_METHODS.studioShareRevoke, {
+  payload: StudioShareRevokeInput,
+  success: StudioShareList,
+  error: StudioShareRpcError,
 });
 
 const WsPeerLinksListRpc = Rpc.make(WS_METHODS.peerLinksList, {
@@ -2031,6 +2077,11 @@ export const WsRpcGroup = RpcGroup.make(
   WsBackupsCreateRpc,
   WsBackupsRestoreRpc,
   WsBackupsCancelRestoreRpc,
+  WsStudioShareStatusRpc,
+  WsStudioShareSetTokenRpc,
+  WsStudioShareCreateRpc,
+  WsStudioShareListRpc,
+  WsStudioShareRevokeRpc,
   WsServerUpdateSettingsRpc,
   WsPeerLinksListRpc,
   WsPeerLinksLinkRpc,

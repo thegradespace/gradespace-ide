@@ -1227,6 +1227,8 @@ export const ServerSettings = Schema.Struct({
   shareUsageData: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   /** Stops background downloads: provider version checks, model catalog, model prices, analytics. */
   offlineMode: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  /** Where Studio designs are shared to. Empty uses https://thegradespace.com. For testing. */
+  studioShareBaseUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   continueThreadsAfterServerUpdate: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(true)),
   ),
@@ -1606,6 +1608,7 @@ export const ServerSettingsPatch = Schema.Struct({
   enableProviderUpdateChecks: Schema.optionalKey(Schema.Boolean),
   shareUsageData: Schema.optionalKey(Schema.Boolean),
   offlineMode: Schema.optionalKey(Schema.Boolean),
+  studioShareBaseUrl: Schema.optionalKey(TrimmedString),
   continueThreadsAfterServerUpdate: Schema.optionalKey(Schema.Boolean),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
   projectAgentBrowserAccessOverrides: Schema.optionalKey(

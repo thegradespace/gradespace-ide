@@ -1199,6 +1199,27 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.backupsCancelRestore,
       concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
     }),
+    studioShareStatus: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:studio-share-status",
+      tag: WS_METHODS.studioShareStatus,
+    }),
+    studioShareList: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:studio-share-list",
+      tag: WS_METHODS.studioShareList,
+    }),
+    setStudioShareToken: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:set-studio-share-token",
+      tag: WS_METHODS.studioShareSetToken,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
+    createStudioShare: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:create-studio-share",
+      tag: WS_METHODS.studioShareCreate,
+    }),
+    revokeStudioShare: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:revoke-studio-share",
+      tag: WS_METHODS.studioShareRevoke,
+    }),
     prepareTriage: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:prepare-triage",
       tag: WS_METHODS.serverPrepareTriage,
