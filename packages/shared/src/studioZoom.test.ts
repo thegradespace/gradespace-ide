@@ -6,6 +6,7 @@ import {
   STUDIO_PIN_EXIT_MESSAGE,
   STUDIO_PIN_MODE_MESSAGE,
   STUDIO_SCROLL_MESSAGE,
+  STUDIO_SCROLL_TO_MESSAGE,
   STUDIO_WHEEL_ZOOM_MESSAGE,
 } from "./studioZoom.ts";
 
@@ -34,6 +35,7 @@ describe("injectStudioZoomBridge", () => {
       STUDIO_PICK_POINT_MESSAGE,
       STUDIO_PIN_MODE_MESSAGE,
       STUDIO_PIN_EXIT_MESSAGE,
+      STUDIO_SCROLL_TO_MESSAGE,
     ]) {
       expect(source).toContain(JSON.stringify(type));
     }

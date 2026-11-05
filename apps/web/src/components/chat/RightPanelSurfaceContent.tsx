@@ -75,6 +75,8 @@ export function RightPanelSurfaceContent(props: {
     annotation: PreviewAnnotationPayload,
     image: ComposerImageAttachment | null,
   ) => void;
+  /** Sends text as a new message on the thread, as the composer would; unset for drafts. */
+  readonly onSendMessage?: ((text: string) => Promise<void>) | undefined;
   readonly onCloseSurface: (surface: RightPanelSurface) => void;
   readonly terminal: RightPanelTerminalProps;
   readonly pullRequest: RightPanelPullRequestProps;
@@ -208,6 +210,12 @@ export function RightPanelSurfaceContent(props: {
             threadRef={threadRef}
             composerDraftTarget={props.composerDraftTarget}
             workspaceMutationId={props.workspaceMutationId}
+            target={
+              surface.setPath === undefined
+                ? undefined
+                : { setPath: surface.setPath, requestId: surface.setRequestId ?? 0 }
+            }
+            onSendMessage={props.onSendMessage}
           />
         </Suspense>
       );

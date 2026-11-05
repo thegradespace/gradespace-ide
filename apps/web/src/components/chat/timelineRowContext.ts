@@ -30,6 +30,7 @@ import { type MessagesTimelineRow, type WorkGroupScrollAnchor } from "./Messages
 import { type TimestampFormat } from "@t3tools/contracts/settings";
 import type { TurnItemDetailSource } from "../../state/queries";
 import { type HandoffTimelineRun } from "./V2LifecycleRow";
+import type { StudioTurnSet } from "../studio/studioTurnSets.logic";
 
 /**
  * Where an expanded row reads an item's detail and a command's output. The owner's rows read them
@@ -100,6 +101,8 @@ export interface TimelineRowSharedState {
   workGroupViewState: WorkGroupViewState;
   /** Per assistant message row, the device of the message it answers. Absent in the guest view. */
   replyDevices?: ReadonlyMap<string, MessageDevice> | undefined;
+  /** Studio sets each turn wrote, keyed by the turn's last reply. */
+  studioSetsByMessageId?: ReadonlyMap<string, ReadonlyArray<StudioTurnSet>> | undefined;
 }
 
 export interface TimelineRowActivityState {

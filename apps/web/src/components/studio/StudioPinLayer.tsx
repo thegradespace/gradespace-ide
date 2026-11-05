@@ -1,4 +1,4 @@
-import { STUDIO_PIN_MODE_MESSAGE } from "@t3tools/shared/studioZoom";
+import { STUDIO_PIN_MODE_MESSAGE, STUDIO_SCROLL_TO_MESSAGE } from "@t3tools/shared/studioZoom";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "~/components/ui/button";
@@ -105,6 +105,7 @@ export function StudioPinLayer(props: {
   const [scroll, setScroll] = useState<StudioScroll | null>(null);
   const scrollRef = useRef<StudioScroll | null>(null);
   const announcedTo = useRef<Window | null>(null);
+  const reportingFrame = useRef<Window | null>(null);
 
   const frameWindow = useStableCallback(
     () => root?.parentElement?.querySelector("iframe")?.contentWindow ?? null,
@@ -124,6 +125,18 @@ export function StudioPinLayer(props: {
     if (source === null || event.source !== source) return;
     const report = parseStudioScrollMessage(event.data);
     if (report !== null) {
+      const previous = scrollRef.current;
+      const reloaded = reportingFrame.current !== null && reportingFrame.current !== source;
+      reportingFrame.current = source;
+      // A changed design reloads at the top; put it back where the user was reading.
+      if (reloaded && previous !== null && (previous.scrollX > 0 || previous.scrollY > 0)) {
+        source.postMessage(
+          { type: STUDIO_SCROLL_TO_MESSAGE, x: previous.scrollX, y: previous.scrollY },
+          "*",
+        );
+        if (props.pinMode) postPinMode(true);
+        return;
+      }
       scrollRef.current = report;
       setScroll(report);
       // A reloaded page starts out of pin mode, so tell its fresh bridge.

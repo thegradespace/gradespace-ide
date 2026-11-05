@@ -508,6 +508,7 @@ export function StudioDesignStage(
     threadRef: props.threadRef,
     draft: props.draft,
     workspaceMutationId: props.workspaceMutationId,
+    readRevision: props.readRevision,
     setPath: props.setPath,
   };
   const picked = props.manifest.picked === props.variant.id;

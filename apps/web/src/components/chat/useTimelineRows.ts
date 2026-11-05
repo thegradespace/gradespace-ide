@@ -9,6 +9,8 @@ import {
   type MessagesTimelineRow,
 } from "./MessagesTimeline.logic";
 import { type HandoffTimelineRun } from "./V2LifecycleRow";
+import type { TimelineEntry } from "../../session-logic";
+import { collectStudioTurnSets, type StudioTurnSet } from "../studio/studioTurnSets.logic";
 
 const EMPTY_TIMELINE_RUNS: ReadonlyArray<HandoffTimelineRun> = [];
 
@@ -75,4 +77,34 @@ export function useStableRows(
   );
   setState({ identity, source: rows, stable });
   return stable.result;
+}
+
+const NO_STUDIO_TURN_SETS: ReadonlyMap<string, ReadonlyArray<StudioTurnSet>> = new Map();
+
+/** Studio sets per reply; keeps one map while they are unchanged so rows do not re-render. */
+export function useStableStudioTurnSets(
+  timelineEntries: ReadonlyArray<TimelineEntry>,
+  cwd: string | undefined,
+): ReadonlyMap<string, ReadonlyArray<StudioTurnSet>> {
+  const [state, setState] = useState<{
+    readonly source: ReadonlyArray<TimelineEntry> | null;
+    readonly cwd: string | undefined;
+    readonly signature: string;
+    readonly value: ReadonlyMap<string, ReadonlyArray<StudioTurnSet>>;
+  }>({ source: null, cwd: undefined, signature: "", value: NO_STUDIO_TURN_SETS });
+  if (state.source === timelineEntries && state.cwd === cwd) return state.value;
+  const rows = timelineEntries.flatMap((entry) => {
+    const projected =
+      entry.kind === "work"
+        ? entry.entry.projectedItem
+        : entry.kind === "message"
+          ? entry.projectedItem
+          : undefined;
+    return projected === undefined ? [] : [projected];
+  });
+  const next = collectStudioTurnSets(rows, cwd ?? null);
+  const signature = JSON.stringify([...next]);
+  const value = signature === state.signature ? state.value : next;
+  setState({ source: timelineEntries, cwd, signature, value });
+  return value;
 }

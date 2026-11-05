@@ -11,6 +11,7 @@ import { HtmlRenderFrame } from "./HtmlRenderFrame";
 import { McpAppFrame } from "./McpAppFrame";
 import { checkpointFileTotals } from "@t3tools/client-runtime/state/thread-checkpoints";
 import { ChangedFilesCard } from "./ChangedFilesTree";
+import { StudioTurnCards } from "../studio/StudioTurnCards";
 import { useFileContextMenuHandler } from "../../fileContextMenu";
 import { useAssistantMessageText, useProject, useThreadShell } from "../../state/entities";
 import { MessageCopyButton } from "./MessageCopyButton";
@@ -89,6 +90,7 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
             onOpenTurnDiff={ctx.onOpenTurnDiff}
           />
         ) : null}
+        <AssistantStudioSets messageId={row.message.id} runId={row.message.runId ?? null} />
         {row.showAssistantMeta ? (
           <AssistantMessageMeta
             className="mt-1.5"
@@ -101,6 +103,29 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
       </div>
     </>
   );
+}
+
+function AssistantStudioSets(props: { readonly messageId: string; readonly runId: RunId | null }) {
+  const ctx = use(TimelineRowCtx);
+  const sets = ctx.studioSetsByMessageId?.get(props.messageId);
+  if (sets === undefined || ctx.threadRef === null) return null;
+  return (
+    <AssistantStudioSetsAfterTurn
+      runId={props.runId}
+      environmentId={ctx.activeThreadEnvironmentId}
+      cwd={ctx.workspaceRoot}
+      threadRef={ctx.threadRef}
+      sets={sets}
+    />
+  );
+}
+
+function AssistantStudioSetsAfterTurn(
+  props: Parameters<typeof StudioTurnCards>[0] & { readonly runId: RunId | null },
+) {
+  const { latestRunId, isWorking } = use(TimelineRowActivityCtx);
+  if (isWorking && props.runId !== null && props.runId === latestRunId) return null;
+  return <StudioTurnCards {...props} />;
 }
 
 function AssistantForkButton({

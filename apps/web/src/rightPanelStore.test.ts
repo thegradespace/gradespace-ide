@@ -732,6 +732,20 @@ describe("rightPanelStore", () => {
     ).toEqual({ inlineOpen: true, popoverOpen: true });
   });
 
+  it("points the one Studio tab at a set with a newer request each time", () => {
+    const store = useRightPanelStore.getState();
+    store.open(refA, "studio");
+    store.openFile(refA, "README.md");
+    store.openStudio(refA, ".gradespace/studio/a");
+    store.openStudio(refA, ".gradespace/studio/a");
+    const state = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
+    expect(state.activeSurfaceId).toBe("studio");
+    expect(state.surfaces).toEqual([
+      { id: "studio", kind: "studio", setPath: ".gradespace/studio/a", setRequestId: 2 },
+      expect.objectContaining({ id: "file:README.md" }),
+    ]);
+  });
+
   it("opens workspace-root links as the singleton files explorer", () => {
     const store = useRightPanelStore.getState();
     store.openFile(refA, "README.md");

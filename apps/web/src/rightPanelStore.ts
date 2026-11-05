@@ -78,7 +78,13 @@ export type RightPanelSurface =
       detailTab?: PullRequestDetailTab;
     }
   | { id: "pull-requests"; kind: "pull-requests" }
-  | { id: "studio"; kind: "studio" }
+  | {
+      id: "studio";
+      kind: "studio";
+      /** The set to show; a larger request id overrides a set the user chose since. */
+      setPath?: string;
+      setRequestId?: number;
+    }
   | { id: "thread-files"; kind: "thread-files" }
   | { id: `side-chat:${string}`; kind: "side-chat"; threadId: ThreadId };
 
@@ -134,6 +140,7 @@ interface RightPanelStoreState {
   renameDevice: (ref: ScopedThreadRef, surfaceId: string, title: string) => void;
   openBrowser: (ref: ScopedThreadRef, tabId: string | null) => void;
   openFile: (ref: ScopedThreadRef, relativePath: string, line?: number) => void;
+  openStudio: (ref: ScopedThreadRef, setPath: string) => void;
   /** Moves in place; "" opens the root explorer. folderTrail keeps the return path; keepSource opens beside the source. */
   navigateFolder: (
     ref: ScopedThreadRef,
@@ -499,6 +506,13 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                       const { folderTrail: _invalid, ...rest } = surface;
                       surface = rest;
                     }
+                    if (
+                      surface.kind === "studio" &&
+                      (typeof surface.setPath !== "string" ||
+                        typeof surface.setRequestId !== "number")
+                    ) {
+                      return [{ id: "studio", kind: "studio" }];
+                    }
                     if (surface.kind === "file") {
                       const revealLine =
                         typeof surface.revealLine === "number" &&
@@ -782,6 +796,26 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
             ),
           }));
         }),
+      openStudio: (ref, setPath) =>
+        set((state) =>
+          userAction(state, scopedThreadKey(ref), (current) => {
+            const existing = current.surfaces.find((surface) => surface.kind === "studio");
+            const surface: RightPanelSurface = {
+              id: "studio",
+              kind: "studio",
+              setPath,
+              setRequestId: (existing?.kind === "studio" ? (existing.setRequestId ?? 0) : 0) + 1,
+            };
+            return {
+              ...current,
+              isOpen: true,
+              activeSurfaceId: surface.id,
+              surfaces: existing
+                ? current.surfaces.map((entry) => (entry.kind === "studio" ? surface : entry))
+                : [...current.surfaces, surface],
+            };
+          }),
+        ),
       openFile: (ref, requestedPath, line) =>
         set((state) =>
           userAction(state, scopedThreadKey(ref), (current) => {

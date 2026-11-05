@@ -4,13 +4,14 @@ export const STUDIO_SCROLL_MESSAGE = "gradespace:studio-scroll";
 export const STUDIO_PICK_POINT_MESSAGE = "gradespace:studio-pick-point";
 export const STUDIO_PIN_MODE_MESSAGE = "gradespace:studio-pin-mode";
 export const STUDIO_PIN_EXIT_MESSAGE = "gradespace:studio-pin-exit";
+export const STUDIO_SCROLL_TO_MESSAGE = "gradespace:studio-scroll-to";
 export const STUDIO_MAX_HTML_BYTES = 5 * 1024 * 1024;
 
 /**
- * Sandboxed designs live in a cross-origin frame, so pinch and Ctrl/Cmd+wheel never reach Studio.
- * The script listens in the bubble phase so pages that handle those gestures themselves win.
- * It also reports the page's scroll geometry, and in pin mode (set by the parent) the element
- * under a click, so Studio can anchor comments to the page. Nothing else leaves the frame.
+ * Sandboxed designs live in a cross-origin frame, so pinch and Ctrl/Cmd+wheel never reach Studio;
+ * the script forwards them in the bubble phase so pages that handle them win. It reports scroll,
+ * the element under a pin-mode click, and scrolls where Studio asks after a reload. Nothing else
+ * leaves the frame.
  */
 export function injectStudioZoomBridge(html: string): string {
   const script = `<script>
@@ -97,8 +98,14 @@ export function injectStudioZoomBridge(html: string): string {
   };
   addEventListener("message", (event) => {
     const data = event.data;
-    if (event.source !== parent || !data || data.type !== ${JSON.stringify(STUDIO_PIN_MODE_MESSAGE)}) return;
-    if (typeof data.on === "boolean") setPinMode(data.on);
+    if (event.source !== parent || !data) return;
+    if (data.type === ${JSON.stringify(STUDIO_SCROLL_TO_MESSAGE)}) {
+      if (Number.isFinite(data.x) && Number.isFinite(data.y)) scrollTo(data.x, data.y);
+      return;
+    }
+    if (data.type === ${JSON.stringify(STUDIO_PIN_MODE_MESSAGE)} && typeof data.on === "boolean") {
+      setPinMode(data.on);
+    }
   });
   for (const name of ["pointerdown", "pointerup", "mousedown", "mouseup", "dblclick", "auxclick"]) {
     addEventListener(name, (event) => {

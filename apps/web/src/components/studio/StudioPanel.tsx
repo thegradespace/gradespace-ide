@@ -177,8 +177,11 @@ function StudioFeedback(props: {
   readonly onCommentChange: (comment: string) => void;
   readonly onRemovePin: (id: number) => void;
   readonly onSend: () => void;
+  readonly asking: boolean;
+  readonly onAskNow: () => void;
 }) {
   const { variant } = props;
+  const empty = props.comment.trim().length === 0 && props.pins.length === 0;
   return (
     <div className="flex min-w-60 flex-1 flex-col gap-2">
       <div className="flex items-center gap-2 text-xs">
@@ -225,15 +228,19 @@ function StudioFeedback(props: {
         value={props.comment}
         onChange={(event) => props.onCommentChange(event.target.value)}
       />
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-1.5">
         <Button
           type="button"
           size="xs"
           variant="outline"
-          disabled={props.comment.trim().length === 0 && props.pins.length === 0}
+          disabled={empty || props.asking}
           onClick={props.onSend}
         >
           Add to message
+        </Button>
+        <Button type="button" size="xs" disabled={empty || props.asking} onClick={props.onAskNow}>
+          {props.asking ? <Spinner /> : null}
+          Ask now
         </Button>
       </div>
     </div>
@@ -244,9 +251,11 @@ function StudioSet(
   props: StudioContext & {
     readonly setPath: string;
     readonly composerDraftTarget: ScopedThreadRef | DraftId;
+    readonly onSendMessage: ((text: string) => Promise<void>) | undefined;
   },
 ) {
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [askingId, setAskingId] = useState<string | null>(null);
   const [comments, setComments] = useState<Readonly<Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
   const [zoom, setZoom] = useState<number | null>(null);
@@ -272,7 +281,7 @@ function StudioSet(
     props.cwd,
     manifestPath,
     true,
-    props.workspaceMutationId,
+    props.readRevision,
   );
   const writeFile = useAtomCommand(projectEnvironment.writeFile, { reportFailure: false });
 
@@ -378,6 +387,41 @@ function StudioSet(
       "success",
       own.length > 0 ? "Comments added to your message" : "Comment added to your message",
     );
+  };
+
+  const askNow = async (variant: StudioVariant) => {
+    const onSendMessage = props.onSendMessage;
+    if (props.draft || onSendMessage === undefined) {
+      sendFeedback(variant);
+      return;
+    }
+    const own = pins.filter((pin) => pin.variantId === variant.id);
+    const comment = comments[variant.id] ?? "";
+    const text = withStudioFeedback("", manifest, props.setPath, variant, {
+      comment,
+      version: viewedVersion(variant),
+      pins: own,
+    });
+    if (text.length === 0) return;
+    setAskingId(variant.id);
+    try {
+      await onSendMessage(text);
+    } catch (cause) {
+      showToast(
+        "error",
+        "Could not send to the agent",
+        cause instanceof Error ? cause.message : undefined,
+      );
+      return;
+    } finally {
+      setAskingId(null);
+    }
+    const sent = new Set(own.map((pin) => pin.id));
+    setPins((current) => current.filter((pin) => !sent.has(pin.id)));
+    setComments((current) =>
+      current[variant.id] === comment ? { ...current, [variant.id]: "" } : current,
+    );
+    showToast("success", `Sent your comments on option ${variant.id} to the agent`);
   };
 
   const focused = manifest.variants.find((variant) => variant.id === focusedId) ?? null;
@@ -498,6 +542,8 @@ function StudioSet(
               }
               onRemovePin={(id) => setPins((current) => current.filter((pin) => pin.id !== id))}
               onSend={() => sendFeedback(variant)}
+              asking={askingId === variant.id}
+              onAskNow={() => void askNow(variant)}
             />
           ))}
         </div>
@@ -567,14 +613,20 @@ export default function StudioPanel(props: {
   readonly threadRef: ScopedThreadRef;
   readonly composerDraftTarget: ScopedThreadRef | DraftId;
   readonly workspaceMutationId: string | null;
+  /** A set opened from elsewhere, such as a chat card. */
+  readonly target?: { readonly setPath: string; readonly requestId: number } | undefined;
+  readonly onSendMessage?: ((text: string) => Promise<void>) | undefined;
 }) {
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const entries = useProjectEntriesQuery(
-    props.environmentId,
-    props.cwd,
-    STUDIO_ROOT,
-    props.workspaceMutationId,
-  );
+  const [selected, setSelected] = useState<{ path: string; requestId: number } | null>(null);
+  const [focusCount, setFocusCount] = useState(0);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- rereads the set when the window regains focus, since files can change outside agent turns
+  useEffect(() => {
+    const onFocus = () => setFocusCount((count) => count + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+  const readRevision = `${props.workspaceMutationId ?? ""}:${focusCount}`;
+  const entries = useProjectEntriesQuery(props.environmentId, props.cwd, STUDIO_ROOT, readRevision);
   // Set folders start with their date, so reverse name order is newest first.
   const sets = (entries.data?.entries ?? [])
     .filter(
@@ -584,13 +636,20 @@ export default function StudioPanel(props: {
     )
     .map((entry) => entry.path)
     .toSorted((left, right) => right.localeCompare(left));
-  const setPath = selectedPath !== null && sets.includes(selectedPath) ? selectedPath : sets[0];
+  const target = props.target;
+  const setPath =
+    target !== undefined && (selected === null || target.requestId > selected.requestId)
+      ? target.setPath
+      : selected !== null && sets.includes(selected.path)
+        ? selected.path
+        : sets[0];
   const context = {
     environmentId: props.environmentId,
     cwd: props.cwd,
     threadRef: props.threadRef,
     draft: typeof props.composerDraftTarget === "string",
     workspaceMutationId: props.workspaceMutationId,
+    readRevision,
   };
 
   return (
@@ -607,7 +666,10 @@ export default function StudioPanel(props: {
               </MenuTrigger>
               <MenuPopup align="start" side="bottom" sideOffset={6} className="max-w-80">
                 {sets.map((path) => (
-                  <MenuItem key={path} onClick={() => setSelectedPath(path)}>
+                  <MenuItem
+                    key={path}
+                    onClick={() => setSelected({ path, requestId: target?.requestId ?? 0 })}
+                  >
                     <span className="min-w-0 truncate">{path.split("/").at(-1)}</span>
                   </MenuItem>
                 ))}
@@ -615,7 +677,7 @@ export default function StudioPanel(props: {
             </Menu>
           </div>
         )}
-        <FileSurfaceAction label="Refresh" onPress={entries.refresh}>
+        <FileSurfaceAction label="Refresh" onPress={() => setFocusCount((count) => count + 1)}>
           <RefreshCw className="size-3.5" />
         </FileSurfaceAction>
       </div>
@@ -625,6 +687,7 @@ export default function StudioPanel(props: {
           {...context}
           setPath={setPath}
           composerDraftTarget={props.composerDraftTarget}
+          onSendMessage={props.onSendMessage}
         />
       ) : entries.isPending && entries.data === null ? (
         <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground">

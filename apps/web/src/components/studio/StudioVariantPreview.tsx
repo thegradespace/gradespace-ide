@@ -18,6 +18,8 @@ export interface StudioContext {
   readonly threadRef: ScopedThreadRef;
   readonly draft: boolean;
   readonly workspaceMutationId: string | null;
+  /** Changes when Studio should reread its files: after agent work, on focus, or on Refresh. */
+  readonly readRevision: string;
 }
 
 export function showToast(type: "success" | "error", title: string, description?: string) {
@@ -90,7 +92,7 @@ function StudioText(props: StudioContext & { readonly relativePath: string }) {
     props.cwd,
     props.relativePath,
     true,
-    props.workspaceMutationId,
+    props.readRevision,
   );
   if (file.data === null) {
     return file.error === null ? (
@@ -109,6 +111,52 @@ function StudioText(props: StudioContext & { readonly relativePath: string }) {
         workspaceMutationId={props.workspaceMutationId}
       />
     </div>
+  );
+}
+
+function contentRevision(contents: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < contents.length; index += 1) {
+    hash = Math.imul(hash ^ contents.charCodeAt(index), 0x01000193) >>> 0;
+  }
+  return `${contents.length.toString(36)}-${hash.toString(36)}`;
+}
+
+/** Reloads the frame only when the page's text changed, so other workspace changes do not flash it. */
+function StudioHtml(
+  props: StudioContext & {
+    readonly relativePath: string;
+    readonly variant: StudioVariant;
+    readonly view?: StudioView | undefined;
+  },
+) {
+  const file = useProjectFileQuery(
+    props.environmentId,
+    props.cwd,
+    props.relativePath,
+    true,
+    props.readRevision,
+  );
+  const revision =
+    file.data !== null
+      ? contentRevision(file.data.contents)
+      : file.error !== null
+        ? props.workspaceMutationId
+        : undefined;
+  if (revision === undefined) return <FileSurfaceLoading />;
+  const absolutePath = resolvePathLinkTarget(props.relativePath, props.cwd);
+  return (
+    <WorkspaceBrowserPreview
+      key={absolutePath}
+      environmentId={props.environmentId}
+      threadRef={props.threadRef}
+      draft={props.draft}
+      absolutePath={absolutePath}
+      workspaceRoot={props.cwd}
+      title={props.variant.title}
+      workspaceMutationId={revision}
+      studioZoom={props.view !== undefined}
+    />
   );
 }
 
@@ -143,7 +191,8 @@ export function StudioVariantPreview(
     );
   }
   if (kind === "text") return <StudioText {...props} relativePath={relativePath} />;
-  if (kind === "html" || (kind === "pdf" && !props.thumbnail)) {
+  if (kind === "html") return <StudioHtml {...props} relativePath={relativePath} />;
+  if (kind === "pdf" && !props.thumbnail) {
     return (
       <WorkspaceBrowserPreview
         key={absolutePath}
@@ -154,7 +203,6 @@ export function StudioVariantPreview(
         workspaceRoot={props.cwd}
         title={props.variant.title}
         workspaceMutationId={props.workspaceMutationId}
-        studioZoom={props.view !== undefined && kind === "html"}
       />
     );
   }

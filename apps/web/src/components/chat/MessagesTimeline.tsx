@@ -135,7 +135,12 @@ import {
 } from "./timelineViewport";
 import { useThreadFindPositionReader } from "./useThreadFindPositionReader";
 import { ThreadActivityAnnouncer } from "./ThreadActivityAnnouncer";
-import { useStableHandoffRuns, useIncrementalTimelineRows, useStableRows } from "./useTimelineRows";
+import {
+  useStableHandoffRuns,
+  useIncrementalTimelineRows,
+  useStableRows,
+  useStableStudioTurnSets,
+} from "./useTimelineRows";
 
 function timelineListStateFor(identity: string): {
   readonly identity: string;
@@ -710,6 +715,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
   // Run status/timestamps change per stream event; keep them out of shared row context.
   const runs = useStableHandoffRuns(runsProp);
   const replyDevices = replyDevicesByRowId(rows);
+  const studioSetsByMessageId = useStableStudioTurnSets(timelineEntries, workspaceRoot);
   const minimapItems = deriveTimelineMinimapItems(rows);
   const minimapRowIndices = minimapItems.map((item) => item.rowIndex);
   const restoreRowIndex =
@@ -1065,6 +1071,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
     onOpenWorktreeSetupTerminal: onOpenWorktreeSetupTerminal ?? null,
     workGroupViewState,
     replyDevices,
+    studioSetsByMessageId,
   };
   const compactionAwaitingRow =
     isCompacting &&

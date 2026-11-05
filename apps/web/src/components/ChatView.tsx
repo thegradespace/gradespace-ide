@@ -189,6 +189,7 @@ import { COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS } from "~/workspaceTitlebar";
 import { toastManager } from "./ui/toast";
 import { projectScriptIdFromCommand } from "~/projectScripts";
 import { newMessageId } from "~/lib/utils";
+import { resolveComposerDispatchMode } from "@t3tools/client-runtime/state/composer-dispatch";
 import { isInSideChatPane, type SideChatParentPanel } from "~/lib/sideChatPane";
 import {
   NO_PROVIDER_MODEL_SELECTION,
@@ -1897,6 +1898,39 @@ export default function ChatView(props: ChatViewProps) {
     }
   };
   const sendAppMessageStable = useStableCallback(sendAppMessage);
+  // Leaves the composer draft alone; model, modes and busy handling follow a composer send.
+  const sendStudioMessage = async (text: string) => {
+    if (!isServerThread || activeThreadId === null) {
+      throw new Error("Start the thread first.");
+    }
+    if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
+      throw new Error("This connection cannot send messages.");
+    }
+    const sendContext = composerRef.current?.getSendContext();
+    const result = await startThreadTurn({
+      environmentId,
+      input: {
+        threadId: activeThreadId,
+        message: { messageId: newMessageId(), role: "user", text, attachments: [] },
+        ...(sendContext === undefined
+          ? {}
+          : { modelSelection: sendContext.selectedModelSelection }),
+        runtimeMode,
+        interactionMode: sendContext?.interactionMode ?? interactionMode,
+        dispatchMode: resolveComposerDispatchMode({
+          running: phase === "running",
+          alternateModifier: false,
+          activeTurnDefault: settings.followUpBehavior,
+          canSteer: !isCompacting,
+        }),
+      },
+    });
+    if (result._tag === "Failure") {
+      const error = squashAtomCommandFailure(result);
+      throw error instanceof Error ? error : new Error("Could not send the message.");
+    }
+  };
+  const sendStudioMessageStable = useStableCallback(sendStudioMessage);
   const queuedRunsControlRef = useRef<QueuedRunsControlHandle>(null);
 
   const {
@@ -3218,6 +3252,7 @@ export default function ChatView(props: ChatViewProps) {
       workspaceMutationId={workspaceMutationId}
       getShortcutContext={getShortcutContextStable}
       onSendAnnotation={sendPreviewAnnotationStable}
+      onSendMessage={isServerThread ? sendStudioMessageStable : undefined}
       onCloseSurface={closeRightPanelSurface}
       sideChatParentPanel={{
         openToolDiff: onOpenToolDiffStable,
