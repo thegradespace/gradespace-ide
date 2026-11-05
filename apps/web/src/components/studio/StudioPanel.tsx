@@ -407,15 +407,15 @@ function StudioSet(
     try {
       await onSendMessage(text);
     } catch (cause) {
+      setAskingId(null);
       showToast(
         "error",
         "Could not send to the agent",
         cause instanceof Error ? cause.message : undefined,
       );
       return;
-    } finally {
-      setAskingId(null);
     }
+    setAskingId(null);
     const sent = new Set(own.map((pin) => pin.id));
     setPins((current) => current.filter((pin) => !sent.has(pin.id)));
     setComments((current) =>
