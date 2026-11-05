@@ -45,10 +45,15 @@ import {
   type StudioManifest,
   type StudioVariant,
   studioCompareDefault,
+  studioLatestVersion,
+  studioShownVariant,
   studioVariantKind,
+  studioViewedVersion,
+  type StudioViewedVersion,
   withStudioFeedback,
   withStudioPicked,
   withStudioPickLine,
+  withStudioRestoreLine,
 } from "./studioManifest";
 import type { NewStudioPin, StudioPin } from "./studioPins";
 import { type StudioContext, showToast, StudioVariantPreview } from "./StudioVariantPreview";
@@ -165,6 +170,8 @@ function StudioVariantBadges(props: {
 function StudioFeedback(props: {
   readonly manifest: StudioManifest;
   readonly variant: StudioVariant;
+  /** The earlier version the comment will be about, or null for the latest. */
+  readonly version: StudioViewedVersion;
   readonly comment: string;
   readonly pins: readonly StudioPin[];
   readonly onCommentChange: (comment: string) => void;
@@ -178,6 +185,11 @@ function StudioFeedback(props: {
         <span className="shrink-0 font-semibold">{variant.id}</span>
         <span className="min-w-0 truncate font-medium">{variant.title}</span>
         <StudioVariantBadges manifest={props.manifest} variant={variant} />
+        {props.version === null ? null : (
+          <Badge variant="outline" size="sm">
+            Viewing v{props.version}
+          </Badge>
+        )}
       </div>
       {variant.note ? <p className="text-muted-foreground text-xs">{variant.note}</p> : null}
       {props.pins.length > 0 ? (
@@ -187,12 +199,17 @@ function StudioFeedback(props: {
               <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-3xs text-primary-foreground">
                 {pin.number}
               </span>
-              <span className="min-w-0 flex-1 break-words">{pin.comment}</span>
+              <span className="min-w-0 flex-1 break-words">
+                {pin.version === null ? null : (
+                  <span className="mr-1 text-muted-foreground">v{pin.version}</span>
+                )}
+                {pin.comment}
+              </span>
               <Button
                 type="button"
                 size="icon-xs"
                 variant="ghost"
-                aria-label={`Remove pin ${pin.number} on option ${variant.id}`}
+                aria-label={`Remove pin ${pin.number} on option ${variant.id}${pin.version === null ? "" : ` v${pin.version}`}`}
                 onClick={() => props.onRemovePin(pin.id)}
               >
                 <X className="size-3" />
@@ -235,6 +252,7 @@ function StudioSet(
   const [zoom, setZoom] = useState<number | null>(null);
   const [comparing, setComparing] = useState(false);
   const [compareId, setCompareId] = useState<string | null>(null);
+  const [versions, setVersions] = useState<Readonly<Record<string, number>>>({});
   const [pinMode, setPinMode] = useState(false);
   const [pins, setPins] = useState<readonly StudioPin[]>([]);
   const nextPinId = useRef(0);
@@ -271,6 +289,15 @@ function StudioSet(
     return <FileSurfaceFailure message={`${manifestPath} is not a valid Studio file.`} />;
   }
 
+  const viewedVersion = (variant: StudioVariant) =>
+    studioViewedVersion(variant, versions[variant.id]);
+  const setVersion = (variantId: string, version: StudioViewedVersion) =>
+    setVersions((current) => {
+      const rest = { ...current };
+      delete rest[variantId];
+      return version === null ? rest : { ...rest, [variantId]: version };
+    });
+
   const updatePrompt = (update: (prompt: string) => string) => {
     const store = useComposerDraftStore.getState();
     const prompt = store.getComposerDraft(props.composerDraftTarget)?.prompt ?? "";
@@ -292,11 +319,30 @@ function StudioSet(
       return;
     }
     file.refresh();
-    updatePrompt((prompt) => withStudioPickLine(prompt, manifest, props.setPath, picked));
+    updatePrompt((prompt) =>
+      withStudioPickLine(
+        prompt,
+        manifest,
+        props.setPath,
+        picked,
+        picked === null ? null : viewedVersion(picked),
+      ),
+    );
     showToast(
       "success",
       picked === null ? "Pick cleared" : `Option ${picked.id} picked`,
       "Your message has been updated. Send it when you're ready.",
+    );
+  };
+
+  const restoreVersion = (variant: StudioVariant, version: number) => {
+    updatePrompt((prompt) =>
+      withStudioRestoreLine(prompt, manifest, props.setPath, variant, version),
+    );
+    showToast(
+      "success",
+      `Restore of option ${variant.id} v${version} added to your message`,
+      "Send it and the agent will make it the latest version.",
     );
   };
 
@@ -310,7 +356,9 @@ function StudioSet(
         number:
           Math.max(
             0,
-            ...current.filter((other) => other.variantId === pin.variantId).map((o) => o.number),
+            ...current
+              .filter((other) => other.variantId === pin.variantId && other.version === pin.version)
+              .map((other) => other.number),
           ) + 1,
       },
     ]);
@@ -320,6 +368,7 @@ function StudioSet(
     updatePrompt((prompt) =>
       withStudioFeedback(prompt, manifest, props.setPath, variant, {
         comment: comments[variant.id] ?? "",
+        version: viewedVersion(variant),
         pins: own,
       }),
     );
@@ -334,9 +383,10 @@ function StudioSet(
   const focused = manifest.variants.find((variant) => variant.id === focusedId) ?? null;
 
   if (focused !== null) {
-    const kind = studioVariantKind(focused.file);
+    const shown = studioShownVariant(focused, viewedVersion(focused));
+    const kind = studioVariantKind(shown.file);
     const canEdit = kind === "html" || kind === "text";
-    const relativePath = `${props.setPath}/${focused.file}`;
+    const relativePath = `${props.setPath}/${shown.file}`;
     const windowTitle = `${focused.id}: ${focused.title}`;
     const compareVariant = comparing
       ? (manifest.variants.find((variant) => variant.id === compareId) ??
@@ -353,6 +403,9 @@ function StudioSet(
       saving,
       onSelect: setFocusedId,
       onSelectCompare: setCompareId,
+      versions,
+      onVersionChange: setVersion,
+      onRestore: restoreVersion,
       onTogglePick: (variant: StudioVariant) => void togglePick(variant),
       pinMode,
       onPinModeChange: setPinMode,
@@ -404,7 +457,13 @@ function StudioSet(
           <StudioDesignStage
             {...stage}
             leading={
-              <FileSurfaceAction label="Back to all options" onPress={() => setFocusedId(null)}>
+              <FileSurfaceAction
+                label="Back to all options"
+                onPress={() => {
+                  setFocusedId(null);
+                  setVersions({});
+                }}
+              >
                 <ArrowLeft className="size-3.5" />
               </FileSurfaceAction>
             }
@@ -418,7 +477,7 @@ function StudioSet(
                 >
                   <PencilLine className="size-3.5" />
                 </FileSurfaceAction>
-                <StudioExportButton {...props} variant={focused} />
+                <StudioExportButton {...props} variant={shown} />
               </>
             }
             onFullscreen={() => setFullscreen(true)}
@@ -431,6 +490,7 @@ function StudioSet(
               key={variant.id}
               manifest={manifest}
               variant={variant}
+              version={viewedVersion(variant)}
               comment={comments[variant.id] ?? ""}
               pins={pins.filter((pin) => pin.variantId === variant.id)}
               onCommentChange={(comment) =>
@@ -476,6 +536,11 @@ function StudioSet(
                 <span className="shrink-0 font-semibold">{variant.id}</span>
                 <span className="min-w-0 truncate font-medium">{variant.title}</span>
                 <StudioVariantBadges manifest={manifest} variant={variant} />
+                {studioLatestVersion(variant) > 1 ? (
+                  <Badge variant="outline" size="sm">
+                    v{studioLatestVersion(variant)}
+                  </Badge>
+                ) : null}
               </div>
               {variant.note ? (
                 <p className="line-clamp-2 text-muted-foreground text-xs">{variant.note}</p>

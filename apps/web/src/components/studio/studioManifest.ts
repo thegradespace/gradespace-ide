@@ -10,11 +10,20 @@ import { isMarkdownPreviewFile } from "../files/filePreviewMode";
 export const STUDIO_ROOT = ".gradespace/studio";
 export const STUDIO_MANIFEST_NAME = "studio.json";
 
+const StudioRevision = Schema.Struct({
+  file: Schema.String,
+  note: Schema.optional(Schema.String),
+  createdAt: Schema.optional(Schema.String),
+});
+export type StudioRevision = typeof StudioRevision.Type;
+
 const StudioVariant = Schema.Struct({
   id: Schema.String,
   title: Schema.String,
   note: Schema.optional(Schema.String),
   file: Schema.String,
+  /** Earlier versions, oldest first. `file` is always the latest. */
+  revisions: Schema.optional(Schema.Array(StudioRevision)),
 });
 export type StudioVariant = typeof StudioVariant.Type;
 
@@ -47,8 +56,45 @@ function parseJsonObject(contents: string): Record<string, unknown> | null {
   }
 }
 
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+/** Revisions are a courtesy: a malformed entry is dropped rather than failing the whole set. */
+function cleanRevisions(value: unknown): StudioRevision[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry: unknown) => {
+    const revision = asRecord(entry);
+    if (typeof revision?.file !== "string" || !staysInsideSet(revision.file)) return [];
+    const { file, note, createdAt } = revision;
+    return [
+      {
+        file,
+        ...(typeof note === "string" ? { note } : {}),
+        ...(typeof createdAt === "string" ? { createdAt } : {}),
+      },
+    ];
+  });
+}
+
+function withCleanRevisions(manifest: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(manifest.variants)) return manifest;
+  return {
+    ...manifest,
+    variants: manifest.variants.map((entry: unknown) => {
+      const variant = asRecord(entry);
+      if (variant === null) return entry;
+      const { revisions, ...rest } = variant;
+      const clean = cleanRevisions(revisions);
+      return clean.length === 0 ? rest : { ...rest, revisions: clean };
+    }),
+  };
+}
+
 export function parseStudioManifest(contents: string): StudioManifest | null {
-  const manifest = Option.getOrNull(decodeManifest(parseJsonObject(contents)));
+  const raw = parseJsonObject(contents);
+  const manifest = Option.getOrNull(decodeManifest(raw === null ? null : withCleanRevisions(raw)));
   if (manifest === null || manifest.variants.length === 0) return null;
   const ids = new Set(manifest.variants.map((variant) => variant.id));
   if (ids.size !== manifest.variants.length) return null;
@@ -72,6 +118,40 @@ export function studioVariantKind(file: string): StudioVariantKind {
   return isMarkdownPreviewFile(file) || /\.txt$/i.test(file) ? "text" : "other";
 }
 
+/**
+ * Earlier versions are v1, v2... in the order listed, and the variant's own file is the latest.
+ * A viewed version is the number of an earlier one, or null for the latest.
+ */
+export type StudioViewedVersion = number | null;
+
+export const studioLatestVersion = (variant: StudioVariant) => (variant.revisions?.length ?? 0) + 1;
+
+/** Falls back to the latest when the requested version is not an earlier one that exists. */
+export function studioViewedVersion(
+  variant: StudioVariant,
+  requested: number | undefined,
+): StudioViewedVersion {
+  return requested !== undefined &&
+    Number.isInteger(requested) &&
+    requested >= 1 &&
+    requested < studioLatestVersion(variant)
+    ? requested
+    : null;
+}
+
+const studioVersionFile = (variant: StudioVariant, version: StudioViewedVersion) =>
+  version === null ? variant.file : (variant.revisions?.[version - 1]?.file ?? variant.file);
+
+/** The variant as it looked at `version`, so previews and exports can treat it like any other. */
+export const studioShownVariant = (
+  variant: StudioVariant,
+  version: StudioViewedVersion,
+): StudioVariant =>
+  version === null ? variant : { ...variant, file: studioVersionFile(variant, version) };
+
+const studioOptionLabel = (variant: StudioVariant, version: StudioViewedVersion) =>
+  version === null ? variant.id : `${variant.id} v${version}`;
+
 const pickPrefix = (manifest: StudioManifest) => `Studio pick for "${manifest.title}":`;
 
 /** Replaces the set's earlier pick line, so changing your mind does not send two picks. */
@@ -80,12 +160,37 @@ export function withStudioPickLine(
   manifest: StudioManifest,
   setPath: string,
   variant: StudioVariant | null,
+  version: StudioViewedVersion = null,
 ): string {
   const prefix = pickPrefix(manifest);
   const kept = prompt.split("\n").filter((line) => !line.startsWith(prefix));
   const body = kept.join("\n").trimEnd();
   if (variant === null) return body;
-  const line = `${prefix} option ${variant.id}, ${setPath}/${variant.file}. Refine only this one.`;
+  const line =
+    version === null
+      ? `${prefix} option ${variant.id}, ${setPath}/${variant.file}. Refine only this one.`
+      : `${prefix} option ${variant.id}, picked while viewing its earlier version v${version} (${setPath}/${studioVersionFile(variant, version)}). Refine only this one.`;
+  return body.length === 0 ? line : `${body}\n${line}`;
+}
+
+const restorePrefix = (manifest: StudioManifest, variant: StudioVariant) =>
+  `Studio restore for "${manifest.title}": restore option ${variant.id} to `;
+
+/** The agent does the restore, like it does the edits; a newer restore replaces one for the same option. */
+export function withStudioRestoreLine(
+  prompt: string,
+  manifest: StudioManifest,
+  setPath: string,
+  variant: StudioVariant,
+  version: number,
+): string {
+  const prefix = restorePrefix(manifest, variant);
+  const body = prompt
+    .split("\n")
+    .filter((line) => !line.startsWith(prefix))
+    .join("\n")
+    .trimEnd();
+  const line = `${prefix}v${version} (${setPath}/${studioVersionFile(variant, version)}) as the latest version.`;
   return body.length === 0 ? line : `${body}\n${line}`;
 }
 
@@ -95,8 +200,9 @@ export function withStudioComment(
   setPath: string,
   variant: StudioVariant,
   comment: string,
+  version: StudioViewedVersion = null,
 ): string {
-  const line = `Studio comment on option ${variant.id} of "${manifest.title}" (${setPath}/${variant.file}): ${comment.trim()}`;
+  const line = `Studio comment on option ${studioOptionLabel(variant, version)} of "${manifest.title}" (${setPath}/${studioVersionFile(variant, version)}): ${comment.trim()}`;
   const body = prompt.trimEnd();
   return body.length === 0 ? line : `${body}\n${line}`;
 }
@@ -116,6 +222,8 @@ export function studioCompareDefault(
 /** A comment pinned to a spot. `page` is set when the design's bridge reported the spot's element. */
 export interface StudioPinNote {
   readonly number: number;
+  /** The earlier version it was placed on, or null for the latest. */
+  readonly version: StudioViewedVersion;
   readonly comment: string;
   /** Where in the visible area the pin was placed, 0..1. */
   readonly fx: number;
@@ -149,28 +257,46 @@ export function studioPinLine(variant: StudioVariant, pin: StudioPinNote): strin
         ]
           .filter((part) => part.length > 0)
           .join(", ");
-  return `Option ${variant.id}, pin ${pin.number} (${spot}): ${oneLine(pin.comment)}`;
+  return `Option ${studioOptionLabel(variant, pin.version)}, pin ${pin.number} (${spot}): ${oneLine(pin.comment)}`;
 }
 
-/** Adds the free comment and pinned comments for one option; pins alone read as a short list. */
+/**
+ * Adds the free comment and pinned comments for one option. Pins on different versions are
+ * listed under their own version; the free comment belongs to the version being viewed.
+ */
 export function withStudioFeedback(
   prompt: string,
   manifest: StudioManifest,
   setPath: string,
   variant: StudioVariant,
-  feedback: { readonly comment: string; readonly pins: readonly StudioPinNote[] },
+  feedback: {
+    readonly comment: string;
+    readonly version?: StudioViewedVersion;
+    readonly pins: readonly StudioPinNote[];
+  },
 ): string {
   const comment = feedback.comment.trim();
+  const viewed = feedback.version ?? null;
   if (feedback.pins.length === 0) {
     return comment.length === 0
       ? prompt
-      : withStudioComment(prompt, manifest, setPath, variant, comment);
+      : withStudioComment(prompt, manifest, setPath, variant, comment, viewed);
   }
-  const lines = [
-    `Studio comments on option ${variant.id} of "${manifest.title}" (${setPath}/${variant.file}):`,
-    ...(comment.length === 0 ? [] : [`Option ${variant.id}, overall: ${comment}`]),
-    ...feedback.pins.map((pin) => studioPinLine(variant, pin)),
-  ];
+  const versions = [
+    ...new Set([
+      ...feedback.pins.map((pin) => pin.version),
+      ...(comment.length > 0 ? [viewed] : []),
+    ]),
+  ].toSorted((a, b) => (a ?? Infinity) - (b ?? Infinity));
+  const lines = versions.flatMap((version) => [
+    `Studio comments on option ${studioOptionLabel(variant, version)} of "${manifest.title}" (${setPath}/${studioVersionFile(variant, version)}):`,
+    ...(comment.length > 0 && version === viewed
+      ? [`Option ${studioOptionLabel(variant, version)}, overall: ${comment}`]
+      : []),
+    ...feedback.pins
+      .filter((pin) => pin.version === version)
+      .map((pin) => studioPinLine(variant, pin)),
+  ]);
   const body = prompt.trimEnd();
   return body.length === 0 ? lines.join("\n") : `${body}\n${lines.join("\n")}`;
 }

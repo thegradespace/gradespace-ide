@@ -16,7 +16,15 @@ import { observeResize } from "~/lib/observeResize";
 import { cn } from "~/lib/utils";
 
 import { FileSurfaceAction } from "../files/fileSurfaceChrome";
-import { type StudioManifest, type StudioVariant, studioVariantKind } from "./studioManifest";
+import {
+  type StudioManifest,
+  type StudioVariant,
+  studioLatestVersion,
+  studioShownVariant,
+  studioVariantKind,
+  studioViewedVersion,
+  type StudioViewedVersion,
+} from "./studioManifest";
 import type { NewStudioPin, Size, StudioPin, StudioPinDraft } from "./studioPins";
 import { StudioPinLayer } from "./StudioPinLayer";
 import {
@@ -148,6 +156,75 @@ function usePaneFrame(variant: StudioVariant | null, zoomSetting: number | null)
   return { kind, zoomable, setFrame, size, zoom, view };
 }
 
+type VersionProps = {
+  /** Earlier versions being viewed, by option id; an option not listed shows its latest. */
+  readonly versions: Readonly<Record<string, number>>;
+  readonly onVersionChange: (variantId: string, version: StudioViewedVersion) => void;
+  readonly onRestore: (variant: StudioVariant, version: number) => void;
+};
+
+/** Switches an option between its versions; older ones are read-only and can be restored. */
+function StudioVersionBar(
+  props: Pick<VersionProps, "onRestore"> & {
+    readonly variant: StudioVariant;
+    readonly version: StudioViewedVersion;
+    readonly onVersionChange: (version: StudioViewedVersion) => void;
+  },
+) {
+  const { variant, version } = props;
+  const latest = studioLatestVersion(variant);
+  if (latest === 1) return null;
+  return (
+    <div
+      role="group"
+      aria-label={`Versions of option ${variant.id}`}
+      className="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1"
+    >
+      {Array.from({ length: latest }, (_, index) => index + 1).map((number) => {
+        const isLatest = number === latest;
+        const revision = variant.revisions?.[number - 1];
+        return (
+          <Button
+            key={number}
+            type="button"
+            size="xs"
+            variant={(version ?? latest) === number ? "secondary" : "ghost"}
+            aria-pressed={(version ?? latest) === number}
+            title={revision?.note}
+            onClick={() => props.onVersionChange(isLatest ? null : number)}
+          >
+            {isLatest ? `v${number} (latest)` : `v${number}`}
+          </Button>
+        );
+      })}
+      {version === null ? null : (
+        <>
+          <span className="text-muted-foreground text-xs">
+            Viewing v{version} of {variant.id}
+          </span>
+          <div className="min-w-0 flex-1" />
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            onClick={() => props.onRestore(variant, version)}
+          >
+            Restore this version
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() => props.onVersionChange(null)}
+          >
+            Back to latest
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 type PinProps = {
   readonly pins: readonly StudioPin[];
   readonly pinMode: boolean;
@@ -160,9 +237,12 @@ type PinProps = {
 
 function StudioPane(
   props: StudioContext &
-    PinProps & {
+    PinProps &
+    Pick<VersionProps, "onRestore"> & {
       readonly setPath: string;
       readonly variant: StudioVariant;
+      readonly version: StudioViewedVersion;
+      readonly onVersionChange: (version: StudioViewedVersion) => void;
       readonly paneFrame: PaneFrame;
       readonly pane: 0 | 1;
       readonly header?: ReactNode;
@@ -171,7 +251,12 @@ function StudioPane(
 ) {
   const { size, zoom, kind, view, setFrame } = props.paneFrame;
   const preview = (
-    <StudioVariantPreview {...props} variant={props.variant} thumbnail={false} view={view} />
+    <StudioVariantPreview
+      {...props}
+      variant={studioShownVariant(props.variant, props.version)}
+      thumbnail={false}
+      view={view}
+    />
   );
   return (
     <div
@@ -182,6 +267,12 @@ function StudioPane(
       )}
     >
       {props.header}
+      <StudioVersionBar
+        variant={props.variant}
+        version={props.version}
+        onVersionChange={props.onVersionChange}
+        onRestore={props.onRestore}
+      />
       <div
         ref={setFrame}
         className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
@@ -203,7 +294,7 @@ function StudioPane(
           preview
         )}
         <StudioPinLayer
-          key={props.variant.id}
+          key={`${props.variant.id}:${props.version ?? "latest"}`}
           pins={props.pins}
           size={size}
           zoom={zoom}
@@ -270,39 +361,46 @@ const STACK_BELOW_WIDTH = 640;
  * mode applies to whichever pane is clicked.
  */
 export function StudioDesignStage(
-  props: StudioContext & {
-    readonly setPath: string;
-    readonly manifest: StudioManifest;
-    readonly variant: StudioVariant;
-    /** The option in the second pane while comparing. */
-    readonly compare: StudioVariant | null;
-    readonly onCompareChange: (on: boolean) => void;
-    readonly zoom: number | null;
-    readonly onZoomChange: (zoom: number | null) => void;
-    readonly saving: boolean;
-    readonly onSelect: (id: string) => void;
-    readonly onSelectCompare: (id: string) => void;
-    readonly onTogglePick: (variant: StudioVariant) => void;
-    readonly pinMode: boolean;
-    readonly onPinModeChange: (on: boolean) => void;
-    readonly pins: readonly StudioPin[];
-    readonly onAddPin: (pin: NewStudioPin) => void;
-    readonly leading?: ReactNode;
-    readonly trailing?: ReactNode;
-    readonly onFullscreen?: () => void;
-    readonly onExitFullscreen?: () => void;
-    readonly onPopOut?: () => void;
-    /** Rendering into a popped-out window. */
-    readonly native?: boolean;
-  },
+  props: StudioContext &
+    VersionProps & {
+      readonly setPath: string;
+      readonly manifest: StudioManifest;
+      readonly variant: StudioVariant;
+      /** The option in the second pane while comparing. */
+      readonly compare: StudioVariant | null;
+      readonly onCompareChange: (on: boolean) => void;
+      readonly zoom: number | null;
+      readonly onZoomChange: (zoom: number | null) => void;
+      readonly saving: boolean;
+      readonly onSelect: (id: string) => void;
+      readonly onSelectCompare: (id: string) => void;
+      readonly onTogglePick: (variant: StudioVariant) => void;
+      readonly pinMode: boolean;
+      readonly onPinModeChange: (on: boolean) => void;
+      readonly pins: readonly StudioPin[];
+      readonly onAddPin: (pin: NewStudioPin) => void;
+      readonly leading?: ReactNode;
+      readonly trailing?: ReactNode;
+      readonly onFullscreen?: () => void;
+      readonly onExitFullscreen?: () => void;
+      readonly onPopOut?: () => void;
+      /** Rendering into a popped-out window. */
+      readonly native?: boolean;
+    },
 ) {
   const native = props.native ?? false;
   const compare = props.compare;
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [rootWidth, setRootWidth] = useState<number | null>(null);
   const [draft, setDraft] = useState<StudioPinDraft | null>(null);
-  const lead = usePaneFrame(props.variant, props.zoom);
-  const second = usePaneFrame(compare, props.zoom);
+  const leadVersion = studioViewedVersion(props.variant, props.versions[props.variant.id]);
+  const compareVersion =
+    compare === null ? null : studioViewedVersion(compare, props.versions[compare.id]);
+  const lead = usePaneFrame(studioShownVariant(props.variant, leadVersion), props.zoom);
+  const second = usePaneFrame(
+    compare === null ? null : studioShownVariant(compare, compareVersion),
+    props.zoom,
+  );
   const zoomed = lead.zoomable ? lead : compare !== null && second.zoomable ? second : null;
   const zoom = zoomed?.zoom ?? 1;
   const latestZoom = useRef(zoom);
@@ -381,6 +479,7 @@ export function StudioDesignStage(
     if (variant === null) return;
     props.onAddPin({
       variantId: variant.id,
+      version: activeDraft.pane === 0 ? leadVersion : compareVersion,
       comment,
       fx: activeDraft.fx,
       fy: activeDraft.fy,
@@ -395,6 +494,10 @@ export function StudioDesignStage(
     onSubmitDraft: submitDraft,
     onCancelDraft: () => setDraft(null),
     onEscape: escapePin,
+  };
+  const changeVersion = (variantId: string, version: StudioViewedVersion) => {
+    setDraft(null);
+    props.onVersionChange(variantId, version);
   };
   const paneContext = {
     environmentId: props.environmentId,
@@ -485,9 +588,14 @@ export function StudioDesignStage(
           {...paneContext}
           {...pinProps}
           variant={props.variant}
+          version={leadVersion}
+          onVersionChange={(version) => changeVersion(props.variant.id, version)}
+          onRestore={props.onRestore}
           paneFrame={lead}
           pane={0}
-          pins={props.pins.filter((pin) => pin.variantId === props.variant.id)}
+          pins={props.pins.filter(
+            (pin) => pin.variantId === props.variant.id && pin.version === leadVersion,
+          )}
           pinDraft={activeDraft?.pane === 0 ? activeDraft : null}
           header={
             compare === null ? undefined : (
@@ -508,10 +616,15 @@ export function StudioDesignStage(
             {...paneContext}
             {...pinProps}
             variant={compare}
+            version={compareVersion}
+            onVersionChange={(version) => changeVersion(compare.id, version)}
+            onRestore={props.onRestore}
             paneFrame={second}
             pane={1}
             separator={stacked ? "top" : "left"}
-            pins={props.pins.filter((pin) => pin.variantId === compare.id)}
+            pins={props.pins.filter(
+              (pin) => pin.variantId === compare.id && pin.version === compareVersion,
+            )}
             pinDraft={activeDraft?.pane === 1 ? activeDraft : null}
             header={
               <StudioPaneHeader

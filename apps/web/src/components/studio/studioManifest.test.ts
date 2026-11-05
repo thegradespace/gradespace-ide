@@ -4,11 +4,14 @@ import {
   parseStudioManifest,
   studioCompareDefault,
   studioPinLine,
+  studioShownVariant,
   studioVariantKind,
+  studioViewedVersion,
   withStudioComment,
   withStudioFeedback,
   withStudioPicked,
   withStudioPickLine,
+  withStudioRestoreLine,
 } from "./studioManifest";
 
 const variant = (id: string, file = `${id.toLowerCase()}.html`) => ({ id, title: id, file });
@@ -38,6 +41,63 @@ describe("parseStudioManifest", () => {
     ["a backslash path", manifestJson([variant("A", "..\\secret.html")])],
   ])("rejects %s", (_name, contents) => {
     expect(parseStudioManifest(contents)).toBeNull();
+  });
+});
+
+describe("revisions", () => {
+  const revisions = [
+    { file: "b.v1.html", note: "first draft", createdAt: "2026-11-03T10:00:00Z" },
+    { file: "b.v2.html" },
+  ];
+
+  it("reads earlier versions, oldest first", () => {
+    const parsed = parseStudioManifest(manifestJson([{ ...variant("B"), revisions }]));
+    expect(parsed?.variants[0]?.revisions).toEqual(revisions);
+  });
+
+  it("ignores a malformed entry and keeps the set", () => {
+    const parsed = parseStudioManifest(
+      manifestJson([
+        {
+          ...variant("B"),
+          revisions: [
+            "b.v1.html",
+            null,
+            { note: "no file" },
+            { file: 3 },
+            { file: "../secret.html" },
+            { file: "/etc/passwd" },
+            { file: "b.v2.html", note: 7, createdAt: false },
+            { file: "b.v3.html", note: "ok" },
+          ],
+        },
+      ]),
+    );
+    expect(parsed?.variants[0]?.revisions).toEqual([
+      { file: "b.v2.html" },
+      { file: "b.v3.html", note: "ok" },
+    ]);
+  });
+
+  it.each([
+    ["not a list", "b.v1.html"],
+    ["an empty list", []],
+    ["an object", {}],
+  ])("treats revisions as absent when it is %s", (_name, value) => {
+    const parsed = parseStudioManifest(manifestJson([{ ...variant("B"), revisions: value }]));
+    expect(parsed).toEqual({ title: "Launch", variants: [variant("B")] });
+  });
+
+  it("numbers earlier versions from 1 and falls back to the latest", () => {
+    const b = { ...variant("B"), revisions };
+    expect(studioViewedVersion(b, 1)).toBe(1);
+    expect(studioViewedVersion(b, 2)).toBe(2);
+    expect(studioViewedVersion(b, 3)).toBeNull();
+    expect(studioViewedVersion(b, 0)).toBeNull();
+    expect(studioViewedVersion(b, undefined)).toBeNull();
+    expect(studioViewedVersion(variant("A"), 1)).toBeNull();
+    expect(studioShownVariant(b, 2).file).toBe("b.v2.html");
+    expect(studioShownVariant(b, null)).toBe(b);
   });
 });
 
@@ -72,6 +132,24 @@ describe("composer lines", () => {
     expect(withStudioPickLine(picked, manifest, setPath, null)).toBe("Please hurry");
   });
 
+  it("says which earlier version was open when picking", () => {
+    const withRevisions = { ...b!, revisions: [{ file: "b.v1.html" }] };
+    expect(withStudioPickLine("", manifest, setPath, withRevisions, 1)).toBe(
+      `Studio pick for "Launch": option B, picked while viewing its earlier version v1 (${setPath}/b.v1.html). Refine only this one.`,
+    );
+  });
+
+  it("asks the agent to restore a version, replacing an earlier request for that option", () => {
+    const withRevisions = { ...b!, revisions: [{ file: "b.v1.html" }, { file: "b.v2.html" }] };
+    const first = withStudioRestoreLine("Hi", manifest, setPath, withRevisions, 1);
+    expect(first).toBe(
+      `Hi\nStudio restore for "Launch": restore option B to v1 (${setPath}/b.v1.html) as the latest version.`,
+    );
+    expect(withStudioRestoreLine(first, manifest, setPath, withRevisions, 2)).toBe(
+      `Hi\nStudio restore for "Launch": restore option B to v2 (${setPath}/b.v2.html) as the latest version.`,
+    );
+  });
+
   it("keeps earlier comments when adding another", () => {
     const first = withStudioComment("", manifest, setPath, a!, " Bigger logo ");
     expect(withStudioComment(first, manifest, setPath, b!, "Less text")).toBe(
@@ -99,6 +177,7 @@ describe("pinned comments", () => {
   const [, b] = manifest.variants;
   const anchored = {
     number: 2,
+    version: null,
     comment: " make this\nbigger ",
     fx: 0.3,
     fy: 0.1,
@@ -132,6 +211,45 @@ describe("pinned comments", () => {
         "Option B, overall: Calmer\n" +
         `Option B, pin 2 (near "Get 'started'" (main > a.cta), about 30% from the left and 15% from the top of the page): make this bigger`,
     );
+  });
+
+  describe("on earlier versions", () => {
+    const b2 = { ...b!, revisions: [{ file: "b.v1.html" }, { file: "b.v2.html" }] };
+
+    it("names the version in comments and pins", () => {
+      const onV1 = { ...anchored, number: 1, version: 1, page: null };
+      expect(studioPinLine(b2, onV1)).toBe(
+        "Option B v1, pin 1 (about 30% from the left and 10% from the top of the visible area): make this bigger",
+      );
+      expect(withStudioComment("", manifest, setPath, b2, "Calmer", 2)).toBe(
+        `Studio comment on option B v2 of "Launch" (${setPath}/b.v2.html): Calmer`,
+      );
+    });
+
+    it("lists pins under their own version, oldest first, with the free comment on the viewed one", () => {
+      const onV1 = { ...anchored, number: 1, version: 1, page: null };
+      expect(
+        withStudioFeedback("", manifest, setPath, b2, {
+          comment: "Calmer",
+          version: null,
+          pins: [anchored, onV1],
+        }),
+      ).toBe(
+        [
+          `Studio comments on option B v1 of "Launch" (${setPath}/b.v1.html):`,
+          "Option B v1, pin 1 (about 30% from the left and 10% from the top of the visible area): make this bigger",
+          `Studio comments on option B of "Launch" (${setPath}/b.html):`,
+          "Option B, overall: Calmer",
+          `Option B, pin 2 (near "Get 'started'" (main > a.cta), about 30% from the left and 15% from the top of the page): make this bigger`,
+        ].join("\n"),
+      );
+    });
+
+    it("sends a viewed-version comment alone when it has no pins", () => {
+      expect(
+        withStudioFeedback("", manifest, setPath, b2, { comment: "Calmer", version: 1, pins: [] }),
+      ).toBe(`Studio comment on option B v1 of "Launch" (${setPath}/b.v1.html): Calmer`);
+    });
   });
 
   it("matches the plain comment line when there are no pins", () => {
