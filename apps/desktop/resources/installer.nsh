@@ -38,5 +38,20 @@
       ClearErrors
       WinShell::SetLnkAUMI "$newStartMenuLink" "${APP_ID}"
     ${EndIf}
+    Pop $0
+  !endif
+!macroend
+
+; One-click per-user installs default to Programs\<package name> ("t3code"). Seed the
+; location the installer reads first so fresh installs use the product name; existing
+; installs keep their recorded folder, so upgrades stay in place.
+!macro preInit
+  !ifndef BUILD_UNINSTALLER
+    Push $0
+    ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+    ${If} $0 == ""
+      WriteRegExpandStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "$LOCALAPPDATA\Programs\${PRODUCT_FILENAME}"
+    ${EndIf}
+    Pop $0
   !endif
 !macroend

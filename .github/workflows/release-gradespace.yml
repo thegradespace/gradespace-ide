@@ -12,9 +12,13 @@ on:
         description: "Version without the v, such as 0.1.6"
         required: true
       arm64_only:
-        description: "Build Apple Silicon only"
+        description: "Build Apple Silicon only (skips the Intel Mac)"
         type: boolean
         default: false
+      include_windows:
+        description: "Build the Windows x64 installer"
+        type: boolean
+        default: true
       publish:
         description: "Publish when the builds finish; off leaves a draft for testing"
         type: boolean
@@ -104,9 +108,62 @@ jobs:
           gh release upload "$TAG" --repo "$RELEASE_REPO" --clobber \
             release/*.dmg release/*.zip release/*.blockmap "release/latest-mac-$ARCH.yml"
 
+  # Unsigned for now: SmartScreen warns on first install, and the updater skips the
+  # signature check because no publisherName is configured.
+  build-windows:
+    needs: prepare
+    if: github.event_name != 'workflow_dispatch' || inputs.include_windows
+    runs-on: windows-2025
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # .repos holds read-only references the build never reads.
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - uses: ./.github/actions/setup-ci-deps
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Align package versions to the release version
+        run: node scripts/update-release-package-versions.ts "${{ needs.prepare.outputs.version }}"
+
+      # No --wsl-runtime: the server runs natively on Windows; the WSL backend is not bundled.
+      - name: Build the installer
+        env:
+          T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ env.RELEASE_REPO }}
+        run: |
+          vp run dist:desktop:artifact --platform win --target nsis --arch x64 --build-version "${{ needs.prepare.outputs.version }}" --verbose
+          ls -la release
+
+      - name: Upload to the draft release
+        if: needs.prepare.outputs.can_publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAG: v${{ needs.prepare.outputs.version }}
+        run: |
+          # A fixed name lets the download page link to the newest build forever.
+          cp release/Gradespace-IDE-*-x64.exe release/Gradespace-IDE-Setup-x64.exe
+          gh release upload "$TAG" --repo "$RELEASE_REPO" --clobber \
+            release/Gradespace-IDE-*-x64.exe release/Gradespace-IDE-*-x64.exe.blockmap release/latest.yml
+
   publish:
-    needs: [prepare, build]
-    if: needs.prepare.outputs.can_publish == 'true' && (github.event_name != 'workflow_dispatch' || inputs.publish)
+    needs: [prepare, build, build-windows]
+    # Windows is optional, so a skipped Windows job must not block publishing.
+    if: >-
+      !cancelled() &&
+      needs.prepare.outputs.can_publish == 'true' &&
+      needs.build.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
+      (github.event_name != 'workflow_dispatch' || inputs.publish)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -117,6 +174,7 @@ jobs:
       - name: Stop if unsigned
         run: |
           if [[ "$SIGNED" != "true" ]]; then
+            # Only Mac signing gates publishing; the Windows build is unsigned by design for now.
             echo "::warning::Leaving $TAG as a draft: macOS refuses updates to unsigned apps."
           fi
 
