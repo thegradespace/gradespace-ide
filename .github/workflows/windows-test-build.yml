@@ -52,6 +52,15 @@ jobs:
           vp run dist:desktop:artifact --platform win --target nsis --arch x64 --build-version "$VERSION" --verbose
           ls -la release
 
+      - name: Check a silent install lands in the product-named folder
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release -Filter "Gradespace-IDE-*-x64.exe" | Select-Object -First 1
+          Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait
+          $exe = Join-Path $env:LOCALAPPDATA "Programs\Gradespace IDE\Gradespace IDE.exe"
+          if (-not (Test-Path $exe)) { Get-ChildItem (Join-Path $env:LOCALAPPDATA "Programs"); throw "Missing $exe" }
+          Get-Content (Join-Path $env:LOCALAPPDATA "Programs\Gradespace IDE\resources\app-update.yml")
+
       - uses: actions/upload-artifact@v4
         with:
           name: gradespace-ide-${{ env.VERSION }}-win-x64
