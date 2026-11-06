@@ -9,9 +9,6 @@ on:
         description: "Version without the v, such as 0.1.11-test"
         required: true
         default: "0.1.11-test"
-  # Temporary: workflow_dispatch only works once this file is on the default branch.
-  push:
-    branches: [feat/windows-build]
 
 permissions:
   contents: read
