@@ -45,6 +45,7 @@ import {
   type DesktopWslState,
   type EnvironmentId,
   type FilesystemBrowseResult,
+  type QuickAction,
   SourceControlProviderKind,
   PRIMARY_LOCAL_ENVIRONMENT_ID,
   resolveEnvironmentMachineKind,
@@ -283,6 +284,9 @@ function openIntentView(intent: CommandPaletteOpenIntent | null): CommandPalette
 }
 
 const NEW_THREAD_NO_PROJECT_VALUE = "new-thread-in:no-project";
+const selectQuickActions = (settings: { readonly quickActions: ReadonlyArray<QuickAction> }) => ({
+  quickActions: settings.quickActions,
+});
 
 export function CommandPalette({ children }: { children: ReactNode }) {
   useCommandPaletteMount();
@@ -389,7 +393,7 @@ function OpenCommandPaletteDialog(props: {
 }) {
   const navigate = useNavigate();
   const router = useRouter();
-  const quickActions = useClientSettings((settings) => settings.quickActions);
+  const { quickActions } = useClientSettings(selectQuickActions);
   const pathname = useLocation({ select: (location) => location.pathname });
   const { openChildSearch, setOpen } = props;
   // Keyed by palette session: the intent and restored search only seed this
