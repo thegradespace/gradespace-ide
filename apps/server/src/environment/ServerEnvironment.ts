@@ -234,6 +234,7 @@ export const make = Effect.gen(function* () {
       databaseStorage: true,
       backups: true,
       studioShare: true,
+      skillPacks: true,
       otlpEndpointCheck: true,
       projectWorktreeCleanup: true,
       settledWorktreeCleanup: true,

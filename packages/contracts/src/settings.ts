@@ -1232,6 +1232,10 @@ export const ServerSettings = Schema.Struct({
   offlineMode: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   /** Where Studio designs are shared to. Empty uses https://thegradespace.com. For testing. */
   studioShareBaseUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  /** Where the Gradespace skill pack list lives. Empty uses the default. For testing. */
+  skillPackManifestUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  /** Updates skills the app installed, at most once a day. Never installs new ones. */
+  keepSkillsUpToDate: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   continueThreadsAfterServerUpdate: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(true)),
   ),
@@ -1612,6 +1616,8 @@ export const ServerSettingsPatch = Schema.Struct({
   shareUsageData: Schema.optionalKey(Schema.Boolean),
   offlineMode: Schema.optionalKey(Schema.Boolean),
   studioShareBaseUrl: Schema.optionalKey(TrimmedString),
+  skillPackManifestUrl: Schema.optionalKey(TrimmedString),
+  keepSkillsUpToDate: Schema.optionalKey(Schema.Boolean),
   continueThreadsAfterServerUpdate: Schema.optionalKey(Schema.Boolean),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
   projectAgentBrowserAccessOverrides: Schema.optionalKey(

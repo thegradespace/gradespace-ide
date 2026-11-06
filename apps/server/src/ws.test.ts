@@ -94,6 +94,7 @@ import * as SourceControlSignIn from "./sourceControl/SourceControlSignIn.ts";
 import * as StorageCleanup from "./storageCleanup.ts";
 import * as StateBackups from "./backup/StateBackups.ts";
 import * as StudioShare from "./studioShare/StudioShare.ts";
+import * as SkillPacks from "./skillPacks/SkillPacks.ts";
 import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
 import * as TerminalManager from "./terminal/Manager.ts";
 import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts";
@@ -547,6 +548,7 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(StorageCleanup.StorageCleanup)({}),
   Layer.mock(StateBackups.StateBackups)({}),
   Layer.mock(StudioShare.StudioShare)({}),
+  Layer.mock(SkillPacks.SkillPacks)({}),
   Layer.mock(DatabaseStorage.DatabaseStorage)({}),
   Layer.mock(TerminalManager.TerminalManager)({}),
   Layer.mock(ThreadLaunchService.ThreadLaunchService)({}),

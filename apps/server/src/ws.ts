@@ -189,6 +189,7 @@ import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
 import * as StorageCleanup from "./storageCleanup.ts";
 import * as StateBackups from "./backup/StateBackups.ts";
 import * as StudioShare from "./studioShare/StudioShare.ts";
+import * as SkillPacks from "./skillPacks/SkillPacks.ts";
 import * as TerminalManager from "./terminal/Manager.ts";
 import { terminalOutputStream, withTerminalOutputWindow } from "./terminal/OutputProtocol.ts";
 import * as ServerBrowser from "./preview/ServerBrowser.ts";
@@ -1363,6 +1364,7 @@ export const layerWsRpc = (
       const databaseStorage = yield* DatabaseStorage.DatabaseStorage;
       const stateBackups = yield* StateBackups.StateBackups;
       const studioShare = yield* StudioShare.StudioShare;
+      const skillPacks = yield* SkillPacks.SkillPacks;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
       if (clientDevice !== undefined) {
         yield* serverSettings.getSettings.pipe(
@@ -2553,6 +2555,10 @@ export const layerWsRpc = (
         [WS_METHODS.studioShareCreate]: (input) => studioShare.create(input),
         [WS_METHODS.studioShareList]: () => studioShare.list,
         [WS_METHODS.studioShareRevoke]: ({ id }) => studioShare.revoke(id),
+        [WS_METHODS.skillPacksStatus]: () => skillPacks.status,
+        [WS_METHODS.skillPacksInstall]: ({ names }) => skillPacks.install(names),
+        [WS_METHODS.skillPacksUpdate]: ({ names }) => skillPacks.update(names),
+        [WS_METHODS.skillPacksRemove]: ({ names }) => skillPacks.remove(names),
         [WS_METHODS.peerLinksList]: (_input) =>
           peerLinks.list.pipe(Effect.map((links) => ({ links }))),
         [WS_METHODS.peerLinksLink]: (input) => peerLinks.link(input),

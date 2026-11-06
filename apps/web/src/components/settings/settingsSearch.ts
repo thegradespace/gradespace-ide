@@ -25,6 +25,7 @@ export type SettingsPath =
   | "/settings/keybindings"
   | "/settings/snap-shot"
   | "/settings/providers"
+  | "/settings/skills"
   | "/settings/threads"
   | "/settings/browser"
   | "/settings/devices"
@@ -95,6 +96,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/keybindings": "Keybindings",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
+  "/settings/skills": "Skills",
   "/settings/threads": "Threads",
   "/settings/browser": "Browser",
   "/settings/devices": "Devices",
@@ -130,6 +132,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
     heading: "Agents",
     paths: [
       "/settings/providers",
+      "/settings/skills",
       "/settings/threads",
       "/settings/browser",
       "/settings/devices",
@@ -867,6 +870,22 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
+    id: "skills",
+    title: "Gradespace skills",
+    to: "/settings/skills",
+    targetId: "skills-updates",
+    searchTerms: [
+      "skill pack install update remove claude codex agent skills SKILL.md instructions download",
+    ],
+  },
+  {
+    id: "skills-keep-up-to-date",
+    title: "Keep skills up to date",
+    to: "/settings/skills",
+    scope: "environment-defaults",
+    searchTerms: ["skills automatic auto update daily skill pack"],
+  },
+  {
     id: "usage-providers",
     title: "Usage providers",
     to: "/settings/providers",
@@ -1256,6 +1275,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/snap-shot": null,
   "/settings/keybindings": null,
   "/settings/providers": null,
+  "/settings/skills": null,
   "/settings/threads": null,
   "/settings/browser": null,
   "/settings/devices": null,

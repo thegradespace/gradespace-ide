@@ -93,6 +93,12 @@ import {
   StudioShareStatus,
 } from "./studioShare.ts";
 import {
+  SkillPackError,
+  SkillPackNamesInput,
+  SkillPackStatus,
+  SkillPackUpdateInput,
+} from "./skillPacks.ts";
+import {
   FilesystemGetMetadataInput,
   FilesystemGetMetadataResult,
   FilesystemBrowseInput,
@@ -526,6 +532,10 @@ export const WS_METHODS = {
   studioShareCreate: "studioShare.create",
   studioShareList: "studioShare.list",
   studioShareRevoke: "studioShare.revoke",
+  skillPacksStatus: "skillPacks.status",
+  skillPacksInstall: "skillPacks.install",
+  skillPacksUpdate: "skillPacks.update",
+  skillPacksRemove: "skillPacks.remove",
   peerLinksList: "peerLinks.list",
   peerLinksLink: "peerLinks.link",
   peerLinksUnlink: "peerLinks.unlink",
@@ -868,6 +878,32 @@ const WsStudioShareRevokeRpc = Rpc.make(WS_METHODS.studioShareRevoke, {
   payload: StudioShareRevokeInput,
   success: StudioShareList,
   error: StudioShareRpcError,
+});
+
+const SkillPacksRpcError = Schema.Union([SkillPackError, EnvironmentAuthorizationError]);
+
+const WsSkillPacksStatusRpc = Rpc.make(WS_METHODS.skillPacksStatus, {
+  payload: Schema.Struct({}),
+  success: SkillPackStatus,
+  error: SkillPacksRpcError,
+});
+
+const WsSkillPacksInstallRpc = Rpc.make(WS_METHODS.skillPacksInstall, {
+  payload: SkillPackNamesInput,
+  success: SkillPackStatus,
+  error: SkillPacksRpcError,
+});
+
+const WsSkillPacksUpdateRpc = Rpc.make(WS_METHODS.skillPacksUpdate, {
+  payload: SkillPackUpdateInput,
+  success: SkillPackStatus,
+  error: SkillPacksRpcError,
+});
+
+const WsSkillPacksRemoveRpc = Rpc.make(WS_METHODS.skillPacksRemove, {
+  payload: SkillPackNamesInput,
+  success: SkillPackStatus,
+  error: SkillPacksRpcError,
 });
 
 const WsPeerLinksListRpc = Rpc.make(WS_METHODS.peerLinksList, {
@@ -2082,6 +2118,10 @@ export const WsRpcGroup = RpcGroup.make(
   WsStudioShareCreateRpc,
   WsStudioShareListRpc,
   WsStudioShareRevokeRpc,
+  WsSkillPacksStatusRpc,
+  WsSkillPacksInstallRpc,
+  WsSkillPacksUpdateRpc,
+  WsSkillPacksRemoveRpc,
   WsServerUpdateSettingsRpc,
   WsPeerLinksListRpc,
   WsPeerLinksLinkRpc,

@@ -1224,6 +1224,27 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:server:revoke-studio-share",
       tag: WS_METHODS.studioShareRevoke,
     }),
+    skillPacksStatus: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:skill-packs-status",
+      tag: WS_METHODS.skillPacksStatus,
+      staleTimeMs: 0,
+      idleTtlMs: 0,
+    }),
+    installSkillPacks: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:install-skill-packs",
+      tag: WS_METHODS.skillPacksInstall,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
+    updateSkillPacks: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:update-skill-packs",
+      tag: WS_METHODS.skillPacksUpdate,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
+    removeSkillPacks: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:remove-skill-packs",
+      tag: WS_METHODS.skillPacksRemove,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
     prepareTriage: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:prepare-triage",
       tag: WS_METHODS.serverPrepareTriage,
