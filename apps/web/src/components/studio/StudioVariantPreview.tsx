@@ -1,9 +1,11 @@
 import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
 import { resolvePathLinkTarget } from "@t3tools/shared/fileLinks";
 import { FileText } from "lucide-react";
+import { useState } from "react";
 
 import { useAssetUrlState } from "~/assets/assetUrls";
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
+import { prepareVideoFirstFrame } from "~/lib/videoFirstFrame";
 
 import { FileMarkdownPreview } from "../files/FileMarkdownPreview";
 import { WorkspaceBrowserPreview } from "../files/FilePreviewPanel";
@@ -28,6 +30,17 @@ export function showToast(type: "success" | "error", title: string, description?
   );
 }
 
+/** Video goes through the media route: the workspace route only serves preview documents and images. */
+export function studioAssetResource(context: StudioContext, absolutePath: string) {
+  return workspaceAssetResource({
+    kind: studioVariantKind(absolutePath) === "video" ? "media-file" : "workspace-file",
+    threadRef: context.threadRef,
+    draft: context.draft,
+    workspaceRoot: context.cwd,
+    absolutePath,
+  });
+}
+
 /** Zoomed single-design view; thumbnails omit it and keep the plain fit. */
 export interface StudioView {
   readonly zoom: number;
@@ -45,13 +58,7 @@ function StudioImage(
 ) {
   const assetUrl = useAssetUrlState(
     props.environmentId,
-    workspaceAssetResource({
-      kind: "workspace-file",
-      threadRef: props.threadRef,
-      draft: props.draft,
-      workspaceRoot: props.cwd,
-      absolutePath: props.absolutePath,
-    }),
+    studioAssetResource(props, props.absolutePath),
     props.workspaceMutationId,
   );
   if (assetUrl._tag === "Failure") return <FileSurfaceFailure message="Unable to load image." />;
@@ -84,6 +91,73 @@ function StudioImage(
       />
     </div>
   );
+}
+
+/**
+ * Each read re-mints the URL, but the source only changes with the file's revision (size and
+ * mtime on the server), so an unchanged video keeps playing. Nothing autoplays; thumbnails show
+ * the first frame.
+ */
+function StudioVideo(
+  props: StudioContext & {
+    readonly absolutePath: string;
+    readonly label: string;
+    readonly thumbnail: boolean;
+    readonly view?: StudioView | undefined;
+  },
+) {
+  const assetUrl = useAssetUrlState(
+    props.environmentId,
+    studioAssetResource(props, props.absolutePath),
+    props.readRevision,
+  );
+  const [loaded, setLoaded] = useState<{ revision: string; src: string } | null>(null);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const revision =
+    assetUrl._tag === "Success" ? (assetUrl.fileRevision ?? props.readRevision) : null;
+  const latestSrc =
+    assetUrl._tag === "Success" && revision !== null
+      ? `${assetUrl.url}${assetUrl.url.includes("?") ? "&" : "?"}file-revision=${encodeURIComponent(revision)}`
+      : null;
+  // A kept source can outlive its signed URL, so a failed one moves to a fresher URL when there is one.
+  if (
+    latestSrc !== null &&
+    revision !== null &&
+    (loaded?.revision !== revision || (failedSrc === loaded.src && latestSrc !== loaded.src))
+  ) {
+    setLoaded({ revision, src: latestSrc });
+  }
+  if (assetUrl._tag === "Failure") return <FileSurfaceFailure message="Unable to load video." />;
+  if (loaded === null) return <FileSurfaceLoading />;
+  if (failedSrc === loaded.src) return <FileSurfaceFailure message="Unable to play this video." />;
+  const view = props.view;
+  const scaled = view !== undefined && !view.fit && view.imageSize !== null;
+  const video = (
+    <video
+      src={loaded.src}
+      aria-label={props.label}
+      controls={!props.thumbnail}
+      muted={props.thumbnail}
+      playsInline
+      preload="metadata"
+      className={
+        scaled
+          ? "m-auto max-w-none shrink-0 bg-black"
+          : "size-full min-h-0 flex-1 bg-black object-contain"
+      }
+      style={scaled ? { width: view.imageSize!.width * view.zoom } : undefined}
+      onLoadedMetadata={(event) => {
+        prepareVideoFirstFrame(event.currentTarget);
+        view?.onImageSize({
+          width: event.currentTarget.videoWidth,
+          height: event.currentTarget.videoHeight,
+        });
+      }}
+      onError={() => setFailedSrc(loaded.src)}
+    />
+  );
+  if (view === undefined) return video;
+  return <div className="scrollbar-gutter-both flex min-h-0 flex-1 overflow-auto">{video}</div>;
 }
 
 function StudioText(props: StudioContext & { readonly relativePath: string }) {
@@ -186,6 +260,17 @@ export function StudioVariantPreview(
         {...props}
         absolutePath={absolutePath}
         alt={props.variant.title}
+        view={props.view}
+      />
+    );
+  }
+  if (kind === "video") {
+    return (
+      <StudioVideo
+        key={absolutePath}
+        {...props}
+        absolutePath={absolutePath}
+        label={props.variant.title}
         view={props.view}
       />
     );

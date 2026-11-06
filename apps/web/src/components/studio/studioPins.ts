@@ -145,10 +145,30 @@ export function popoverOrigin(point: Point, size: Size, box: Size): Point {
   };
 }
 
+/**
+ * A point in client pixels as fractions of the picture a `<video>` element shows, which
+ * `object-contain` letterboxes inside the element's box.
+ */
+export function videoPictureFractions(point: Point, element: Point & Size, picture: Size): Point {
+  if (picture.width <= 0 || picture.height <= 0) {
+    return overlayPointFractions({ x: point.x - element.x, y: point.y - element.y }, element);
+  }
+  const scale = Math.min(element.width / picture.width, element.height / picture.height);
+  const width = picture.width * scale;
+  const height = picture.height * scale;
+  return overlayPointFractions(
+    {
+      x: point.x - element.x - (element.width - width) / 2,
+      y: point.y - element.y - (element.height - height) / 2,
+    },
+    { width, height },
+  );
+}
+
 export type NewStudioPin = Omit<StudioPin, "id" | "number">;
 
 /** A click waiting for its comment. */
-export interface StudioPinDraft extends Pick<StudioPinNote, "fx" | "fy" | "page"> {
+export interface StudioPinDraft extends Pick<StudioPinNote, "fx" | "fy" | "page" | "video"> {
   /** Which compare pane it was placed in. */
   readonly pane: 0 | 1;
 }

@@ -30,7 +30,13 @@ import {
   studioViewedVersion,
   type StudioViewedVersion,
 } from "./studioManifest";
-import type { NewStudioPin, Size, StudioPin, StudioPinDraft } from "./studioPins";
+import {
+  type NewStudioPin,
+  type Size,
+  type StudioPin,
+  type StudioPinDraft,
+  videoPictureFractions,
+} from "./studioPins";
 import { StudioPinLayer } from "./StudioPinLayer";
 import { StudioShareButton } from "./StudioShareButton";
 import {
@@ -155,7 +161,7 @@ function usePaneFrame(variant: StudioVariant | null, zoomSetting: number | null)
   const fitZoom =
     size === null
       ? 1
-      : kind === "image"
+      : kind === "image" || kind === "video"
         ? imageSize === null
           ? 1
           : fitImageZoom(size, imageSize)
@@ -167,7 +173,7 @@ function usePaneFrame(variant: StudioVariant | null, zoomSetting: number | null)
       setSize({ width: frame.clientWidth, height: frame.clientHeight }),
     );
   }, [frame]);
-  const zoomable = kind === "html" || kind === "image";
+  const zoomable = kind === "html" || kind === "image" || kind === "video";
   const zoom = zoomSetting ?? fitZoom;
   const view: StudioView | undefined = zoomable
     ? {
@@ -182,7 +188,7 @@ function usePaneFrame(variant: StudioVariant | null, zoomSetting: number | null)
           ),
       }
     : undefined;
-  return { kind, zoomable, setFrame, size, zoom, view };
+  return { kind, zoomable, frame, setFrame, size, zoom, view };
 }
 
 type VersionProps = {
@@ -532,13 +538,32 @@ export function StudioDesignStage(
       fx: activeDraft.fx,
       fy: activeDraft.fy,
       page: activeDraft.page,
+      ...(activeDraft.video === undefined ? {} : { video: activeDraft.video }),
       zoom,
     });
     setDraft(null);
   };
+  // A pin on a video pauses it, so the frame under the pin is the one the time names.
+  const placeDraft = (next: StudioPinDraft) => {
+    const pane = next.pane === 0 ? lead : second;
+    const video = pane.kind === "video" ? pane.frame?.querySelector("video") : null;
+    if (!video || pane.frame === null) {
+      setDraft(next);
+      return;
+    }
+    video.pause();
+    const box = pane.frame.getBoundingClientRect();
+    const element = video.getBoundingClientRect();
+    const spot = videoPictureFractions(
+      { x: box.left + next.fx * box.width, y: box.top + next.fy * box.height },
+      { x: element.left, y: element.top, width: element.width, height: element.height },
+      { width: video.videoWidth, height: video.videoHeight },
+    );
+    setDraft({ ...next, video: { time: video.currentTime, ...spot } });
+  };
   const pinProps = {
     pinMode: props.pinMode,
-    onDraft: setDraft,
+    onDraft: placeDraft,
     onSubmitDraft: submitDraft,
     onCancelDraft: () => setDraft(null),
     onEscape: escapePin,

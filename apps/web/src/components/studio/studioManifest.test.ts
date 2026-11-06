@@ -5,6 +5,7 @@ import {
   studioCompareDefault,
   studioDownloadFileName,
   studioPinLine,
+  studioPlaybackTime,
   studioShownVariant,
   studioVariantKind,
   studioViewedVersion,
@@ -216,6 +217,15 @@ describe("pinned comments", () => {
     );
   });
 
+  it("gives a video pin its playback time and place on the picture", () => {
+    const video = { time: 72.9, x: 0.25, y: 0.5 };
+    expect(studioPinLine(b!, { ...anchored, page: null, video })).toBe(
+      "Option B, pin 2 (at 1:12, about 25% from the left and 50% from the top of the video frame): make this bigger",
+    );
+    expect(studioPlaybackTime(3725)).toBe("1:02:05");
+    expect(studioPlaybackTime(Number.NaN)).toBe("0:00");
+  });
+
   it("appends the overall comment and pins after earlier lines", () => {
     expect(
       withStudioFeedback("Hi", manifest, setPath, b!, { comment: " Calmer ", pins: [anchored] }),
@@ -278,6 +288,11 @@ describe("studioVariantKind", () => {
     ["a.html", "html"],
     ["a.PDF", "pdf"],
     ["a.png", "image"],
+    ["a.mp4", "video"],
+    ["a.M4V", "video"],
+    ["a.webm", "video"],
+    ["a.MOV", "video"],
+    ["a.mkv", "other"],
     ["a.md", "text"],
     ["a.txt", "text"],
     ["a.pptx", "other"],

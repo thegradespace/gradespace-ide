@@ -219,6 +219,8 @@ describe("AssetAccess", () => {
         ["screenshot.png", "image/png"],
         ["recording.mp4", "video/mp4"],
         ["recording.webm", "video/webm"],
+        ["recording.MOV", "video/quicktime"],
+        ["recording.m4v", "video/mp4"],
         ["report.html", "text/html"],
         ["report.pdf", "application/pdf"],
         ["notes.odt", "application/vnd.oasis.opendocument.text"],

@@ -6,7 +6,6 @@ import { useAssetUrlRefresh } from "~/assets/assetUrls";
 import { Button } from "~/components/ui/button";
 import { Spinner } from "~/components/ui/spinner";
 
-import { workspaceAssetResource } from "../files/filePreviewMode";
 import {
   type StudioVariant,
   studioDownloadFileName,
@@ -14,7 +13,7 @@ import {
   studioVariantKind,
   type StudioViewedVersion,
 } from "./studioManifest";
-import { type StudioContext, showToast } from "./StudioVariantPreview";
+import { type StudioContext, showToast, studioAssetResource } from "./StudioVariantPreview";
 
 type DownloadFormat = "file" | "png" | "pdf";
 
@@ -48,13 +47,7 @@ export function StudioDownloadButton(
   const shown = studioShownVariant(props.variant, props.version);
   const refreshAssetUrl = useAssetUrlRefresh(
     props.environmentId,
-    workspaceAssetResource({
-      kind: "workspace-file",
-      threadRef: props.threadRef,
-      draft: props.draft,
-      workspaceRoot: props.cwd,
-      absolutePath: resolvePathLinkTarget(`${props.setPath}/${shown.file}`, props.cwd),
-    }),
+    studioAssetResource(props, resolvePathLinkTarget(`${props.setPath}/${shown.file}`, props.cwd)),
   );
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);

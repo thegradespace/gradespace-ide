@@ -25,7 +25,6 @@ import { cn } from "~/lib/utils";
 import { useRightPanelStore } from "~/rightPanelStore";
 import { projectEnvironment } from "~/state/projects";
 
-import { workspaceAssetResource } from "../files/filePreviewMode";
 import {
   FileSurfaceAction,
   FileSurfaceFailure,
@@ -57,7 +56,12 @@ import {
   withStudioRestoreLine,
 } from "./studioManifest";
 import type { NewStudioPin, StudioPin } from "./studioPins";
-import { type StudioContext, showToast, StudioVariantPreview } from "./StudioVariantPreview";
+import {
+  type StudioContext,
+  showToast,
+  studioAssetResource,
+  StudioVariantPreview,
+} from "./StudioVariantPreview";
 import { STUDIO_PAGE_WIDTH } from "./studioZoom";
 
 function ScaledThumbnail(props: { readonly fit: boolean; readonly children: React.ReactNode }) {
@@ -95,13 +99,10 @@ function StudioExportButton(
   const [saving, setSaving] = useState(false);
   const refreshAssetUrl = useAssetUrlRefresh(
     props.environmentId,
-    workspaceAssetResource({
-      kind: "workspace-file",
-      threadRef: props.threadRef,
-      draft: props.draft,
-      workspaceRoot: props.cwd,
-      absolutePath: resolvePathLinkTarget(`${props.setPath}/${props.variant.file}`, props.cwd),
-    }),
+    studioAssetResource(
+      props,
+      resolvePathLinkTarget(`${props.setPath}/${props.variant.file}`, props.cwd),
+    ),
   );
   const exportFile = async () => {
     const url = await refreshAssetUrl();
