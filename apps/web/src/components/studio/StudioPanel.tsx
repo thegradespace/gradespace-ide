@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { useAssetUrlRefresh } from "~/assets/assetUrls";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "~/components/ui/menu";
@@ -25,7 +24,6 @@ import { cn } from "~/lib/utils";
 import { useRightPanelStore } from "~/rightPanelStore";
 import { projectEnvironment } from "~/state/projects";
 
-import { workspaceAssetResource } from "../files/filePreviewMode";
 import {
   FileSurfaceAction,
   FileSurfaceFailure,
@@ -38,6 +36,7 @@ import {
   StudioFullscreen,
   StudioPopupWindow,
 } from "./StudioDesignViewer";
+import { useStudioFileSaver } from "./StudioDownloadButton";
 import {
   parseStudioManifest,
   STUDIO_MANIFEST_NAME,
@@ -92,28 +91,12 @@ function StudioExportButton(
   props: StudioContext & { readonly setPath: string; readonly variant: StudioVariant },
 ) {
   const [saving, setSaving] = useState(false);
-  const refreshAssetUrl = useAssetUrlRefresh(
-    props.environmentId,
-    workspaceAssetResource({
-      kind: "workspace-file",
-      threadRef: props.threadRef,
-      draft: props.draft,
-      workspaceRoot: props.cwd,
-      absolutePath: resolvePathLinkTarget(`${props.setPath}/${props.variant.file}`, props.cwd),
-    }),
+  const saveFile = useStudioFileSaver(
+    props,
+    resolvePathLinkTarget(`${props.setPath}/${props.variant.file}`, props.cwd),
   );
-  const exportFile = async () => {
-    const url = await refreshAssetUrl();
-    if (!url) throw new Error("Reconnect to the environment and try again.");
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("The file could not be loaded. Try again.");
-    const downloadUrl = URL.createObjectURL(await response.blob());
-    setTimeout(() => URL.revokeObjectURL(downloadUrl), 30_000);
-    const anchor = document.createElement("a");
-    anchor.href = downloadUrl;
-    anchor.download = props.variant.file.split("/").at(-1) ?? props.variant.file;
-    anchor.click();
-  };
+  const exportFile = () =>
+    saveFile(props.variant.file.split("/").at(-1) ?? props.variant.file, document);
   return (
     <FileSurfaceAction
       label={saving ? "Preparing file…" : "Export file"}
@@ -512,17 +495,14 @@ function StudioSet(
               </FileSurfaceAction>
             }
             trailing={
-              <>
-                <FileSurfaceAction
-                  label={canEdit ? "Open to edit" : "Open in Files"}
-                  onPress={() =>
-                    useRightPanelStore.getState().openFile(props.threadRef, relativePath)
-                  }
-                >
-                  <PencilLine className="size-3.5" />
-                </FileSurfaceAction>
-                <StudioExportButton {...props} variant={shown} />
-              </>
+              <FileSurfaceAction
+                label={canEdit ? "Open to edit" : "Open in Files"}
+                onPress={() =>
+                  useRightPanelStore.getState().openFile(props.threadRef, relativePath)
+                }
+              >
+                <PencilLine className="size-3.5" />
+              </FileSurfaceAction>
             }
             onFullscreen={() => setFullscreen(true)}
             onPopOut={popOut}

@@ -8,6 +8,7 @@ import {
   pickPointFractions,
   pinOverlayPoint,
   popoverOrigin,
+  videoPictureFractions,
 } from "./studioPins";
 
 const scrollMessage = {
@@ -131,6 +132,19 @@ describe("pin coordinates", () => {
     const pin = { fx: 0.5, fy: 0.25, page: null };
     expect(pinOverlayPoint(pin, { zoom: 2, box, scroll: null })).toEqual({ x: 320, y: 100 });
     expect(pinOverlayPoint(pin, { zoom: 2, box, scroll })).toEqual({ x: 320, y: 100 });
+  });
+
+  it("measures video clicks against the letterboxed picture", () => {
+    const element = { x: 100, y: 50, width: 800, height: 600 };
+    // A 16:9 picture fills the width and leaves 75px bars above and below.
+    const picture = { width: 1920, height: 1080 };
+    expect(videoPictureFractions({ x: 500, y: 350 }, element, picture)).toEqual({ x: 0.5, y: 0.5 });
+    expect(videoPictureFractions({ x: 100, y: 125 }, element, picture)).toEqual({ x: 0, y: 0 });
+    expect(videoPictureFractions({ x: 300, y: 60 }, element, picture)).toEqual({ x: 0.25, y: 0 });
+    expect(videoPictureFractions({ x: 500, y: 350 }, element, { width: 0, height: 0 })).toEqual({
+      x: 0.5,
+      y: 0.5,
+    });
   });
 
   it("keeps the comment popover inside the frame", () => {

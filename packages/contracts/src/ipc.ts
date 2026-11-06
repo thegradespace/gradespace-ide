@@ -147,6 +147,16 @@ export const DesktopSnapShotSetupAction = Schema.Literals([
 ]);
 export type DesktopSnapShotSetupAction = typeof DesktopSnapShotSetupAction.Type;
 
+export const DesktopStudioExportRequest = Schema.Struct({
+  url: Schema.String.check(Schema.isMaxLength(4096)),
+  format: Schema.Literals(["png", "pdf"]),
+  fileName: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(255)),
+});
+export type DesktopStudioExportRequest = typeof DesktopStudioExportRequest.Type;
+
+export const DesktopStudioExportResult = Schema.Literals(["saved", "cancelled"]);
+export type DesktopStudioExportResult = typeof DesktopStudioExportResult.Type;
+
 export const DesktopCaptureConfigRequest = Schema.Struct({
   operation: Schema.Literals(["install", "remove"]),
   chooseFile: Schema.Boolean,
@@ -1091,6 +1101,8 @@ export interface DesktopBridge {
   pickFolder: (options?: PickFolderOptions) => Promise<string | null>;
   pickProjectFavicon: (initialPath?: string) => Promise<string | null>;
   pickThemeFiles: () => Promise<readonly PickedThemeFile[] | null>;
+  /** Renders a Studio design at its natural size and saves it where the user picks. */
+  exportStudioDesign: (request: DesktopStudioExportRequest) => Promise<DesktopStudioExportResult>;
   setTheme: (theme: DesktopTheme) => Promise<void>;
   showContextMenu: <T extends string>(
     items: readonly ContextMenuItem<T>[],

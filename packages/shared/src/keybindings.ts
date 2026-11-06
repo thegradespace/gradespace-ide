@@ -171,6 +171,12 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod++", command: "preview.zoomIn", when: "previewFocus" },
   { key: "mod+-", command: "preview.zoomOut", when: "previewFocus" },
   { key: "mod+0", command: "preview.resetZoom", when: "previewFocus" },
+  // Cmd/Ctrl++ on a US layout arrives as Shift+=. The last rule names the command in tooltips.
+  { key: "mod+shift+=", command: "studio.zoomIn", when: "studioFocus" },
+  { key: "mod++", command: "studio.zoomIn", when: "studioFocus" },
+  { key: "mod+=", command: "studio.zoomIn", when: "studioFocus" },
+  { key: "mod+-", command: "studio.zoomOut", when: "studioFocus" },
+  { key: "mod+0", command: "studio.zoomFit", when: "studioFocus" },
   { key: "mod+k", command: "commandPalette.toggle", when: "!terminalFocus" },
   { key: "mod+p", command: "filePicker.toggle", when: "!terminalFocus" },
   { key: "mod+shift+f", command: "projectSearch.toggle", when: "!terminalFocus" },

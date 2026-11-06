@@ -109,10 +109,11 @@ export function withStudioPicked(contents: string, picked: string | null): strin
   return `${JSON.stringify(picked === null ? rest : { ...rest, picked }, null, 2)}\n`;
 }
 
-export type StudioVariantKind = "html" | "pdf" | "image" | "text" | "other";
+export type StudioVariantKind = "html" | "pdf" | "image" | "video" | "text" | "other";
 
 export function studioVariantKind(file: string): StudioVariantKind {
   if (/\.pdf$/i.test(file)) return "pdf";
+  if (/\.(mp4|m4v|webm|mov)$/i.test(file)) return "video";
   if (isWorkspaceBrowserPreviewPath(file)) return "html";
   if (isWorkspaceImagePreviewPath(file)) return "image";
   return isMarkdownPreviewFile(file) || /\.txt$/i.test(file) ? "text" : "other";
@@ -148,6 +149,22 @@ export const studioShownVariant = (
   version: StudioViewedVersion,
 ): StudioVariant =>
   version === null ? variant : { ...variant, file: studioVersionFile(variant, version) };
+
+const fileNamePart = (text: string) => text.replace(/[^\w.-]+/g, "-").replace(/^[.-]+|[.-]+$/g, "");
+
+/** `<set-folder>-<option>.<ext>`, with `-v<N>` once the option has more than one version. */
+export function studioDownloadFileName(
+  setPath: string,
+  variant: StudioVariant,
+  version: StudioViewedVersion,
+  extension: string,
+): string {
+  const set = fileNamePart(setPath.split("/").at(-1) ?? "") || "design";
+  const option = fileNamePart(variant.id) || "option";
+  const latest = studioLatestVersion(variant);
+  const suffix = latest > 1 ? `-v${version ?? latest}` : "";
+  return `${set}-${option}${suffix}.${extension}`;
+}
 
 const studioOptionLabel = (variant: StudioVariant, version: StudioViewedVersion) =>
   version === null ? variant.id : `${variant.id} v${version}`;
@@ -236,27 +253,41 @@ export interface StudioPinNote {
     readonly selector: string;
     readonly text: string;
   } | null;
+  /** Set on a video: the playback time and where on the picture, 0..1. */
+  readonly video?: { readonly time: number; readonly x: number; readonly y: number } | undefined;
 }
 
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
 const percent = (fraction: number) => `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%`;
 
+/** `m:ss.t`, or `h:mm:ss.t` from an hour, rounded down to the tenth. */
+export function studioPlaybackTime(seconds: number): string {
+  const tenths = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds * 10)) : 0;
+  const total = Math.floor(tenths / 10);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = `${String(total % 60).padStart(2, "0")}.${tenths % 10}`;
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${secs}` : `${minutes}:${secs}`;
+}
+
 export function studioPinLine(variant: StudioVariant, pin: StudioPinNote): string {
-  const { page } = pin;
+  const { page, video } = pin;
   const spot =
-    page === null
-      ? `about ${percent(pin.fx)} from the left and ${percent(pin.fy)} from the top of the visible area`
-      : [
-          [
-            page.text.length > 0 ? `near "${oneLine(page.text).replaceAll('"', "'")}"` : "",
-            page.selector.length > 0 ? `(${oneLine(page.selector)})` : "",
+    video !== undefined
+      ? `at ${studioPlaybackTime(video.time)}, about ${percent(video.x)} from the left and ${percent(video.y)} from the top of the video frame`
+      : page === null
+        ? `about ${percent(pin.fx)} from the left and ${percent(pin.fy)} from the top of the visible area`
+        : [
+            [
+              page.text.length > 0 ? `near "${oneLine(page.text).replaceAll('"', "'")}"` : "",
+              page.selector.length > 0 ? `(${oneLine(page.selector)})` : "",
+            ]
+              .filter((part) => part.length > 0)
+              .join(" "),
+            `about ${percent(page.width > 0 ? page.x / page.width : 0)} from the left and ${percent(page.height > 0 ? page.y / page.height : 0)} from the top of the page`,
           ]
             .filter((part) => part.length > 0)
-            .join(" "),
-          `about ${percent(page.width > 0 ? page.x / page.width : 0)} from the left and ${percent(page.height > 0 ? page.y / page.height : 0)} from the top of the page`,
-        ]
-          .filter((part) => part.length > 0)
-          .join(", ");
+            .join(", ");
   return `Option ${studioOptionLabel(variant, pin.version)}, pin ${pin.number} (${spot}): ${oneLine(pin.comment)}`;
 }
 

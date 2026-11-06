@@ -1,10 +1,15 @@
+import { compileResolvedKeybindingsConfig, DEFAULT_KEYBINDINGS } from "@t3tools/shared/keybindings";
 import { describe, expect, it } from "vite-plus/test";
+
+import { shortcutLabelForCommand } from "~/keybindings";
 
 import {
   fitImageZoom,
   fitPageZoom,
+  parseStudioKeyZoomMessage,
   parseStudioWheelZoomMessage,
   stepZoom,
+  studioZoomForKey,
   wheelZoom,
   zoomPercent,
 } from "./studioZoom";
@@ -46,5 +51,68 @@ describe("studio zoom", () => {
     expect(parseStudioWheelZoomMessage({ ...valid, deltaY: Number.NaN })).toBeNull();
     expect(parseStudioWheelZoomMessage({ ...valid, deltaMode: 7 })).toBeNull();
     expect(parseStudioWheelZoomMessage(null)).toBeNull();
+  });
+
+  it("maps the zoom keys to the button steps on each platform", () => {
+    const keybindings = compileResolvedKeybindingsConfig(DEFAULT_KEYBINDINGS);
+    const key = (
+      key: string,
+      modifiers: { meta?: boolean; ctrl?: boolean; shift?: boolean; code?: string },
+    ) => ({
+      key,
+      code: modifiers.code ?? "",
+      metaKey: modifiers.meta ?? false,
+      ctrlKey: modifiers.ctrl ?? false,
+      shiftKey: modifiers.shift ?? false,
+      altKey: false,
+    });
+    expect(studioZoomForKey(key("=", { meta: true }), keybindings, 1, "MacIntel")).toBe(1.1);
+    expect(
+      studioZoomForKey(
+        key("+", { meta: true, shift: true, code: "Equal" }),
+        keybindings,
+        1,
+        "MacIntel",
+      ),
+    ).toBe(1.1);
+    expect(
+      studioZoomForKey(key("+", { meta: true, code: "NumpadAdd" }), keybindings, 1, "MacIntel"),
+    ).toBe(1.1);
+    expect(studioZoomForKey(key("-", { meta: true }), keybindings, 0.8, "MacIntel")).toBe(0.75);
+    expect(studioZoomForKey(key("0", { meta: true }), keybindings, 2, "MacIntel")).toBeNull();
+    expect(studioZoomForKey(key("=", { ctrl: true }), keybindings, 1, "Win32")).toBe(1.1);
+    expect(studioZoomForKey(key("=", { ctrl: true }), keybindings, 1, "MacIntel")).toBeUndefined();
+    expect(studioZoomForKey(key("=", {}), keybindings, 1, "MacIntel")).toBeUndefined();
+    expect(studioZoomForKey(key("b", { meta: true }), keybindings, 1, "MacIntel")).toBeUndefined();
+    expect(
+      shortcutLabelForCommand(keybindings, "studio.zoomIn", {
+        platform: "MacIntel",
+        context: { studioFocus: true },
+      }),
+    ).toBe("⌘=");
+  });
+
+  it("accepts only well-formed key messages", () => {
+    const valid = {
+      type: "gradespace:studio-key-zoom",
+      key: "=",
+      code: "Equal",
+      metaKey: true,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+    };
+    expect(parseStudioKeyZoomMessage(valid)).toEqual({
+      key: "=",
+      code: "Equal",
+      metaKey: true,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+    });
+    expect(parseStudioKeyZoomMessage({ ...valid, type: "other" })).toBeNull();
+    expect(parseStudioKeyZoomMessage({ ...valid, key: 1 })).toBeNull();
+    expect(parseStudioKeyZoomMessage({ ...valid, metaKey: "yes" })).toBeNull();
+    expect(parseStudioKeyZoomMessage(null)).toBeNull();
   });
 });

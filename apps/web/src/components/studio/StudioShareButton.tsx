@@ -18,7 +18,7 @@ import { serverEnvironment } from "~/state/server";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { showToast } from "./StudioVariantPreview";
-import type { StudioVariant } from "./studioManifest";
+import { type StudioVariant, studioVariantKind } from "./studioManifest";
 
 const EXPIRY_CHOICES: ReadonlyArray<{
   readonly days: StudioShareExpiryDays;
@@ -259,7 +259,13 @@ export function StudioShareButton(props: {
         variant={open ? "secondary" : "outline"}
         aria-label={label}
         aria-expanded={open}
-        title={shareable ? label : "This kind of file can't be shared"}
+        title={
+          shareable
+            ? label
+            : studioVariantKind(props.variant.file) === "video"
+              ? "Share links don't support video yet"
+              : "This kind of file can't be shared"
+        }
         disabled={!shareable}
         onClick={() => setOpen((current) => !current)}
       >

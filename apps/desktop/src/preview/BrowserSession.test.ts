@@ -41,6 +41,7 @@ const { showMessageBox } = vi.hoisted(() => ({
 const layerDialog = Layer.succeed(ElectronDialog.ElectronDialog, {
   pickFolder: () => Effect.die("unused"),
   pickFiles: () => Effect.die("unused"),
+  pickSavePath: () => Effect.die("unused"),
   showMessageBox: (options, owner) =>
     Effect.sync(() => ({ response: showMessageBox(options, owner), checkboxChecked: false })),
   showErrorBox: () => Effect.void,

@@ -1,5 +1,6 @@
 export const STUDIO_ZOOM_QUERY_PARAM = "studio-zoom";
 export const STUDIO_WHEEL_ZOOM_MESSAGE = "gradespace:studio-wheel-zoom";
+export const STUDIO_KEY_ZOOM_MESSAGE = "gradespace:studio-key-zoom";
 export const STUDIO_SCROLL_MESSAGE = "gradespace:studio-scroll";
 export const STUDIO_PICK_POINT_MESSAGE = "gradespace:studio-pick-point";
 export const STUDIO_PIN_MODE_MESSAGE = "gradespace:studio-pin-mode";
@@ -8,10 +9,10 @@ export const STUDIO_SCROLL_TO_MESSAGE = "gradespace:studio-scroll-to";
 export const STUDIO_MAX_HTML_BYTES = 5 * 1024 * 1024;
 
 /**
- * Sandboxed designs live in a cross-origin frame, so pinch and Ctrl/Cmd+wheel never reach Studio;
- * the script forwards them in the bubble phase so pages that handle them win. It reports scroll,
- * the element under a pin-mode click, and scrolls where Studio asks after a reload. Nothing else
- * leaves the frame.
+ * Sandboxed designs live in a cross-origin frame, so pinch, Ctrl/Cmd+wheel and the zoom keys
+ * never reach Studio; the script forwards them in the bubble phase so pages that handle them win.
+ * It reports scroll, the element under a pin-mode click, and scrolls where Studio asks after a
+ * reload. Nothing else leaves the frame.
  */
 export function injectStudioZoomBridge(html: string): string {
   const script = `<script>
@@ -28,6 +29,23 @@ export function injectStudioZoomBridge(html: string): string {
       y: event.clientY,
     });
   }, { passive: false });
+
+  const zoomKeys = ["=", "+", "-", "_", "0"];
+  const zoomCodes = ["Equal", "Minus", "Digit0", "NumpadAdd", "NumpadSubtract", "Numpad0"];
+  addEventListener("keydown", (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.defaultPrevented) return;
+    if (!zoomKeys.includes(event.key) && !zoomCodes.includes(event.code)) return;
+    event.preventDefault();
+    post({
+      type: ${JSON.stringify(STUDIO_KEY_ZOOM_MESSAGE)},
+      key: event.key,
+      code: event.code,
+      metaKey: event.metaKey,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+    });
+  });
 
   let scheduled = false;
   const reportScroll = () => {

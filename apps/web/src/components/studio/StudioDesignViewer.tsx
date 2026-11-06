@@ -7,15 +7,20 @@ import {
   SquareArrowOutUpRight,
   X,
 } from "lucide-react";
+import { useAtomValue } from "@effect/atom-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "~/components/ui/button";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
 import { useStableCallback } from "~/hooks/useStableCallback";
+import { type ShortcutEventLike, shortcutLabelForCommand } from "~/keybindings";
 import { observeResize } from "~/lib/observeResize";
 import { cn } from "~/lib/utils";
+import { primaryServerKeybindingsAtom } from "~/state/server";
 
 import { FileSurfaceAction } from "../files/fileSurfaceChrome";
+import { StudioDownloadButton } from "./StudioDownloadButton";
 import {
   type StudioManifest,
   type StudioVariant,
@@ -25,22 +30,34 @@ import {
   studioViewedVersion,
   type StudioViewedVersion,
 } from "./studioManifest";
-import type { NewStudioPin, Size, StudioPin, StudioPinDraft } from "./studioPins";
+import {
+  type NewStudioPin,
+  type Size,
+  type StudioPin,
+  type StudioPinDraft,
+  videoPictureFractions,
+} from "./studioPins";
 import { StudioPinLayer } from "./StudioPinLayer";
 import { StudioShareButton } from "./StudioShareButton";
 import {
   fitImageZoom,
   fitPageZoom,
+  parseStudioKeyZoomMessage,
   parseStudioWheelZoomMessage,
   stepZoom,
+  studioZoomForKey,
   wheelZoom,
   zoomPercent,
 } from "./studioZoom";
 import { type StudioContext, type StudioView, StudioVariantPreview } from "./StudioVariantPreview";
 
+const withShortcut = (label: string, shortcut: string | null | undefined) =>
+  shortcut ? `${label} (${shortcut})` : label;
+
 // Base UI portals tooltips into the main window, so a popped-out window uses native titles.
 function StudioAction(props: {
   readonly label: string;
+  readonly shortcut?: string | null;
   readonly native: boolean;
   readonly disabled?: boolean;
   readonly pressed?: boolean;
@@ -55,7 +72,7 @@ function StudioAction(props: {
       size="icon-sm"
       aria-label={props.label}
       aria-pressed={props.pressed}
-      title={props.label}
+      title={withShortcut(props.label, props.shortcut)}
       disabled={props.disabled ?? false}
       onClick={props.onPress}
     >
@@ -64,6 +81,7 @@ function StudioAction(props: {
   ) : (
     <FileSurfaceAction
       label={props.label}
+      shortcut={props.shortcut}
       disabled={props.disabled ?? false}
       {...(props.pressed === undefined ? {} : { pressed: props.pressed })}
       onPress={props.onPress}
@@ -79,10 +97,26 @@ function StudioZoomControls(props: {
   readonly native: boolean;
   readonly onZoomChange: (zoom: number | null) => void;
 }) {
+  const keybindings = useAtomValue(primaryServerKeybindingsAtom);
+  const shortcut = (command: "studio.zoomIn" | "studio.zoomOut" | "studio.zoomFit") =>
+    shortcutLabelForCommand(keybindings, command, { context: { studioFocus: true } });
+  const fitButton = (
+    <Button
+      type="button"
+      size="xs"
+      variant={props.fit ? "secondary" : "ghost"}
+      aria-pressed={props.fit}
+      {...(props.native ? { title: withShortcut("Fit", shortcut("studio.zoomFit")) } : {})}
+      onClick={() => props.onZoomChange(null)}
+    >
+      Fit
+    </Button>
+  );
   return (
     <div className="flex items-center gap-0.5">
       <StudioAction
         label="Zoom out"
+        shortcut={shortcut("studio.zoomOut")}
         native={props.native}
         disabled={stepZoom(props.zoom, -1) === props.zoom}
         onPress={() => props.onZoomChange(stepZoom(props.zoom, -1))}
@@ -92,21 +126,21 @@ function StudioZoomControls(props: {
       <span className="min-w-9 text-center text-xs tabular-nums">{zoomPercent(props.zoom)}</span>
       <StudioAction
         label="Zoom in"
+        shortcut={shortcut("studio.zoomIn")}
         native={props.native}
         disabled={stepZoom(props.zoom, 1) === props.zoom}
         onPress={() => props.onZoomChange(stepZoom(props.zoom, 1))}
       >
         <Plus className="size-3.5" />
       </StudioAction>
-      <Button
-        type="button"
-        size="xs"
-        variant={props.fit ? "secondary" : "ghost"}
-        aria-pressed={props.fit}
-        onClick={() => props.onZoomChange(null)}
-      >
-        Fit
-      </Button>
+      {props.native ? (
+        fitButton
+      ) : (
+        <Tooltip>
+          <TooltipTrigger render={fitButton} />
+          <TooltipPopup>{withShortcut("Fit", shortcut("studio.zoomFit"))}</TooltipPopup>
+        </Tooltip>
+      )}
     </div>
   );
 }
@@ -127,7 +161,7 @@ function usePaneFrame(variant: StudioVariant | null, zoomSetting: number | null)
   const fitZoom =
     size === null
       ? 1
-      : kind === "image"
+      : kind === "image" || kind === "video"
         ? imageSize === null
           ? 1
           : fitImageZoom(size, imageSize)
@@ -139,7 +173,7 @@ function usePaneFrame(variant: StudioVariant | null, zoomSetting: number | null)
       setSize({ width: frame.clientWidth, height: frame.clientHeight }),
     );
   }, [frame]);
-  const zoomable = kind === "html" || kind === "image";
+  const zoomable = kind === "html" || kind === "image" || kind === "video";
   const zoom = zoomSetting ?? fitZoom;
   const view: StudioView | undefined = zoomable
     ? {
@@ -154,7 +188,7 @@ function usePaneFrame(variant: StudioVariant | null, zoomSetting: number | null)
           ),
       }
     : undefined;
-  return { kind, zoomable, setFrame, size, zoom, view };
+  return { kind, zoomable, frame, setFrame, size, zoom, view };
 }
 
 type VersionProps = {
@@ -416,6 +450,14 @@ export function StudioDesignStage(
     latestZoom.current = next;
     props.onZoomChange(next);
   });
+  const keybindings = useAtomValue(primaryServerKeybindingsAtom);
+  const zoomByKey = useStableCallback((event: ShortcutEventLike) => {
+    const next = studioZoomForKey(event, keybindings, latestZoom.current);
+    if (next === undefined) return false;
+    if (next !== null) latestZoom.current = next;
+    props.onZoomChange(next);
+    return true;
+  });
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- measures the root element, which may live in another window
   useEffect(() => {
@@ -424,7 +466,7 @@ export function StudioDesignStage(
   }, [root]);
   const stacked = rootWidth !== null && rootWidth < STACK_BELOW_WIDTH;
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes to wheel and iframe messages on the window that owns this element
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes to wheel, keys and iframe messages on the window that owns this element
   useEffect(() => {
     if (root === null || zoomed === null) return;
     const owner = root.ownerDocument.defaultView;
@@ -434,6 +476,11 @@ export function StudioDesignStage(
       if (!(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
       zoomBy(event.deltaY, event.deltaMode);
+    };
+    // Handled on the element so it runs only with focus in Studio, and before the app's shortcuts;
+    // preventing it also keeps Electron's menu zoom from firing.
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.defaultPrevented && zoomByKey(event)) event.preventDefault();
     };
     // The design is a cross-origin frame; its injected bridge posts the gestures it sees.
     const onMessage = (event: MessageEvent) => {
@@ -447,14 +494,18 @@ export function StudioDesignStage(
       }
       const message = parseStudioWheelZoomMessage(event.data);
       if (message !== null) zoomBy(message.deltaY, message.deltaMode);
+      const key = parseStudioKeyZoomMessage(event.data);
+      if (key !== null) zoomByKey(key);
     };
     root.addEventListener("wheel", onWheel, { passive: false });
+    root.addEventListener("keydown", onKeyDown);
     owner.addEventListener("message", onMessage);
     return () => {
       root.removeEventListener("wheel", onWheel);
+      root.removeEventListener("keydown", onKeyDown);
       owner.removeEventListener("message", onMessage);
     };
-  }, [root, zoomed, zoomBy]);
+  }, [root, zoomed, zoomBy, zoomByKey]);
 
   const activeDraft = props.pinMode && (draft?.pane !== 1 || compare !== null) ? draft : null;
   const escapePin = useStableCallback(() => {
@@ -487,13 +538,32 @@ export function StudioDesignStage(
       fx: activeDraft.fx,
       fy: activeDraft.fy,
       page: activeDraft.page,
+      ...(activeDraft.video === undefined ? {} : { video: activeDraft.video }),
       zoom,
     });
     setDraft(null);
   };
+  // A pin on a video pauses it, so the frame under the pin is the one the time names.
+  const placeDraft = (next: StudioPinDraft) => {
+    const pane = next.pane === 0 ? lead : second;
+    const video = pane.kind === "video" ? pane.frame?.querySelector("video") : null;
+    if (!video || pane.frame === null) {
+      setDraft(next);
+      return;
+    }
+    video.pause();
+    const box = pane.frame.getBoundingClientRect();
+    const element = video.getBoundingClientRect();
+    const spot = videoPictureFractions(
+      { x: box.left + next.fx * box.width, y: box.top + next.fy * box.height },
+      { x: element.left, y: element.top, width: element.width, height: element.height },
+      { width: video.videoWidth, height: video.videoHeight },
+    );
+    setDraft({ ...next, video: { time: video.currentTime, ...spot } });
+  };
   const pinProps = {
     pinMode: props.pinMode,
-    onDraft: setDraft,
+    onDraft: placeDraft,
     onSubmitDraft: submitDraft,
     onCancelDraft: () => setDraft(null),
     onEscape: escapePin,
@@ -523,9 +593,18 @@ export function StudioDesignStage(
       native={native}
     />
   );
+  const downloadButton = (variant: StudioVariant, version: StudioViewedVersion) => (
+    <StudioDownloadButton
+      {...paneContext}
+      variant={variant}
+      version={version}
+      optionLabel={compare === null ? undefined : variant.id}
+    />
+  );
 
   return (
-    <div ref={setRoot} className="flex min-h-0 flex-1 flex-col">
+    // Focusable so a click on the design area puts focus, and the zoom keys, in Studio.
+    <div ref={setRoot} tabIndex={-1} className="flex min-h-0 flex-1 flex-col outline-none">
       <div className="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1.5">
         {props.leading}
         {compare === null
@@ -568,6 +647,7 @@ export function StudioDesignStage(
             onZoomChange={props.onZoomChange}
           />
         ) : null}
+        {compare === null ? downloadButton(props.variant, leadVersion) : null}
         {compare === null ? shareButton(props.variant, leadVersion) : null}
         {compare === null ? (
           <Button
@@ -620,7 +700,12 @@ export function StudioDesignStage(
                 variant={props.variant}
                 saving={props.saving}
                 label="Left option"
-                share={shareButton(props.variant, leadVersion)}
+                share={
+                  <>
+                    {downloadButton(props.variant, leadVersion)}
+                    {shareButton(props.variant, leadVersion)}
+                  </>
+                }
                 onSelect={props.onSelect}
                 onTogglePick={() => props.onTogglePick(props.variant)}
               />
@@ -649,7 +734,12 @@ export function StudioDesignStage(
                 variant={compare}
                 saving={props.saving}
                 label="Right option"
-                share={shareButton(compare, compareVersion)}
+                share={
+                  <>
+                    {downloadButton(compare, compareVersion)}
+                    {shareButton(compare, compareVersion)}
+                  </>
+                }
                 onSelect={props.onSelectCompare}
                 onTogglePick={() => props.onTogglePick(compare)}
               />
