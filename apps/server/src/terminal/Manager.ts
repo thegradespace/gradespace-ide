@@ -66,6 +66,7 @@ import * as ServerConfig from "../config.ts";
 import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import { makeClaudeEnvironment } from "../provider/Drivers/ClaudeHome.ts";
+import { claudeManagedBinDirectory } from "../provider/ClaudeInstallation.ts";
 import { deriveProviderInstanceConfigMap } from "../provider/ProviderInstanceRegistryHydration.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { increment, terminalSessionsTotal } from "../observability/Metrics.ts";
@@ -2483,7 +2484,7 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
               options.managedBinaryCacheDir !== undefined &&
               options.managedBinaryToolsDir !== undefined
             ) {
-              const managedDirectories = yield* acpRegistryManagedBinaryDirectories({
+              const acpDirectories = yield* acpRegistryManagedBinaryDirectories({
                 cacheDir: options.managedBinaryCacheDir,
                 toolsDir: options.managedBinaryToolsDir,
                 platform,
@@ -2492,6 +2493,16 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
                 Effect.provideService(FileSystem.FileSystem, fileSystem),
                 Effect.provideService(Path.Path, path),
               );
+              // A managed Claude Code install lets `claude auth login` work in app terminals.
+              const claudeBinDirectory = claudeManagedBinDirectory(
+                path,
+                options.managedBinaryToolsDir,
+              );
+              const managedDirectories = (yield* fileSystem
+                .exists(claudeBinDirectory)
+                .pipe(Effect.orElseSucceed(() => false)))
+                ? [...acpDirectories, claudeBinDirectory]
+                : acpDirectories;
               if (managedDirectories.length > 0) {
                 const delimiter = platform === "win32" ? ";" : ":";
                 const pathKey =

@@ -29,6 +29,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   CloudIcon,
+  DownloadIcon,
   LinkIcon,
   MonitorIcon,
   TerminalIcon,
@@ -66,6 +67,7 @@ import {
 } from "../../onboarding/targetEnvironment.logic";
 import { useProjectScans } from "../../onboarding/useProjectScans";
 import { projectEnvironment } from "../../state/projects";
+import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import {
   readEnvironmentScope,
@@ -790,6 +792,11 @@ function ConnectedAgentsStep({
               key={driver}
               driver={driver}
               provider={provider}
+              managedInstall={
+                provider?.setup?.canInstall === true
+                  ? { environmentId, instanceId: provider.instanceId }
+                  : undefined
+              }
               terminalOpen={terminalSession?.driver === driver}
               terminalAvailable={serverConfig !== null && canOperateTerminal}
               onOpenTerminal={() => {
@@ -942,12 +949,17 @@ function OnboardingCodexSetup({
 function AgentCard({
   driver,
   provider,
+  managedInstall,
   terminalOpen,
   terminalAvailable,
   onOpenTerminal,
 }: {
   readonly driver: OnboardingAgentDriver;
   readonly provider: ServerProvider | undefined;
+  /** Set when the environment can install this agent itself; the terminal command is the fallback. */
+  readonly managedInstall?:
+    | { readonly environmentId: EnvironmentId; readonly instanceId: ProviderInstanceId }
+    | undefined;
   readonly terminalOpen: boolean;
   readonly terminalAvailable: boolean;
   readonly onOpenTerminal: () => void;
@@ -984,6 +996,8 @@ function AgentCard({
           <span className="text-xs text-muted-foreground">Disabled</span>
         ) : providerState === "attention" ? (
           <span className="text-xs text-muted-foreground">{summary.headline}</span>
+        ) : providerState === "install" && managedInstall ? (
+          <ManagedInstallAction {...managedInstall} />
         ) : (
           <Button
             size="xs"
@@ -996,6 +1010,63 @@ function AgentCard({
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+function ManagedInstallAction({
+  environmentId,
+  instanceId,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly instanceId: ProviderInstanceId;
+}) {
+  const target = { environmentId, input: { instanceId } };
+  const installation = useEnvironmentQuery(serverEnvironment.providerInstallState(target)).data;
+  const commandOptions = { reportFailure: false, reportDefect: false };
+  const startInstall = useAtomCommand(serverEnvironment.startProviderInstall, commandOptions);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const active =
+    installation?.phase === "downloading" ||
+    installation?.phase === "extracting" ||
+    installation?.phase === "verifying";
+  const failure =
+    error ??
+    (installation?.phase === "failed" || installation?.phase === "cancelled"
+      ? installation.message
+      : null);
+
+  async function install() {
+    setPending(true);
+    setError(null);
+    const result = await startInstall(target);
+    setPending(false);
+    if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+      const cause = squashAtomCommandFailure(result);
+      setError(cause instanceof Error ? cause.message : "Installation failed. Try again.");
+    }
+  }
+
+  return (
+    <div className="flex max-w-56 flex-col items-end gap-1 text-right">
+      {active ? (
+        <span role="status" className="text-xs text-muted-foreground tabular-nums">
+          {installation.phase === "downloading" && installation.totalBytes
+            ? `Downloading ${Math.floor((installation.downloadedBytes / installation.totalBytes) * 100)}%`
+            : (installation.message ?? "Installing...")}
+        </span>
+      ) : (
+        <Button size="xs" variant="ghost" disabled={pending} onClick={() => void install()}>
+          <DownloadIcon className="size-3.5" />
+          {failure ? "Retry install" : "Install"}
+        </Button>
+      )}
+      {failure && !active ? (
+        <span role="alert" className="text-xs text-destructive [overflow-wrap:anywhere]">
+          {failure}
+        </span>
+      ) : null}
     </div>
   );
 }

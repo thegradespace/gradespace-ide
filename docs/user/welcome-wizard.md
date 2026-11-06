@@ -47,11 +47,12 @@ unreadable settings with defaults.
 
 ## Check your agents
 
-T3 Code checks each selected computer for Claude Code and Codex. If an agent is
-not installed or signed in, select its action to open a terminal with the
-correct command ready to run. Install uses the vendor's own installer, which
-keeps **Update now** working in Settings. Other providers can be enabled in
-Settings.
+T3 Code checks each selected computer for Claude Code and Codex. **Install**
+downloads Claude Code's official release into T3 Code's own data directory
+without changing your shell or `PATH`; update or remove it later from the
+provider's setup in Settings. Where that is not available, and for signing in,
+select the agent's action to open a terminal with the correct command ready to
+run. Other providers can be enabled in Settings.
 
 The setup terminal uses the home directory and environment configured for the
 selected provider instance. Sensitive values remain redacted in Settings and

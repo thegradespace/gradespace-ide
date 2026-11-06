@@ -13,6 +13,7 @@ import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 
 import * as ServerSettings from "../serverSettings.ts";
+import * as ClaudeInstallation from "./ClaudeInstallation.ts";
 import * as CodexInstallation from "./CodexInstallation.ts";
 import * as AntigravityInstallation from "./AntigravityInstallation.ts";
 import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
@@ -78,6 +79,13 @@ const makeHarness = Effect.fn("providerInstallation.test.makeHarness")(function*
               return [];
             }),
         }),
+        Layer.mock(ClaudeInstallation.ClaudeInstallation)({
+          managedDirectory: "/unused-managed-claude",
+          start: Effect.sync(() => {
+            calls.push("claude-start");
+            return { ...state, driver: ProviderDriverKind.make("claudeAgent") };
+          }),
+        }),
         Layer.mock(CodexInstallation.CodexInstallation)({
           managedDirectory: "/unused-managed-codex",
           start: Effect.sync(() => {
@@ -142,6 +150,30 @@ describe("provider installation routing", () => {
       const observed = yield* Stream.runCollect(harness.router.subscribe({ instanceId }));
       assert.deepEqual(Array.from(observed), [state]);
       assert.deepEqual(harness.calls, []);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect.each([
+    { binaryPath: undefined, calls: ["claude-start"] },
+    { binaryPath: "claude", calls: ["claude-start"] },
+    { binaryPath: "/opt/claude/bin/claude", calls: [] },
+  ])("routes Claude installs only when the instance uses the default binary: %j", (input) =>
+    Effect.gen(function* () {
+      const claude = ProviderInstanceId.make("claudeAgent");
+      const harness = yield* makeHarness({
+        instance: instance(ProviderDriverKind.make("claudeAgent"), claude),
+        settings: {
+          providerInstances: {
+            [claude]: {
+              driver: ProviderDriverKind.make("claudeAgent"),
+              config: input.binaryPath === undefined ? {} : { binaryPath: input.binaryPath },
+            },
+          },
+        },
+      });
+      const started = yield* Effect.result(harness.router.start({ instanceId: claude }));
+      assert.strictEqual(started._tag, input.calls.length > 0 ? "Success" : "Failure");
+      assert.deepEqual(harness.calls, input.calls);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
