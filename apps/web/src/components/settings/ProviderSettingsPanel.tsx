@@ -1324,6 +1324,19 @@ function ProviderInstanceRow({
             readOnly={readOnly}
             onEnable={() => actions.enableInstance(instanceId, { ...instance, enabled: true })}
           />
+        ) : mode === "editor" &&
+          driver === "claudeAgent" &&
+          liveProvider?.setup?.canInstall === true ? (
+          <ProviderSetupSection
+            displayName="Claude Code"
+            environmentId={environmentId}
+            environmentLabel={environmentLabel}
+            instanceId={instanceId}
+            provider={liveProvider}
+            enabled={resolveProviderInstanceEnabled(instance)}
+            readOnly={readOnly}
+            onEnable={() => actions.enableInstance(instanceId, { ...instance, enabled: true })}
+          />
         ) : mode === "editor" && codexSetupMode === "managed" ? (
           <CodexSetupSection
             environmentId={environmentId}

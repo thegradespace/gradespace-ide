@@ -1,4 +1,5 @@
-import { ClaudeSettings, ProviderDriverKind } from "@t3tools/contracts";
+import { ClaudeSettings, ProviderDriverKind, type ServerProvider } from "@t3tools/contracts";
+import type { ServerProviderDraft } from "@t3tools/provider-core/server/snapshotProbe";
 import * as Cache from "effect/Cache";
 import * as Duration from "effect/Duration";
 import * as Crypto from "effect/Crypto";
@@ -23,6 +24,11 @@ import {
 } from "../../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
 import { ProviderDriverError } from "../Errors.ts";
 import { claudeUsageReader } from "./claudeUsage.ts";
+import {
+  isClaudeManagedInstallSupported,
+  MANAGED_CLAUDE_ENVIRONMENT,
+  resolveClaudeBinaryPath,
+} from "../ClaudeInstallation.ts";
 import { makeClaudeScopedLimitNames } from "../claudeUsageLimits.ts";
 import * as ClaudeResetCredits from "../claudeResetCredits.ts";
 import * as ResetCreditCoordinator from "../resetCreditCoordinator.ts";
@@ -89,6 +95,16 @@ const UPDATE = makePackageManagedProviderMaintenanceResolver({
     isCommandPath: isClaudeNativeCommandPath,
   },
 });
+// `claude update` on the app-managed binary would install Anthropic's launcher; setup updates it instead.
+const MANAGED_UPDATE = makePackageManagedProviderMaintenanceResolver({
+  provider: DRIVER_KIND,
+  npmPackageName: "@anthropic-ai/claude-code",
+  nativeUpdate: {
+    args: ["update"],
+    isCommandPath: isClaudeNativeCommandPath,
+    requiresCommandPath: true,
+  },
+});
 
 export type ClaudeDriverEnv =
   | ClaudeAdapterV2DriverEnv
@@ -126,7 +142,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
     const path = yield* Path.Path;
     // The server cwd is $HOME in packaged desktop builds, and `claude`
     // wrappers that scope themselves to their cwd refuse to run there.
-    const { stateDir } = yield* ServerConfig.ServerConfig;
+    const { stateDir, baseDir } = yield* ServerConfig.ServerConfig;
     const httpClient = yield* HttpClient.HttpClient;
     const latestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
     const resetCreditCoordinator = yield* ResetCreditCoordinator.ResetCreditCoordinator;
@@ -134,21 +150,44 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
     const modelCatalog = catalogService
       .current(DRIVER_KIND)
       .pipe(Effect.map(resolveClaudeModelCatalog));
-    const processEnv = yield* mergeProviderInstanceEnvironment(environment);
+    const configuredEnv = yield* mergeProviderInstanceEnvironment(environment);
     const fallbackContinuationIdentity = defaultProviderContinuationIdentity({
       driverKind: DRIVER_KIND,
       instanceId,
     });
-    const effectiveConfig = {
-      ...config,
-      enabled,
-      binaryPath: expandHomePath(config.binaryPath, yield* HostProcess.HomeDirectory),
-    } satisfies ClaudeSettings;
+    const configuredBinaryPath = expandHomePath(
+      config.binaryPath,
+      yield* HostProcess.HomeDirectory,
+    );
+    const binaryPath = yield* resolveClaudeBinaryPath({
+      configured: configuredBinaryPath,
+      baseDir,
+      environment: configuredEnv,
+    });
+    const instanceEnvironment =
+      binaryPath === configuredBinaryPath
+        ? environment
+        : [...environment, ...MANAGED_CLAUDE_ENVIRONMENT];
+    const processEnv = yield* mergeProviderInstanceEnvironment(instanceEnvironment);
+    const effectiveConfig = { ...config, enabled, binaryPath } satisfies ClaudeSettings;
+    const setup = {
+      canAuthenticate: false,
+      canInstall:
+        config.binaryPath === "claude" &&
+        isClaudeManagedInstallSupported(
+          yield* HostProcess.Platform,
+          yield* HostProcess.Architecture,
+          processEnv,
+        ),
+    };
     const resolveMaintenance = yield* makeCachedProviderMaintenanceResolution(
-      resolveProviderMaintenanceCapabilitiesEffect(UPDATE, {
-        binaryPath: effectiveConfig.binaryPath,
-        env: processEnv,
-      }).pipe(
+      resolveProviderMaintenanceCapabilitiesEffect(
+        binaryPath === configuredBinaryPath ? UPDATE : MANAGED_UPDATE,
+        {
+          binaryPath: effectiveConfig.binaryPath,
+          env: processEnv,
+        },
+      ).pipe(
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
         Effect.provideService(FileSystem.FileSystem, fileSystem),
         Effect.provideService(Path.Path, path),
@@ -168,6 +207,14 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
       accentColor,
       continuationGroupKey,
     });
+    const stampSnapshot = (snapshot: ServerProviderDraft): ServerProvider => ({
+      ...stampIdentity(snapshot),
+      setup,
+      // The probe's "not found on PATH" is wrong once the app owns the binary location.
+      ...(binaryPath !== configuredBinaryPath && !snapshot.installed && snapshot.status === "error"
+        ? { message: "Claude Code is not installed. Install it from provider setup." }
+        : {}),
+    });
 
     const scopedLimitNames = yield* makeClaudeScopedLimitNames;
     const orchestrationAdapter = yield* createClaudeAdapterV2(
@@ -175,9 +222,9 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
         instanceId,
         displayName,
         accentColor,
-        environment,
+        environment: instanceEnvironment,
         enabled,
-        config,
+        config: { ...config, binaryPath },
       },
       { scopedLimitNames, onUsageLimits: (update) => snapshot.applyUsageLimits(update) },
     ).pipe(
@@ -279,7 +326,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
               ? Cache.invalidateAll(capabilitiesProbeCache)
               : Effect.void,
           ),
-          Effect.map(stampIdentity),
+          Effect.map(stampSnapshot),
         ),
       ),
       Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
@@ -296,7 +343,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
       initialSnapshot: (settings) =>
         modelCatalog.pipe(
           Effect.flatMap((catalog) => makePendingClaudeProvider(settings.provider, catalog)),
-          Effect.map(stampIdentity),
+          Effect.map(stampSnapshot),
         ),
       checkProvider,
       invalidateUsageCache: Cache.invalidateAll(capabilitiesProbeCache),

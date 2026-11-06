@@ -66,6 +66,11 @@ import * as ServerConfig from "../config.ts";
 import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import { makeClaudeEnvironment } from "../provider/Drivers/ClaudeHome.ts";
+import {
+  claudeManagedBinDirectory,
+  MANAGED_CLAUDE_ENVIRONMENT,
+  resolveClaudeBinaryPath,
+} from "../provider/ClaudeInstallation.ts";
 import { deriveProviderInstanceConfigMap } from "../provider/ProviderInstanceRegistryHydration.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { increment, terminalSessionsTotal } from "../observability/Metrics.ts";
@@ -1471,6 +1476,8 @@ export const resolveProviderInstanceTerminalEnvironment = Effect.fn(
   readonly path: Path.Path;
   readonly rawProviderInstanceId: string;
   readonly env: Record<string, string> | undefined;
+  /** Locates a managed Claude Code install; omitted, the instance's own binary is assumed. */
+  readonly baseDir?: string;
 }) {
   const providerInstanceId = ProviderInstanceId.make(input.rawProviderInstanceId);
   const settings = yield* input.serverSettings.getSettings.pipe(
@@ -1497,6 +1504,15 @@ export const resolveProviderInstanceTerminalEnvironment = Effect.fn(
       resolved = yield* makeClaudeEnvironment(config.value, resolved).pipe(
         Effect.provideService(Path.Path, input.path),
       );
+      if (input.baseDir !== undefined) {
+        const binaryPath = yield* resolveClaudeBinaryPath({
+          configured: config.value.binaryPath,
+          baseDir: input.baseDir,
+          environment: resolved,
+        }).pipe(Effect.provideService(Path.Path, input.path));
+        if (binaryPath !== config.value.binaryPath)
+          resolved = yield* mergeProviderInstanceEnvironment(MANAGED_CLAUDE_ENVIRONMENT, resolved);
+      }
     }
   }
 
@@ -1513,6 +1529,7 @@ export const make = Effect.fn("TerminalManager.make")(function* () {
   const nativeTelemetry = yield* NativeTelemetryClient.NativeTelemetryClient;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const path = yield* Path.Path;
+  const fileSystem = yield* FileSystem.FileSystem;
   const resolveProviderInstanceEnvironment = Effect.fn(
     "terminal.resolveProviderInstanceEnvironment",
   )((rawProviderInstanceId: string, env: Record<string, string> | undefined) =>
@@ -1521,7 +1538,8 @@ export const make = Effect.fn("TerminalManager.make")(function* () {
       path,
       rawProviderInstanceId,
       env,
-    }),
+      baseDir,
+    }).pipe(Effect.provideService(FileSystem.FileSystem, fileSystem)),
   );
   return yield* makeWithOptions({
     logsDir: terminalLogsDir,
@@ -2483,7 +2501,7 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
               options.managedBinaryCacheDir !== undefined &&
               options.managedBinaryToolsDir !== undefined
             ) {
-              const managedDirectories = yield* acpRegistryManagedBinaryDirectories({
+              const acpDirectories = yield* acpRegistryManagedBinaryDirectories({
                 cacheDir: options.managedBinaryCacheDir,
                 toolsDir: options.managedBinaryToolsDir,
                 platform,
@@ -2492,6 +2510,16 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
                 Effect.provideService(FileSystem.FileSystem, fileSystem),
                 Effect.provideService(Path.Path, path),
               );
+              // A managed Claude Code install lets `claude auth login` work in app terminals.
+              const claudeBinDirectory = claudeManagedBinDirectory(
+                path,
+                options.managedBinaryToolsDir,
+              );
+              const managedDirectories = (yield* fileSystem
+                .exists(claudeBinDirectory)
+                .pipe(Effect.orElseSucceed(() => false)))
+                ? [...acpDirectories, claudeBinDirectory]
+                : acpDirectories;
               if (managedDirectories.length > 0) {
                 const delimiter = platform === "win32" ? ";" : ":";
                 const pathKey =

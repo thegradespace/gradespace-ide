@@ -109,4 +109,18 @@ describe("compatibility banners", () => {
       broken.message,
     );
   });
+
+  it("keeps CLI sign-in guidance for providers that only install in the app", () => {
+    const claude: ServerProvider = {
+      ...provider,
+      driver: ProviderDriverKind.make("claudeAgent"),
+      status: "error",
+      auth: { status: "unauthenticated" },
+      setup: { canAuthenticate: false, canInstall: true },
+    };
+    expect(getProviderStatusMessage(claude)).toBe("Sign in via the CLI to authenticate again.");
+    expect(getProviderStatusMessage({ ...claude, installed: false })).toBe(
+      "Open provider setup to install Claude Agent on this environment.",
+    );
+  });
 });

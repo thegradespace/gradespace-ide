@@ -71,7 +71,8 @@ export function getProviderStatusMessage(status: ServerProvider): string {
     return `Open provider setup to install ${formatProviderDriverKindLabel(status.driver)} on this environment.`;
   }
   if (status.auth.status === "unauthenticated") {
-    if (hasProviderSetup(status)) {
+    // An in-app installer alone does not mean sign-in happens in provider setup.
+    if (status.driver === "antigravity" || status.setup?.canAuthenticate === true) {
       return status.driver === "antigravity"
         ? "Open provider setup to sign in with Google."
         : "Open provider setup to sign in.";
