@@ -428,6 +428,9 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(settings.chatWidth !== DEFAULT_UNIFIED_SETTINGS.chatWidth ? ["Chat width"] : []),
     ...(settings.panelSide !== DEFAULT_UNIFIED_SETTINGS.panelSide ? ["Panel position"] : []),
     ...(settings.sidebarStyle !== DEFAULT_UNIFIED_SETTINGS.sidebarStyle ? ["Sidebar style"] : []),
+    ...(settings.workspaceRailEnabled !== DEFAULT_UNIFIED_SETTINGS.workspaceRailEnabled
+      ? ["Workspace rail"]
+      : []),
     ...(settings.sidebarCollapsedStyle !== DEFAULT_UNIFIED_SETTINGS.sidebarCollapsedStyle
       ? ["Collapsed sidebar"]
       : []),
@@ -621,6 +624,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       chatWidth: DEFAULT_UNIFIED_SETTINGS.chatWidth,
       panelSide: DEFAULT_UNIFIED_SETTINGS.panelSide,
       sidebarStyle: DEFAULT_UNIFIED_SETTINGS.sidebarStyle,
+      workspaceRailEnabled: DEFAULT_UNIFIED_SETTINGS.workspaceRailEnabled,
       terminalPlacement: DEFAULT_UNIFIED_SETTINGS.terminalPlacement,
       effortDisplay: DEFAULT_UNIFIED_SETTINGS.effortDisplay,
       mathRenderingEnabled: DEFAULT_UNIFIED_SETTINGS.mathRenderingEnabled,

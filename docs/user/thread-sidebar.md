@@ -55,6 +55,24 @@ in a new thread's model picker to add or remove them. A regular click returns to
 single model. Choose a base branch and send. Each selection starts a separate thread
 and worktree while you stay in the new thread composer. This requires a Git project.
 
+## Workspaces
+
+The icons left of the sidebar switch between workspaces: Code, Present, Studio, Research,
+Write, Mail and QA. Code is the app as it always was and lists every chat that was not
+started in another workspace. Each other workspace lists only its own chats, and a new
+chat there starts with its Gradespace skill in the composer, such as `$gs-present` for
+Present. Present and Studio also open the Studio panel. A skill that is not installed is
+left out; install it from **Settings → Skills**.
+
+Switch with `Ctrl+1` to `Ctrl+7` on macOS or `Alt+1` to `Alt+7` on Windows and Linux;
+`Cmd+1` to `Cmd+9` stay on jumping between threads. Change the keys in
+**Settings → Keybindings**. Opening a chat from another workspace, from search or a link,
+moves the rail to that workspace. A chat remembers its workspace on this device only.
+
+Mail reads and drafts email through Claude's connectors: connect Gmail, Google Calendar or
+Outlook at claude.ai → Settings → Connectors first. To hide the rail, turn off
+**Settings → Appearance → Workspace rail**; every chat then shows in one list again.
+
 ## Pin and reorder threads
 
 Pin a thread from its menu to keep it above your active work.

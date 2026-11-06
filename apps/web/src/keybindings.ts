@@ -55,6 +55,7 @@ function resolvePlatform(options: ShortcutMatchOptions | undefined): string {
 
 function resolveContext(options: ShortcutMatchOptions | undefined): ShortcutMatchContext {
   return {
+    isMac: isMacPlatform(resolvePlatform(options)),
     terminalFocus: false,
     terminalOpen: false,
     previewFocus: false,

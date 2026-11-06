@@ -260,7 +260,15 @@ import {
   type SidebarProviderEntry,
   type SidebarSweepAction,
 } from "./sidebar/SidebarThreadRow";
-import { SidebarDraftBlock } from "./sidebar/SidebarDraftBlock";
+import { isUntouchedWorkspaceDraft, SidebarDraftBlock } from "./sidebar/SidebarDraftBlock";
+import { useActiveWorkspace, useThreadWorkspaces } from "../workspaces/workspaceStore";
+import {
+  filterThreadsForWorkspace,
+  resolveThreadWorkspace,
+  workspaceDefinition,
+} from "../workspaces/workspaces.logic";
+import { WorkspaceInfoCard, WorkspaceNewChatButton } from "../workspaces/WorkspaceSidebarParts";
+import { WorkspaceSwitcherRow } from "../workspaces/WorkspaceRail";
 import { SidebarCompactFilterTabs } from "./sidebar/SidebarCompactFilterTabs";
 import { SidebarWorkingDock } from "./sidebar/SidebarWorkingDock";
 import {
@@ -1155,7 +1163,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             ),
           ),
         );
-  const threads = useQuietThreadShells();
+  const workspace = useActiveWorkspace();
+  const workspaceRailEnabled = useClientSettings((settings) => settings.workspaceRailEnabled);
+  const threadWorkspaces = useThreadWorkspaces();
+  const allThreads = useQuietThreadShells();
+  const threads = filterThreadsForWorkspace(allThreads, workspace, threadWorkspaces);
   const routeRowThreadKey =
     routeThreadRef === null
       ? null
@@ -1250,7 +1262,14 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       if (session.promotedTo != null) {
         continue;
       }
-      if (!composerDraftHasUserContent(store.draftsByThreadKey[draftKey])) {
+      const composer = store.draftsByThreadKey[draftKey];
+      if (!composer || !composerDraftHasUserContent(composer)) {
+        continue;
+      }
+      if (
+        resolveThreadWorkspace({ id: session.threadId }, threadWorkspaces) !== workspace ||
+        isUntouchedWorkspaceDraft(composer)
+      ) {
         continue;
       }
       if (
@@ -3152,6 +3171,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           className="min-h-full"
           fixedHeader={
             <SidebarGroup className="z-[1]">
+              {workspaceRailEnabled ? <WorkspaceSwitcherRow /> : null}
               <SidebarThreadHeader
                 searchFieldRef={headerSearchRef}
                 hasProjects={projectGroups.length > 0}
@@ -3341,6 +3361,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 onNewProject={openAddProjectCommandPalette}
                 onNewThread={handleNewThreadClick}
                 newThreadDisabled={projects.length === 0}
+                newThreadName={workspaceDefinition(workspace).newChatLabel}
                 newThreadShortcutLabel={newThreadShortcutLabel}
                 newThreadInProjectShortcutLabel={newThreadInProjectShortcutLabel}
                 showNewThreadInProjectHint={
@@ -3363,6 +3384,14 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 activeSearchResultIndex={activeSearchResultIndex}
                 onClearSearch={clearThreadSearch}
               />
+              {workspace !== "code" ? (
+                <WorkspaceNewChatButton
+                  workspace={workspace}
+                  disabled={projects.length === 0}
+                  shortcutLabel={newThreadShortcutLabel}
+                  onClick={handleNewThreadClick}
+                />
+              ) : null}
               {compactCounts !== null && !isSearchingThreads ? (
                 <SidebarCompactFilterTabs
                   value={compactFilter}
@@ -3468,6 +3497,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                           projectByKey={projectByKey}
                           projectDisplayNameByKey={projectDisplayNameByKey}
                           scopedProjectKeys={scopedProjectKeys}
+                          workspace={workspace}
+                          threadWorkspaces={threadWorkspaces}
                           routeDraftId={routeDraftIdForRows}
                           onNavigateToDraft={navigateToDraft}
                           onDraftContextMenu={handleDraftContextMenu}
@@ -3695,6 +3726,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                   "No threads in these projects yet"
                 ) : scopedProjectGroups[0] ? (
                   `No threads in ${scopedProjectGroups[0].displayName} yet`
+                ) : workspace !== "code" ? (
+                  `No ${workspaceDefinition(workspace).label} chats yet`
                 ) : (
                   "No threads yet"
                 )}
@@ -3716,6 +3749,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           </SidebarWorkingDock>
         ) : null}
       </DndContext>
+      {workspace !== "code" ? <WorkspaceInfoCard workspace={workspace} /> : null}
       <SidebarChromeFooter />
     </>
   );

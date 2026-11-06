@@ -4,7 +4,7 @@ import { memo } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 
 import { useAtomValue } from "@effect/atom-react";
-import { useEnvironmentIdentificationMode } from "../../hooks/useSettings";
+import { useClientSettings, useEnvironmentIdentificationMode } from "../../hooks/useSettings";
 import { shortcutLabelForCommand } from "../../keybindings";
 import {
   navigateHistory,
@@ -38,6 +38,9 @@ import { SidebarProviderUpdatePill } from "./SidebarProviderUpdatePill";
 import { SidebarUpdateArchitectureWarning, SidebarUpdatePill } from "./SidebarUpdatePill";
 import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 import { observeResize } from "~/lib/observeResize";
+import { WORKSPACE_ICONS } from "../../workspaces/workspaceIcons";
+import { useActiveWorkspace } from "../../workspaces/workspaceStore";
+import { workspaceDefinition } from "../../workspaces/workspaces.logic";
 
 export const SidebarChromeHeader = memo(function SidebarChromeHeader({
   isElectron,
@@ -162,6 +165,22 @@ function HistoryNavigationButton({
 }
 
 function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
+  const workspace = useActiveWorkspace();
+  if (workspace !== "code") {
+    const { label } = workspaceDefinition(workspace);
+    const Icon = WORKSPACE_ICONS[workspace];
+    return (
+      <h2
+        className={cn(
+          "relative z-10 ml-[var(--workspace-titlebar-content-left)] hidden h-7 min-w-0 shrink-0 items-center gap-2 text-base font-semibold md:flex",
+          onBackdrop ? "text-white" : "text-foreground",
+        )}
+      >
+        <Icon className="size-[18px] shrink-0" strokeWidth={1.7} />
+        <span className="truncate">{label}</span>
+      </h2>
+    );
+  }
   return (
     <Link
       aria-label="Gradespace home"
@@ -231,6 +250,7 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
     select: (location) => isSidebarUtilityPage(location.pathname),
   });
   const pullRequestsSupported = usePullRequestsSupported();
+  const workspaceRailEnabled = useClientSettings((settings) => settings.workspaceRailEnabled);
   const closeMobileSidebar = () => {
     if (isMobile) {
       setOpenMobile(false);
@@ -271,11 +291,13 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
         </SidebarMenuItem>
       ) : (
         <>
-          <SidebarUtilityItem
-            icon={<SettingsIcon />}
-            label="Settings"
-            onClick={handleSettingsClick}
-          />
+          {workspaceRailEnabled && !isMobile ? null : (
+            <SidebarUtilityItem
+              icon={<SettingsIcon />}
+              label="Settings"
+              onClick={handleSettingsClick}
+            />
+          )}
           {pullRequestsSupported ? (
             <SidebarUtilityItem
               icon={<PullRequestGlyph.pullRequest />}

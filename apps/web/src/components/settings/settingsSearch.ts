@@ -448,6 +448,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["layout working dock rail compact filters threads status needs you done"],
   },
   {
+    id: "workspace-rail",
+    title: "Workspace rail",
+    to: "/settings/appearance",
+    searchTerms: ["workspaces present studio research write mail qa icons left bar codex"],
+  },
+  {
     id: "sidebar-collapsed-style",
     title: "Collapsed sidebar",
     to: "/settings/appearance",

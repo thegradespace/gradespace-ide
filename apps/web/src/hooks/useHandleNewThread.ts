@@ -46,6 +46,14 @@ import { useThreadRouteTarget } from "./useThreadRouteTarget";
 import { readUnloadedThreadCount } from "../state/olderSettledShelf";
 import { resolveProjectDefaultProviderModelSelection } from "../providerInstances";
 import { resolveNewThreadModelSelection } from "@t3tools/shared/usageLimits";
+import { useRightPanelStore } from "../rightPanelStore";
+import { readActiveWorkspace, recordThreadWorkspace } from "../workspaces/workspaceStore";
+import {
+  isWorkspaceSeedPrompt,
+  resolveThreadWorkspace,
+  workspaceDefinition,
+  workspaceSeedPrompt,
+} from "../workspaces/workspaces.logic";
 
 interface NewThreadWorkspaceOptions {
   branch?: string | null;
@@ -67,9 +75,70 @@ export function useNewThreadHandler() {
   return createNewThreadHandler(useRouter());
 }
 
-export type NewThreadHandler = ReturnType<typeof createNewThreadHandler>;
+export interface NewThreadOptions {
+  branch?: string | null;
+  worktreePath?: string | null;
+  envMode?: DraftThreadEnvMode;
+  startFromOrigin?: boolean;
+  replace?: boolean;
+  /** Composer text for the draft, set before it shows. A draft with user text keeps it. */
+  prompt?: string;
+}
 
-export function createNewThreadHandler(router: AnyRouter) {
+export type NewThreadHandler = (
+  projectRef: ScopedProjectRef,
+  options?: NewThreadOptions,
+) => Promise<{ draftId: DraftId; threadId: ThreadId } | null>;
+
+/** Opens a draft in the active workspace: its skill in the composer, its tag, and its panel. */
+export function createNewThreadHandler(router: AnyRouter): NewThreadHandler {
+  const openProjectDraft = createProjectDraftHandler(router);
+  return async (projectRef, options) => {
+    const workspace = readActiveWorkspace();
+    const providers =
+      appAtomRegistry.get(environmentServerConfigsAtom).get(projectRef.environmentId)?.providers ??
+      [];
+    const seed = workspaceSeedPrompt(workspace, providers);
+    const drafts = useComposerDraftStore.getState();
+    // A draft holding only another workspace's skill counts as untouched, so it is reused.
+    for (const [draftKey, session] of Object.entries(drafts.draftThreadsByThreadKey)) {
+      const prompt = drafts.draftsByThreadKey[draftKey]?.prompt ?? "";
+      if (
+        session.promotedTo == null &&
+        session.environmentId === projectRef.environmentId &&
+        session.projectId === projectRef.projectId &&
+        prompt !== seed &&
+        isWorkspaceSeedPrompt(prompt)
+      ) {
+        drafts.setPrompt(draftKey as DraftId, "");
+      }
+    }
+    const opened = await openProjectDraft(projectRef, {
+      ...options,
+      ...(options?.prompt === undefined && seed !== "" ? { prompt: seed } : {}),
+    });
+    if (opened === null) return null;
+    const previous = resolveThreadWorkspace(
+      { id: opened.threadId },
+      getClientSettings().threadWorkspaces,
+    );
+    recordThreadWorkspace(opened.threadId, workspace);
+    const session = useComposerDraftStore.getState().getDraftSession(opened.draftId);
+    if (session) {
+      const ref = scopeThreadRef(session.environmentId, opened.threadId);
+      const panels = useRightPanelStore.getState();
+      if (workspaceDefinition(workspace).opensStudio) {
+        panels.open(ref, "studio");
+      } else if (workspaceDefinition(previous).opensStudio) {
+        // A draft reused from Present or Studio would otherwise keep their panel.
+        panels.closeSurface(ref, "studio");
+      }
+    }
+    return opened;
+  };
+}
+
+function createProjectDraftHandler(router: AnyRouter) {
   const getCurrentRouteTarget = () => {
     const currentRouteParams = router.state.matches[router.state.matches.length - 1]?.params ?? {};
     return resolveThreadRouteTarget(currentRouteParams);
@@ -77,15 +146,7 @@ export function createNewThreadHandler(router: AnyRouter) {
 
   return (
     projectRef: ScopedProjectRef,
-    options?: {
-      branch?: string | null;
-      worktreePath?: string | null;
-      envMode?: DraftThreadEnvMode;
-      startFromOrigin?: boolean;
-      replace?: boolean;
-      /** Composer text for the draft, set before it shows. A draft with user text keeps it. */
-      prompt?: string;
-    },
+    options?: NewThreadOptions,
   ): Promise<{ draftId: DraftId; threadId: ThreadId } | null> => {
     const projects = readProjects();
     const projectGroupingSettings = selectProjectGroupingSettings(getClientSettings());

@@ -16,6 +16,7 @@ import {
 import { shortcutConflictKey, shortcutKeyFromEvent } from "../../keybindings";
 import { isMacPlatform } from "../../lib/utils";
 import { METRIC_OPTIONS, WINDOW_OPTIONS } from "../usage/usageShortcuts";
+import { WORKSPACES } from "../../workspaces/workspaces.logic";
 
 // Rank every usage command; mixing rank and alphabetical comparisons makes order input-dependent.
 const usageCommandOrder = new Map<KeybindingCommand, number>(
@@ -216,6 +217,7 @@ const KEYBINDING_GROUPS = [
       "rightPanel",
       "commandPalette",
       "quickActions",
+      "workspaces",
       "filePicker",
       "projectSearch",
       "editor",
@@ -391,6 +393,8 @@ export function commandLabel(command: KeybindingCommand): string {
   if (command === "view.reopenClosed") return "Reopen Closed Tab";
   if (command === "preview.focusUrl") return "Preview: Focus URL";
   if (command === "studio.zoomFit") return "Studio: Zoom to Fit";
+  const workspace = WORKSPACES.find((candidate) => candidate.command === command);
+  if (workspace) return `Workspace: ${workspace.label}`;
   const raw = String(command);
   if (raw.startsWith("script.") && raw.endsWith(".run")) {
     return `Run Script: ${titleCaseCommandSegment(raw.slice("script.".length, -".run".length))}`;

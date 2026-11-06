@@ -65,7 +65,10 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { registerCommands, registerMenuAction } from "../shortcuts/dispatcher";
 import { resolveThreadRouteRef } from "../threadRoutes";
+import { WorkspaceRail } from "../workspaces/WorkspaceRail";
 
+// Matches --workspace-rail-width in index.css.
+const WORKSPACE_RAIL_WIDTH = 60;
 const MACOS_TRAFFIC_LIGHTS_LEFT_INSET = "var(--desktop-window-controls-inset, 90px)";
 
 function subscribeToViewportWidth(onChange: () => void): () => void {
@@ -415,8 +418,11 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const routePanelAnimationsActive = panelAnimationsActive && !panelAnimationsSuppressed;
   const isMacosDesktop = isElectron && isMacPlatform(navigator.platform);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialThreadSidebarWidth);
+  const workspaceRailEnabled = useClientSettings((settings) => settings.workspaceRailEnabled);
   // A clamped drag may not change width, so viewport changes need a separate subscription.
-  const viewportWidth = useSyncExternalStore(subscribeToViewportWidth, readViewportWidth);
+  const viewportWidth =
+    useSyncExternalStore(subscribeToViewportWidth, readViewportWidth) -
+    (workspaceRailEnabled ? WORKSPACE_RAIL_WIDTH : 0);
   const [brandWidth, setBrandWidth] = useState(0);
   const sidebarMinimumWidth = resolveThreadSidebarMinimumWidth(brandWidth);
   const sidebarMaximumWidth = resolveThreadSidebarMaximumWidth(viewportWidth, sidebarMinimumWidth);
@@ -432,10 +438,18 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
     subscribeToWindowFullscreen,
     readWindowFullscreen,
   );
+  const macosTrafficLights = isMacosDesktop && !isWindowFullscreen;
+  // The sidebar toggle sits right of the rail, or of the traffic lights where those reach further.
   const windowControlsInsetStyle = (
-    isMacosDesktop && !isWindowFullscreen
-      ? { "--workspace-controls-left": MACOS_TRAFFIC_LIGHTS_LEFT_INSET }
-      : {}
+    workspaceRailEnabled
+      ? {
+          "--workspace-controls-left": macosTrafficLights
+            ? `max(${MACOS_TRAFFIC_LIGHTS_LEFT_INSET}, calc(var(--workspace-rail-width) + 0.75rem))`
+            : "calc(env(safe-area-inset-left) + var(--workspace-rail-width) + 0.75rem)",
+        }
+      : macosTrafficLights
+        ? { "--workspace-controls-left": MACOS_TRAFFIC_LIGHTS_LEFT_INSET }
+        : {}
   ) as CSSProperties;
   const sidebarProviderStyle = {
     "--sidebar-width": `${clampThreadSidebarWidth(sidebarWidth, sidebarMinimumWidth, sidebarMaximumWidth)}px`,
@@ -452,10 +466,12 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
       <SidebarProvider
         className="h-dvh! min-h-0!"
         data-collapsed-style={collapsedStyle}
+        data-workspace-rail={workspaceRailEnabled ? "" : undefined}
         data-panel-animations={routePanelAnimationsActive ? "true" : "false"}
         defaultOpen
         style={sidebarProviderStyle}
       >
+        {workspaceRailEnabled ? <WorkspaceRail /> : null}
         <SidebarBrandWidthProbe isElectron={isElectron} onWidthChange={setBrandWidth} />
         <Sidebar
           side="left"
@@ -472,7 +488,10 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
             minWidth: sidebarMinimumWidth,
             shouldAcceptWidth: ({ currentWidth, nextWidth, wrapper }) =>
               nextWidth <= currentWidth ||
-              wrapper.clientWidth - nextWidth >= THREAD_MAIN_CONTENT_MIN_WIDTH,
+              wrapper.clientWidth -
+                (Number.parseFloat(getComputedStyle(wrapper).paddingLeft) || 0) -
+                nextWidth >=
+                THREAD_MAIN_CONTENT_MIN_WIDTH,
             storageKey: THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
             onResize: setSidebarWidth,
           }}

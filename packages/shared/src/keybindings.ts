@@ -8,6 +8,7 @@ import {
   type ResolvedKeybindingRule,
   type ResolvedKeybindingsConfig,
   THREAD_JUMP_KEYBINDING_COMMANDS,
+  WORKSPACE_KEYBINDING_COMMANDS,
 } from "@t3tools/contracts";
 
 export interface ShortcutEventLike {
@@ -236,6 +237,11 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
     command,
     when: "modelPickerOpen && isDesktop",
   })),
+  // Cmd+1-9 jump to threads on desktop, and Ctrl+digit is that same chord elsewhere.
+  ...WORKSPACE_KEYBINDING_COMMANDS.flatMap((command, index) => [
+    { key: `ctrl+${index + 1}`, command, when: "isMac" },
+    { key: `alt+${index + 1}`, command, when: "!isMac" },
+  ]),
   { key: "c", command: "usage.cost", when: "usagePageOpen" },
   { key: "t", command: "usage.tokens", when: "usagePageOpen" },
   { key: "l", command: "usage.limits", when: "usagePageOpen" },

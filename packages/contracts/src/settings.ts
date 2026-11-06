@@ -650,6 +650,12 @@ export const ClientSettingsSchema = Schema.Struct({
   quickActions: QuickActions.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_QUICK_ACTIONS)),
   ),
+  workspaceRailEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  // Thread id to the workspace it was started in. Code threads have no entry. Plain strings,
+  // so a workspace this client does not know survives a downgrade and reads as Code.
+  threadWorkspaces: Schema.Record(Schema.String, Schema.String).pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
+  ),
 });
 export type ClientSettings = typeof ClientSettingsSchema.Type;
 
@@ -1956,5 +1962,7 @@ export const ClientSettingsPatch = Schema.Struct({
   wordWrap: Schema.optionalKey(Schema.Boolean),
   mathRenderingEnabled: Schema.optionalKey(Schema.Boolean),
   quickActions: Schema.optionalKey(QuickActions),
+  workspaceRailEnabled: Schema.optionalKey(Schema.Boolean),
+  threadWorkspaces: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
 });
 export type ClientSettingsPatch = typeof ClientSettingsPatch.Type;

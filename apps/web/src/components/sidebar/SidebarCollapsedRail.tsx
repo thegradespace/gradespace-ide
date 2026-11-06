@@ -60,7 +60,7 @@ export function SidebarCollapsedSlot(props: {
         <div
           aria-hidden
           data-collapsed-edge=""
-          className="fixed inset-y-0 left-0 z-30 w-1.5 border-r border-sidebar-border bg-sidebar"
+          className="fixed inset-y-0 left-(--workspace-rail-width) z-30 w-1.5 border-r border-sidebar-border bg-sidebar"
           onPointerEnter={props.onEdgeEnter}
         />
       );
@@ -298,7 +298,7 @@ function ThreadTabs() {
       aria-label="Thread tabs"
       data-collapsed-tabs=""
       className={cn(
-        "fixed inset-x-0 top-0 z-40 flex h-(--workspace-topbar-height) items-center gap-1 overflow-x-auto border-b border-sidebar-border bg-sidebar pr-3",
+        "fixed top-0 right-0 left-(--workspace-rail-width) z-40 flex h-(--workspace-topbar-height) items-center gap-1 overflow-x-auto border-b border-sidebar-border bg-sidebar pr-3",
         isElectron && "drag-region",
       )}
     >
