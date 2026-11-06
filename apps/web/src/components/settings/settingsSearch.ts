@@ -23,6 +23,7 @@ export type SettingsPath =
   | "/settings/chat"
   | "/settings/diffs"
   | "/settings/keybindings"
+  | "/settings/quick-actions"
   | "/settings/snap-shot"
   | "/settings/providers"
   | "/settings/skills"
@@ -94,6 +95,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/chat": "Chat",
   "/settings/diffs": "Diffs & pull requests",
   "/settings/keybindings": "Keybindings",
+  "/settings/quick-actions": "Quick actions",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
   "/settings/skills": "Skills",
@@ -125,6 +127,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
       "/settings/chat",
       "/settings/diffs",
       "/settings/keybindings",
+      "/settings/quick-actions",
       "/settings/snap-shot",
     ],
   },
@@ -823,6 +826,19 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   ...KEYBINDING_SEARCH_ITEMS,
   {
+    id: "quick-actions",
+    title: "Quick actions",
+    to: "/settings/quick-actions",
+    searchTerms: ["saved prompts skills shortcuts palette run improve qa release reorder"],
+  },
+  {
+    id: "quick-actions-new",
+    title: "New quick action",
+    to: "/settings/quick-actions",
+    targetId: "quick-actions",
+    searchTerms: ["add create saved prompt shortcut"],
+  },
+  {
     id: "snap-shot-enabled",
     title: "SnapShots",
     searchTerms: ["window capture screenshot"],
@@ -1274,6 +1290,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/diffs": null,
   "/settings/snap-shot": null,
   "/settings/keybindings": null,
+  "/settings/quick-actions": null,
   "/settings/providers": null,
   "/settings/skills": null,
   "/settings/threads": null,

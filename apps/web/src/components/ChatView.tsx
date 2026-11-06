@@ -189,6 +189,11 @@ import { COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS } from "~/workspaceTitlebar";
 import { toastManager } from "./ui/toast";
 import { projectScriptIdFromCommand } from "~/projectScripts";
 import { newMessageId } from "~/lib/utils";
+import {
+  registerQuickActionChat,
+  takeQuickActionDraftSend,
+  useQuickActionsStore,
+} from "~/quickActions/quickActionsStore";
 import { resolveComposerDispatchMode } from "@t3tools/client-runtime/state/composer-dispatch";
 import { isInSideChatPane, type SideChatParentPanel } from "~/lib/sideChatPane";
 import {
@@ -3028,6 +3033,32 @@ export default function ChatView(props: ChatViewProps) {
   };
   const onWorktreeSetupWorkLocallyStable = useStableCallback(onWorktreeSetupWorkLocally);
   const onComposerSendStable = useStableCallback(onSend);
+  const prefillFromQuickAction = (text: string) => {
+    const inserted = composerRef.current?.insertTextAtEnd(text, { ensureLeadingBoundary: true });
+    if (inserted) scheduleComposerFocus();
+    return inserted === true;
+  };
+  const prefillFromQuickActionStable = useStableCallback(prefillFromQuickAction);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- publishes the main chat view as the target quick actions run in
+  useEffect(
+    () =>
+      embedded
+        ? undefined
+        : registerQuickActionChat({
+            kind: isServerThread ? "server" : "draft",
+            send: sendStudioMessageStable,
+            prefill: prefillFromQuickActionStable,
+          }),
+    [embedded, isServerThread, prefillFromQuickActionStable, sendStudioMessageStable],
+  );
+  const quickActionSendPending = useQuickActionsStore((state) =>
+    draftId === null ? false : state.pendingDraftSends.has(draftId),
+  );
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- sends a draft a quick action seeded once this view shows it, through the composer's own send path
+  useEffect(() => {
+    if (!quickActionSendPending || draftId === null || embedded) return;
+    if (takeQuickActionDraftSend(draftId)) void onComposerSendStable();
+  }, [draftId, embedded, onComposerSendStable, quickActionSendPending]);
   const sendPreviewAnnotation = (
     annotation: PreviewAnnotationPayload,
     image: ComposerImageAttachment | null,

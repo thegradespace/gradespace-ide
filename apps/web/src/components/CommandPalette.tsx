@@ -45,11 +45,15 @@ import {
   type DesktopWslState,
   type EnvironmentId,
   type FilesystemBrowseResult,
+  type QuickAction,
   SourceControlProviderKind,
   PRIMARY_LOCAL_ENVIRONMENT_ID,
   resolveEnvironmentMachineKind,
 } from "@t3tools/contracts";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
+import { quickActionShortcutLabel } from "../quickActions/quickActions.logic";
+import { setQuickActionsPaletteOpen } from "../quickActions/quickActionsStore";
+import { runQuickAction } from "../quickActions/runQuickAction";
 import {
   ArrowLeftIcon,
   BugIcon,
@@ -74,6 +78,7 @@ import {
   SquarePenIcon,
   TextSearchIcon,
   UserPlusIcon,
+  ZapIcon,
 } from "lucide-react";
 import { openThreadFind } from "./chat/threadFindStore";
 import {
@@ -279,6 +284,9 @@ function openIntentView(intent: CommandPaletteOpenIntent | null): CommandPalette
 }
 
 const NEW_THREAD_NO_PROJECT_VALUE = "new-thread-in:no-project";
+const selectQuickActions = (settings: { readonly quickActions: ReadonlyArray<QuickAction> }) => ({
+  quickActions: settings.quickActions,
+});
 
 export function CommandPalette({ children }: { children: ReactNode }) {
   useCommandPaletteMount();
@@ -384,6 +392,8 @@ function OpenCommandPaletteDialog(props: {
   readonly initialContext: CommandPaletteReturnContext | undefined;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
+  const { quickActions } = useClientSettings(selectQuickActions);
   const pathname = useLocation({ select: (location) => location.pathname });
   const { openChildSearch, setOpen } = props;
   // Keyed by palette session: the intent and restored search only seed this
@@ -1579,6 +1589,30 @@ function OpenCommandPaletteDialog(props: {
       await navigate({ to: "/usage" });
     },
   });
+
+  actionItems.push({
+    kind: "action",
+    value: "action:quick-actions",
+    searchTerms: ["quick actions", "saved prompts", "skills", "run", "shortcut"],
+    title: "Quick actions…",
+    icon: <ZapIcon className={ITEM_ICON_CLASS} />,
+    shortcutCommand: "quickActions.open",
+    run: async () => {
+      setQuickActionsPaletteOpen(true);
+    },
+  });
+  for (const action of quickActions) {
+    actionItems.push({
+      kind: "action",
+      value: `action:quick-action:${action.id}`,
+      searchTerms: [action.title, action.description, "quick action", action.prompt.slice(0, 200)],
+      title: action.title || "Untitled action",
+      ...(action.description ? { description: action.description } : {}),
+      icon: <ZapIcon className={ITEM_ICON_CLASS} />,
+      shortcutLabel: quickActionShortcutLabel(action),
+      run: () => runQuickAction(action, action.runIn, { router, handleNewThread }),
+    });
+  }
 
   for (const direction of [1, -1] as const) {
     const title = direction === 1 ? "Focus Next Workspace Area" : "Focus Previous Workspace Area";

@@ -83,6 +83,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "studio.zoomOut",
   "studio.zoomFit",
   "commandPalette.toggle",
+  "quickActions.open",
   "filePicker.toggle",
   "projectSearch.toggle",
   "usage.open",

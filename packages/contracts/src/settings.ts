@@ -22,7 +22,7 @@ import {
 import { UsageLimitSourceId } from "./usageLimitSourceId.ts";
 import { SecretProviderId, SecretProviderSlug } from "./secretReference.ts";
 import { EnvironmentMachineKind, ThreadEnvMode, WorktreeSubmodules } from "./environment.ts";
-import { KeybindingShortcut } from "./keybindings.ts";
+import { KeybindingShortcut, KeybindingValue } from "./keybindings.ts";
 import { MessageDevice, MessageDeviceSetting, MessageDeviceStyle } from "./messageDevice.ts";
 import {
   CustomModelSetting,
@@ -122,6 +122,103 @@ export const DEFAULT_SNOOZE_PRESETS: ReadonlyArray<SnoozePresetSetting> = [
   { kind: "at", day: "tomorrow", time: "09:00" },
   { kind: "at", day: "monday", time: "09:00" },
 ];
+
+export const MAX_QUICK_ACTIONS = 30;
+/** "new-chat" starts a draft in the current project; "this-chat" uses the open thread. */
+export const QuickActionRunIn = Schema.Literals(["new-chat", "this-chat"]);
+export type QuickActionRunIn = typeof QuickActionRunIn.Type;
+/** "prefill" leaves the prompt in the composer to finish; "improve-launcher" opens its options first. */
+export const QuickActionBehavior = Schema.Literals(["send", "prefill", "improve-launcher"]);
+export type QuickActionBehavior = typeof QuickActionBehavior.Type;
+export const QuickAction = Schema.Struct({
+  id: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(64)),
+  title: Schema.String.check(Schema.isMaxLength(80)),
+  description: Schema.String.check(Schema.isMaxLength(200)),
+  prompt: Schema.String.check(Schema.isMaxLength(20_000)),
+  keybinding: Schema.NullOr(KeybindingValue),
+  runIn: QuickActionRunIn,
+  behavior: QuickActionBehavior,
+});
+export type QuickAction = typeof QuickAction.Type;
+export const QuickActions = Schema.Array(QuickAction).check(Schema.isMaxLength(MAX_QUICK_ACTIONS));
+/**
+ * Apple keeps Cmd+Shift+I and Option+Cmd+digit. Elsewhere Ctrl+Shift+I is DevTools and
+ * Ctrl+Alt is AltGr on many keyboards, so those get Ctrl+Alt+I and Ctrl+Shift+digit.
+ */
+export function defaultQuickActionsFor(apple: boolean): ReadonlyArray<QuickAction> {
+  return [
+    {
+      id: "improve",
+      title: "Reassess and improve",
+      description: "Research, review and QA, then designs in Studio, then build what you approve",
+      prompt: "$gs-improve",
+      keybinding: apple ? "mod+shift+i" : "mod+alt+i",
+      runIn: "new-chat",
+      behavior: "improve-launcher",
+    },
+    {
+      id: "qa",
+      title: "QA this app",
+      description: "Run it and click through it like a user, nothing mocked",
+      prompt:
+        "$gs-qa Run this project and test it end to end the way its users would, with nothing mocked. Report what works, what breaks and what to fix first.",
+      keybinding: apple ? "mod+alt+2" : "mod+shift+2",
+      runIn: "new-chat",
+      behavior: "send",
+    },
+    {
+      id: "copy",
+      title: "Polish the copy",
+      description: "Rewrite headlines, buttons and errors in your voice",
+      prompt:
+        "$gs-write Review this project's user-facing text (headlines, buttons, empty states, errors and onboarding) and propose sharper wording in my voice. Show before and after, and wait for my go before changing files.",
+      keybinding: apple ? "mod+alt+3" : "mod+shift+3",
+      runIn: "new-chat",
+      behavior: "send",
+    },
+    {
+      id: "design",
+      title: "Design options",
+      description: "Three directions in Studio for what you describe",
+      prompt: "$gs-design Show three design directions in Studio for ",
+      keybinding: apple ? "mod+alt+4" : "mod+shift+4",
+      runIn: "new-chat",
+      behavior: "prefill",
+    },
+    {
+      id: "video",
+      title: "Edit a video",
+      description: "Cut, reframe and caption footage with options in Studio",
+      prompt: "$gs-video ",
+      keybinding: apple ? "mod+alt+5" : "mod+shift+5",
+      runIn: "new-chat",
+      behavior: "prefill",
+    },
+    {
+      id: "release",
+      title: "Release",
+      description: "Run the release checks and build a draft, then wait for your go",
+      prompt:
+        "$gs-release Run this project's release checks and build a draft. Stop and ask for my approval before publishing anything.",
+      keybinding: apple ? "mod+alt+6" : "mod+shift+6",
+      runIn: "new-chat",
+      behavior: "send",
+    },
+    {
+      id: "brief",
+      title: "Write the project brief",
+      description: "A short brief every Gradespace skill reads first",
+      prompt: "$gs-brief Write or update this project's brief.",
+      keybinding: apple ? "mod+alt+7" : "mod+shift+7",
+      runIn: "new-chat",
+      behavior: "send",
+    },
+  ];
+}
+
+// Browsers and Node (the desktop main process) both expose navigator.platform, e.g. "MacIntel".
+const runtimeIsApple = /mac|iphone|ipad|ipod/i.test(globalThis.navigator?.platform ?? "");
+export const DEFAULT_QUICK_ACTIONS = defaultQuickActionsFor(runtimeIsApple);
 
 export const MIN_GLASS_OPACITY = 40;
 export const MAX_GLASS_OPACITY = 100;
@@ -550,6 +647,9 @@ export const ClientSettingsSchema = Schema.Struct({
   // Opt-in TeX typesetting in rendered Markdown. Off keeps math parsing and
   // KaTeX out of the render path entirely.
   mathRenderingEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  quickActions: QuickActions.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_QUICK_ACTIONS)),
+  ),
 });
 export type ClientSettings = typeof ClientSettingsSchema.Type;
 
@@ -1855,5 +1955,6 @@ export const ClientSettingsPatch = Schema.Struct({
   snapShotAnimations: Schema.optionalKey(Schema.Boolean),
   wordWrap: Schema.optionalKey(Schema.Boolean),
   mathRenderingEnabled: Schema.optionalKey(Schema.Boolean),
+  quickActions: Schema.optionalKey(QuickActions),
 });
 export type ClientSettingsPatch = typeof ClientSettingsPatch.Type;
