@@ -523,6 +523,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       ? ["Share usage data"]
       : []),
     ...(settings.offlineMode !== DEFAULT_UNIFIED_SETTINGS.offlineMode ? ["Offline mode"] : []),
+    ...(settings.keepSkillsUpToDate !== DEFAULT_UNIFIED_SETTINGS.keepSkillsUpToDate
+      ? ["Keep skills up to date"]
+      : []),
     ...(settings.continueThreadsAfterServerUpdate !==
     DEFAULT_UNIFIED_SETTINGS.continueThreadsAfterServerUpdate
       ? ["Continue threads after restarts"]
@@ -648,6 +651,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       enableProviderUpdateChecks: DEFAULT_UNIFIED_SETTINGS.enableProviderUpdateChecks,
       shareUsageData: DEFAULT_UNIFIED_SETTINGS.shareUsageData,
       offlineMode: DEFAULT_UNIFIED_SETTINGS.offlineMode,
+      keepSkillsUpToDate: DEFAULT_UNIFIED_SETTINGS.keepSkillsUpToDate,
       continueThreadsAfterServerUpdate: DEFAULT_UNIFIED_SETTINGS.continueThreadsAfterServerUpdate,
       backgroundActivity: DEFAULT_UNIFIED_SETTINGS.backgroundActivity,
       backgroundActivityProfile: DEFAULT_UNIFIED_SETTINGS.backgroundActivityProfile,
