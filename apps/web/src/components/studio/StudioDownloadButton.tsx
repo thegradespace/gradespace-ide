@@ -17,16 +17,42 @@ import { type StudioContext, showToast, studioAssetResource } from "./StudioVari
 
 type DownloadFormat = "file" | "png" | "pdf";
 
-/** Saves the file's bytes as they are, through the window that owns `anchorOwner`. */
-export async function downloadStudioFile(url: string, fileName: string, anchorOwner?: Document) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error("The file could not be loaded. Try again.");
-  const downloadUrl = URL.createObjectURL(await response.blob());
-  setTimeout(() => URL.revokeObjectURL(downloadUrl), 30_000);
-  const anchor = (anchorOwner ?? document).createElement("a");
-  anchor.href = downloadUrl;
+function clickDownloadLink(href: string, fileName: string, owner: Document) {
+  const anchor = owner.createElement("a");
+  anchor.href = href;
   anchor.download = fileName;
   anchor.click();
+}
+
+/**
+ * Saves the file's bytes as they are, through the window that owns the clicked button. On the web
+ * a video streams to disk from an attachment URL; the token in the URL is its auth. Desktop and
+ * draft threads load it as a blob instead: desktop sends cross-origin navigations to the external
+ * browser, and draft media URLs cannot ask for an attachment.
+ */
+export function useStudioFileSaver(context: StudioContext, absolutePath: string) {
+  const resource = studioAssetResource(context, absolutePath);
+  const refreshUrl = useAssetUrlRefresh(context.environmentId, resource);
+  const attachment =
+    resource._tag === "media-file" && window.desktopBridge === undefined
+      ? { ...resource, disposition: "attachment" as const }
+      : null;
+  const refreshAttachmentUrl = useAssetUrlRefresh(context.environmentId, attachment);
+  return async (fileName: string, owner: Document) => {
+    if (attachment !== null) {
+      const url = await refreshAttachmentUrl();
+      if (!url) throw new Error("Reconnect to the environment and try again.");
+      clickDownloadLink(url, fileName, owner);
+      return;
+    }
+    const url = await refreshUrl();
+    if (!url) throw new Error("Reconnect to the environment and try again.");
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("The file could not be loaded. Try again.");
+    const blobUrl = URL.createObjectURL(await response.blob());
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+    clickDownloadLink(blobUrl, fileName, owner);
+  };
 }
 
 const extensionOf = (file: string) => file.split(".").at(-1)?.toLowerCase() ?? "file";
@@ -45,10 +71,12 @@ export function StudioDownloadButton(
   },
 ) {
   const shown = studioShownVariant(props.variant, props.version);
+  const absolutePath = resolvePathLinkTarget(`${props.setPath}/${shown.file}`, props.cwd);
   const refreshAssetUrl = useAssetUrlRefresh(
     props.environmentId,
-    studioAssetResource(props, resolvePathLinkTarget(`${props.setPath}/${shown.file}`, props.cwd)),
+    studioAssetResource(props, absolutePath),
   );
+  const saveFile = useStudioFileSaver(props, absolutePath);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const exportDesign = window.desktopBridge?.exportStudioDesign;
@@ -60,13 +88,13 @@ export function StudioDownloadButton(
     props.optionLabel === undefined ? "Download" : `Download option ${props.optionLabel}`;
 
   const download = async (format: DownloadFormat, owner: Document) => {
-    const url = await refreshAssetUrl();
-    if (!url) throw new Error("Reconnect to the environment and try again.");
     if (format === "file") {
-      await downloadStudioFile(url, fileName(extension), owner);
+      await saveFile(fileName(extension), owner);
       return;
     }
     if (exportDesign === undefined) return;
+    const url = await refreshAssetUrl();
+    if (!url) throw new Error("Reconnect to the environment and try again.");
     await exportDesign({ url, format, fileName: fileName(format) });
   };
   const run = (format: DownloadFormat, owner: Document) => {

@@ -260,12 +260,13 @@ export interface StudioPinNote {
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
 const percent = (fraction: number) => `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%`;
 
-/** `m:ss`, or `h:mm:ss` from an hour, rounded down to the second. */
+/** `m:ss.t`, or `h:mm:ss.t` from an hour, rounded down to the tenth. */
 export function studioPlaybackTime(seconds: number): string {
-  const total = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+  const tenths = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds * 10)) : 0;
+  const total = Math.floor(tenths / 10);
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
-  const secs = String(total % 60).padStart(2, "0");
+  const secs = `${String(total % 60).padStart(2, "0")}.${tenths % 10}`;
   return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${secs}` : `${minutes}:${secs}`;
 }
 

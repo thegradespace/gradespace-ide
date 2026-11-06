@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { useAssetUrlRefresh } from "~/assets/assetUrls";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "~/components/ui/menu";
@@ -37,7 +36,7 @@ import {
   StudioFullscreen,
   StudioPopupWindow,
 } from "./StudioDesignViewer";
-import { downloadStudioFile } from "./StudioDownloadButton";
+import { useStudioFileSaver } from "./StudioDownloadButton";
 import {
   parseStudioManifest,
   STUDIO_MANIFEST_NAME,
@@ -56,12 +55,7 @@ import {
   withStudioRestoreLine,
 } from "./studioManifest";
 import type { NewStudioPin, StudioPin } from "./studioPins";
-import {
-  type StudioContext,
-  showToast,
-  studioAssetResource,
-  StudioVariantPreview,
-} from "./StudioVariantPreview";
+import { type StudioContext, showToast, StudioVariantPreview } from "./StudioVariantPreview";
 import { STUDIO_PAGE_WIDTH } from "./studioZoom";
 
 function ScaledThumbnail(props: { readonly fit: boolean; readonly children: React.ReactNode }) {
@@ -97,18 +91,12 @@ function StudioExportButton(
   props: StudioContext & { readonly setPath: string; readonly variant: StudioVariant },
 ) {
   const [saving, setSaving] = useState(false);
-  const refreshAssetUrl = useAssetUrlRefresh(
-    props.environmentId,
-    studioAssetResource(
-      props,
-      resolvePathLinkTarget(`${props.setPath}/${props.variant.file}`, props.cwd),
-    ),
+  const saveFile = useStudioFileSaver(
+    props,
+    resolvePathLinkTarget(`${props.setPath}/${props.variant.file}`, props.cwd),
   );
-  const exportFile = async () => {
-    const url = await refreshAssetUrl();
-    if (!url) throw new Error("Reconnect to the environment and try again.");
-    await downloadStudioFile(url, props.variant.file.split("/").at(-1) ?? props.variant.file);
-  };
+  const exportFile = () =>
+    saveFile(props.variant.file.split("/").at(-1) ?? props.variant.file, document);
   return (
     <FileSurfaceAction
       label={saving ? "Preparing file…" : "Export file"}
