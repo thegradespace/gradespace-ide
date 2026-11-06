@@ -252,8 +252,9 @@ Quick actions are saved prompts you run with one key. Press `mod+i` (or choose
 where it runs by default, usually a new chat in the current project with your default
 model; **Alt+Enter** runs it in the open chat instead. Some actions put their prompt in
 the composer for you to finish instead of sending it. Each action can also have its own
-shortcut, which works anywhere outside terminals and takes priority over a keybinding
-on the same keys.
+shortcut, which works outside terminals. A keybinding on the same keys keeps them
+wherever its condition applies. The defaults are `mod+shift+i` and `mod+alt+2` to `mod+alt+7`
+on macOS, and `Ctrl+Alt+I` and `Ctrl+Shift+2` to `Ctrl+Shift+7` on Windows and Linux.
 
 **Reassess and improve** first asks for the folder, an optional focus and which steps to
 run, then starts a new chat that stops for your approval before building.

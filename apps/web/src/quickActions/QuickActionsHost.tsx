@@ -20,7 +20,11 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../components/ui/menu";
 import { Textarea } from "../components/ui/textarea";
 import { createNewThreadHandler, useHandleNewThread } from "../hooks/useHandleNewThread";
 import { getClientSettings, useClientSettings } from "../hooks/useSettings";
-import { shortcutLabelForCommand } from "../keybindings";
+import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
+import { isEditableFocused } from "../lib/editableFocus";
+import { isPreviewFocused } from "../lib/previewFocus";
+import { isModelPickerOpen } from "../modelPickerVisibility";
+import { appAtomRegistry } from "../rpc/atomRegistry";
 import { resolveThreadActionProjectRef } from "../lib/chatThreadActions";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { cn, isMacPlatform } from "../lib/utils";
@@ -101,6 +105,20 @@ function installQuickActionCommands(router: ReturnType<typeof useRouter>): () =>
           navigator.platform,
         );
         if (action === null) return false;
+        // A keybinding that applies here keeps its key, such as the usage page's period keys.
+        const command = resolveShortcutCommand(
+          event,
+          appAtomRegistry.get(primaryServerKeybindingsAtom),
+          {
+            context: {
+              previewFocus: isPreviewFocused(),
+              editableFocus: isEditableFocused(event.target),
+              modelPickerOpen: isModelPickerOpen(),
+              usagePageOpen: router.state.location.pathname === "/usage",
+            },
+          },
+        );
+        if (command !== null && command !== "quickActions.open") return false;
         event.preventDefault();
         event.stopPropagation();
         if (event.repeat) return;

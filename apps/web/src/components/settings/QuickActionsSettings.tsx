@@ -394,7 +394,7 @@ function QuickActionEditor(props: {
                 </p>
               ) : conflictNames.length > 0 ? (
                 <p className="text-warning text-xs">
-                  Also used by {conflictNames.join(", ")}. This action takes it.
+                  Also used by {conflictNames.join(", ")}, which keeps the key wherever it applies.
                 </p>
               ) : null}
             </div>

@@ -1,4 +1,4 @@
-import { DEFAULT_QUICK_ACTIONS } from "@t3tools/contracts";
+import { defaultQuickActionsFor } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -60,15 +60,18 @@ describe("findQuickActionForEvent", () => {
 
   it("matches Option+Cmd+digit on macOS, where Option changes the typed character", () => {
     const event = key({ key: "™", code: "Digit2", metaKey: true, altKey: true });
-    expect(findQuickActionForEvent(event, DEFAULT_QUICK_ACTIONS, "MacIntel")?.id).toBe("qa");
+    expect(findQuickActionForEvent(event, defaultQuickActionsFor(true), "MacIntel")?.id).toBe("qa");
   });
 
-  it("ignores AltGr characters on other platforms", () => {
-    const event = {
-      ...key({ key: "@", code: "Digit2", ctrlKey: true, altKey: true }),
+  it("uses Ctrl+Shift+digit elsewhere, so AltGr text entry never runs an action", () => {
+    const actions = defaultQuickActionsFor(false);
+    const shifted = key({ key: "@", code: "Digit2", ctrlKey: true, shiftKey: true });
+    expect(findQuickActionForEvent(shifted, actions, "Win32")?.id).toBe("qa");
+    const altGr = {
+      ...key({ key: "²", code: "Digit2", ctrlKey: true, altKey: true }),
       getModifierState: (modifier: "AltGraph") => modifier === "AltGraph",
     };
-    expect(findQuickActionForEvent(event, DEFAULT_QUICK_ACTIONS, "Win32")).toBeNull();
+    expect(findQuickActionForEvent(altGr, actions, "Win32")).toBeNull();
   });
 });
 
