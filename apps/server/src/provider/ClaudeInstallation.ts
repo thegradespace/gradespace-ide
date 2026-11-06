@@ -23,6 +23,8 @@ import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import * as NodeCrypto from "node:crypto";
 
+import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
+
 import * as ServerConfig from "../config.ts";
 
 const DRIVER = ProviderDriverKind.make("claudeAgent");
@@ -99,6 +101,11 @@ const claudeManagedExecutablePath = (path: Path.Path, baseDir: string, platform:
     claudeManagedBinDirectory(path, path.join(baseDir, "tools")),
     platform === "win32" ? "claude.exe" : "claude",
   );
+
+/** Keeps Claude's self-updater off the managed binary; the app owns its updates. Never for a user's own CLI. */
+export const MANAGED_CLAUDE_ENVIRONMENT = [
+  { name: "DISABLE_AUTOUPDATER", value: "1", sensitive: false },
+] as const;
 
 /** A default `claude` path prefers a CLI on PATH, then the managed install. */
 export const resolveClaudeBinaryPath = Effect.fn("ClaudeInstallation.resolveBinaryPath")(
@@ -215,12 +222,16 @@ export const makeClaudeInstallation = Effect.fn("makeClaudeInstallation")(functi
   const runCommand = Effect.fn("ClaudeInstallation.runCommand")(function* (
     command: string,
     args: ReadonlyArray<string>,
+    env?: NodeJS.ProcessEnv,
   ) {
     const resolved = yield* resolveSpawnCommand(command, args).pipe(
       Effect.provideService(HostProcess.Platform, platform),
     );
     const child = yield* spawner.spawn(
-      ChildProcess.make(resolved.command, resolved.args, { shell: resolved.shell }),
+      ChildProcess.make(resolved.command, resolved.args, {
+        shell: resolved.shell,
+        ...(env ? { env } : {}),
+      }),
     );
     const [stdout, stderr, exitCode] = yield* Effect.all(
       [
@@ -325,7 +336,11 @@ export const makeClaudeInstallation = Effect.fn("makeClaudeInstallation")(functi
     options.validate ??
     Effect.fn("ClaudeInstallation.validate")(
       function* (candidate: string, version: string) {
-        const { stdout, exitCode } = yield* runCommand(candidate, ["--version"]);
+        const { stdout, exitCode } = yield* runCommand(
+          candidate,
+          ["--version"],
+          yield* mergeProviderInstanceEnvironment(MANAGED_CLAUDE_ENVIRONMENT, environment),
+        );
         if (exitCode !== 0 || stdout.trim().split(/\s/u)[0] !== version)
           return yield* installationError(
             "verify",

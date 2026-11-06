@@ -24,7 +24,11 @@ import {
 } from "../../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
 import { ProviderDriverError } from "../Errors.ts";
 import { claudeUsageReader } from "./claudeUsage.ts";
-import { isClaudeManagedInstallSupported, resolveClaudeBinaryPath } from "../ClaudeInstallation.ts";
+import {
+  isClaudeManagedInstallSupported,
+  MANAGED_CLAUDE_ENVIRONMENT,
+  resolveClaudeBinaryPath,
+} from "../ClaudeInstallation.ts";
 import { makeClaudeScopedLimitNames } from "../claudeUsageLimits.ts";
 import * as ClaudeResetCredits from "../claudeResetCredits.ts";
 import * as ResetCreditCoordinator from "../resetCreditCoordinator.ts";
@@ -146,7 +150,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
     const modelCatalog = catalogService
       .current(DRIVER_KIND)
       .pipe(Effect.map(resolveClaudeModelCatalog));
-    const processEnv = yield* mergeProviderInstanceEnvironment(environment);
+    const configuredEnv = yield* mergeProviderInstanceEnvironment(environment);
     const fallbackContinuationIdentity = defaultProviderContinuationIdentity({
       driverKind: DRIVER_KIND,
       instanceId,
@@ -158,8 +162,13 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
     const binaryPath = yield* resolveClaudeBinaryPath({
       configured: configuredBinaryPath,
       baseDir,
-      environment: processEnv,
+      environment: configuredEnv,
     });
+    const instanceEnvironment =
+      binaryPath === configuredBinaryPath
+        ? environment
+        : [...environment, ...MANAGED_CLAUDE_ENVIRONMENT];
+    const processEnv = yield* mergeProviderInstanceEnvironment(instanceEnvironment);
     const effectiveConfig = { ...config, enabled, binaryPath } satisfies ClaudeSettings;
     const setup = {
       canAuthenticate: false,
@@ -213,7 +222,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
         instanceId,
         displayName,
         accentColor,
-        environment,
+        environment: instanceEnvironment,
         enabled,
         config: { ...config, binaryPath },
       },

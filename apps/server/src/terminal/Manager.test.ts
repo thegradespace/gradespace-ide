@@ -1970,6 +1970,48 @@ it.layer(
     ),
   );
 
+  it.effect.each([
+    { name: "the managed binary", localClaude: false, expected: "1" },
+    { name: "a claude on PATH", localClaude: true, expected: undefined },
+  ])("disables Claude's self-updater only for $name", ({ localClaude, expected }) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-terminal-claude-" });
+      const binDirectory = path.join(baseDir, "local-bin");
+      yield* fs.makeDirectory(binDirectory);
+      if (localClaude)
+        yield* fs.writeFileString(path.join(binDirectory, "claude"), "#!/bin/sh\n", {
+          mode: 0o755,
+        });
+      const environment = yield* ServerSettings.ServerSettingsService.pipe(
+        Effect.flatMap((serverSettings) =>
+          TerminalManager.resolveProviderInstanceTerminalEnvironment({
+            serverSettings,
+            path,
+            rawProviderInstanceId: "claude_managed",
+            env: undefined,
+            baseDir,
+          }),
+        ),
+        Effect.provide(
+          ServerSettings.layerTest({
+            providerInstances: {
+              [ProviderInstanceId.make("claude_managed")]: {
+                driver: ProviderDriverKind.make("claudeAgent"),
+                environment: [{ name: "PATH", value: binDirectory, sensitive: false }],
+              },
+            },
+          }),
+        ),
+        Effect.provideService(HostProcess.Platform, "darwin"),
+        Effect.provideService(HostProcess.Architecture, "arm64"),
+      );
+
+      expect(environment.DISABLE_AUTOUPDATER).toBe(expected);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect("restarts a running terminal when the resolved provider environment changes", () =>
     Effect.gen(function* () {
       const providerInstanceId = ProviderInstanceId.make("codex_work");
