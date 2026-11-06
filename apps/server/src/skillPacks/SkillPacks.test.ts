@@ -3,7 +3,12 @@ import * as NodeCrypto from "node:crypto";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import { SKILL_PACK_MARKER_FILE, type SkillPackStatus } from "@t3tools/contracts";
+import {
+  ProviderDriverKind,
+  ProviderInstanceId,
+  SKILL_PACK_MARKER_FILE,
+  type SkillPackStatus,
+} from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -72,14 +77,21 @@ const layerFor = (
   );
 
 /** A temp home with Claude and Codex set up; never the real ~/.claude or ~/.codex. */
-const withHome = <A, E, R>(body: (home: string) => Effect.Effect<A, E, R>) =>
+const withHome = <A, E, R>(
+  body: (home: string) => Effect.Effect<A, E, R>,
+  environment: (home: string) => NodeJS.ProcessEnv = () => ({}),
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-skill-packs-home-" });
     yield* fs.makeDirectory(path.join(home, ".claude"));
     yield* fs.makeDirectory(path.join(home, ".codex"));
-    return yield* body(home).pipe(Effect.provideService(HostProcess.HomeDirectory, home));
+    // An empty environment keeps a developer's own CLAUDE_CONFIG_DIR or CODEX_HOME out of reach.
+    return yield* body(home).pipe(
+      Effect.provideService(HostProcess.HomeDirectory, home),
+      Effect.provideService(HostProcess.Environment, environment(home)),
+    );
   }).pipe(Effect.scoped);
 
 const states = (status: SkillPackStatus, name: string) =>
@@ -140,6 +152,43 @@ it.effect("installs, updates and removes a skill in every agent home", () => {
       expect(states(removed, "alpha")).toEqual(["claude:notInstalled:-", "codex:notInstalled:-"]);
       expect(yield* listSkills(path.dirname(codex))).toEqual([]);
     }),
+  ).pipe(Effect.provide(layerFor(pack)));
+});
+
+it.effect("installs into the homes the Claude and Codex providers are set to use", () => {
+  const pack = makePack();
+  return withHome(
+    (home) =>
+      Effect.gen(function* () {
+        const skills = yield* SkillPacks.SkillPacks;
+        const settings = yield* ServerSettings.ServerSettingsService;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const claudeHome = path.join(home, "claude-env");
+        const codexHome = path.join(home, "codex-instance");
+        yield* fs.makeDirectory(claudeHome);
+        yield* fs.makeDirectory(codexHome);
+        yield* settings.updateSettings({
+          providerInstances: {
+            [ProviderInstanceId.make("codex")]: {
+              driver: ProviderDriverKind.make("codex"),
+              config: { homePath: codexHome },
+            },
+          },
+        });
+        pack.publish("alpha", "1.0.0", { "SKILL.md": "v1" });
+
+        const status = yield* skills.install(["alpha"]);
+
+        expect(status.agents.map((agent) => agent.skillsDirectory)).toEqual([
+          path.join(claudeHome, "skills"),
+          path.join(codexHome, "skills"),
+        ]);
+        expect(yield* read(path.join(claudeHome, "skills", "alpha", "SKILL.md"))).toBe("v1");
+        expect(yield* read(path.join(codexHome, "skills", "alpha", "SKILL.md"))).toBe("v1");
+        expect(yield* listSkills(path.join(home, ".claude"))).toEqual([]);
+      }),
+    (home) => ({ CLAUDE_CONFIG_DIR: `${home}/claude-env`, CODEX_HOME: `${home}/ignored` }),
   ).pipe(Effect.provide(layerFor(pack)));
 });
 

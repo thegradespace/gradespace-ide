@@ -114,7 +114,7 @@ export class SkillPackError extends Schema.TaggedError<SkillPackError>()("SkillP
       case "offline":
         return "Offline mode is on. Turn it off in Settings to install or update skills.";
       case "unreachable":
-        return "Couldn't reach the skill pack.";
+        return "The Gradespace skill pack isn't available right now.";
       case "invalidManifest":
         return "The skill pack list is invalid, so nothing was installed.";
       case "unknownSkill":

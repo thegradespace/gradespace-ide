@@ -151,7 +151,20 @@ function EnvironmentSkills({
         }
       />
       {manifestError !== null && (
-        <SettingsRow title="Could not load the skill pack" description={manifestError} />
+        <SettingsRow
+          title={manifestError}
+          description="Skills already installed from here keep working. Try again later."
+          control={
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending !== null || status.waiting}
+              onClick={refresh}
+            >
+              Check again
+            </Button>
+          }
+        />
       )}
       {manifestError === null && skills.length === 0 && (
         <SettingsRow title="No skills in the pack yet" />

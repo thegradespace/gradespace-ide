@@ -2,6 +2,9 @@
 import * as NodeCrypto from "node:crypto";
 
 import {
+  ClaudeSettings,
+  CodexSettings,
+  ProviderInstanceId,
   SKILL_PACK_DEFAULT_MANIFEST_URL,
   SKILL_PACK_MARKER_FILE,
   SKILL_PACK_MAX_SKILL_BYTES,
@@ -23,6 +26,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
@@ -30,6 +34,8 @@ import * as Semaphore from "effect/Semaphore";
 import { HttpClient, HttpClientRequest } from "effect/http";
 
 import * as ServerConfig from "../config.ts";
+import { resolveClaudeHomePath } from "../provider/Drivers/ClaudeHome.ts";
+import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as ServerSettings from "../serverSettings.ts";
 
@@ -39,10 +45,9 @@ const AUTO_UPDATE_CHECK_INTERVAL = "1 hour";
 const AUTO_UPDATE_MIN_GAP_MS = 24 * 60 * 60 * 1000;
 const STAGING_PREFIX = ".gradespace-";
 
-const AGENT_HOMES: ReadonlyArray<{ readonly agent: SkillPackAgent; readonly folder: string }> = [
-  { agent: "claude", folder: ".claude" },
-  { agent: "codex", folder: ".codex" },
-];
+const decodeClaudeSettings = Schema.decodeUnknownOption(ClaudeSettings);
+const decodeCodexSettings = Schema.decodeUnknownOption(CodexSettings);
+const DEFAULT_CODEX_SETTINGS = Schema.decodeSync(CodexSettings)({});
 
 const SkillMarker = Schema.Struct({
   manifestUrl: Schema.String,
@@ -140,19 +145,56 @@ const make = Effect.gen(function* () {
     return { url: url.toString(), offline: settings.offlineMode };
   });
 
+  /** The default Claude and Codex instances' homes, as their drivers resolve them. */
   const homes = Effect.gen(function* () {
-    const home = yield* HostProcess.HomeDirectory;
-    return yield* Effect.forEach(AGENT_HOMES, ({ agent, folder }) =>
-      fs.exists(path.join(home, folder)).pipe(
+    const settings = yield* settingsService.getSettings.pipe(Effect.option);
+    const hostEnvironment = yield* HostProcess.Environment;
+    const instance = (id: string) =>
+      Option.isSome(settings)
+        ? settings.value.providerInstances[ProviderInstanceId.make(id)]
+        : undefined;
+    const environmentHome = (id: string, name: "CLAUDE_CONFIG_DIR" | "CODEX_HOME") => {
+      const configured = instance(id)?.environment?.findLast((variable) => variable.name === name);
+      const value =
+        typeof configured?.value === "string" ? configured.value : hostEnvironment[name];
+      return value?.trim() || undefined;
+    };
+
+    const claudeConfig = decodeClaudeSettings(instance("claudeAgent")?.config ?? {});
+    const claudeEnvironmentHome = environmentHome("claudeAgent", "CLAUDE_CONFIG_DIR");
+    const claudeHome = yield* resolveClaudeHomePath(
+      { homePath: Option.isSome(claudeConfig) ? claudeConfig.value.homePath : "" },
+      claudeEnvironmentHome === undefined ? {} : { CLAUDE_CONFIG_DIR: claudeEnvironmentHome },
+    );
+
+    const codexConfig = Option.getOrElse(
+      decodeCodexSettings(instance("codex")?.config ?? {}),
+      () => DEFAULT_CODEX_SETTINGS,
+    );
+    const codexEnvironmentHome = environmentHome("codex", "CODEX_HOME");
+    const codexLayout = yield* resolveCodexHomeLayout(
+      codexConfig.homePath.trim().length === 0 &&
+        codexConfig.shadowHomePath.trim().length === 0 &&
+        codexEnvironmentHome !== undefined
+        ? { ...codexConfig, homePath: codexEnvironmentHome }
+        : codexConfig,
+    );
+
+    const agentHomes: ReadonlyArray<readonly [SkillPackAgent, string]> = [
+      ["claude", claudeHome],
+      ["codex", codexLayout.sharedHomePath],
+    ];
+    return yield* Effect.forEach(agentHomes, ([agent, home]) =>
+      fs.exists(home).pipe(
         Effect.orElseSucceed(() => false),
         Effect.map((available): AgentHome => ({
           agent,
-          skillsDirectory: path.join(home, folder, "skills"),
+          skillsDirectory: path.join(home, "skills"),
           available,
         })),
       ),
     );
-  });
+  }).pipe(Effect.provideService(Path.Path, path));
 
   const validateManifest = Effect.fn("SkillPacks.validateManifest")(function* (
     manifest: SkillPackManifest,
