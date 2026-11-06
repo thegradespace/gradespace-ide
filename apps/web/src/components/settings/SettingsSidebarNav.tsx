@@ -31,6 +31,7 @@ import {
   SmartphoneIcon,
   WrenchIcon,
   XIcon,
+  ZapIcon,
 } from "lucide-react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
@@ -93,6 +94,7 @@ const SETTINGS_SECTION_ICONS: Readonly<
   "/settings/diffs": FileDiffIcon,
   "/settings/projects": PanelsTopLeftIcon,
   "/settings/keybindings": KeyboardIcon,
+  "/settings/quick-actions": ZapIcon,
   "/settings/snap-shot": SnapShotIcon,
   "/settings/providers": BotIcon,
   "/settings/threads": MessagesSquareIcon,

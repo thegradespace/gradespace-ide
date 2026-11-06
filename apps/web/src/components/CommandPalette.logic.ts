@@ -201,6 +201,8 @@ export interface CommandPaletteItem {
   readonly titleLeadingContent?: ReactNode;
   readonly titleTrailingContent?: ReactNode;
   readonly shortcutCommand?: KeybindingCommand;
+  /** For shortcuts outside the keybindings config, such as quick actions. */
+  readonly shortcutLabel?: string | null;
   readonly secondary?: boolean;
 }
 

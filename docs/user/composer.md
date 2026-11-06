@@ -245,6 +245,24 @@ provider supports it. Web and desktop also offer compaction from the context met
 Claude instances can also compact idle threads for you. See
 [compact long conversations](./providers-claude.md#compact-long-conversations).
 
+## Quick actions
+
+Quick actions are saved prompts you run with one key. Press `mod+i` (or choose
+**Quick actions…** in the command palette) and pick one by number. **Enter** runs it
+where it runs by default, usually a new chat in the current project with your default
+model; **Alt+Enter** runs it in the open chat instead. Some actions put their prompt in
+the composer for you to finish instead of sending it. Each action can also have its own
+shortcut, which works anywhere outside terminals and takes priority over a keybinding
+on the same keys.
+
+**Reassess and improve** first asks for the folder, an optional focus and which steps to
+run, then starts a new chat that stops for your approval before building.
+
+Edit, reorder, add or remove actions, and change their shortcuts, in **Settings → Quick
+actions**. A prompt can name a skill with `$`, such as `$gs-qa`; without that skill
+installed, the prompt is sent as plain words. Quick actions are saved on this device and
+are not available on mobile yet.
+
 ## Goals
 
 With Codex and Claude, send `/goal` followed by what "done" means, for example
