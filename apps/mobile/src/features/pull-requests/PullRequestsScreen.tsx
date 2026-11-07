@@ -40,7 +40,7 @@ import { usePullRequestListActions } from "./usePullRequestListActions";
 import {
   filterPullRequestList,
   pullRequestListFacets,
-  pullRequestListInput,
+  pullRequestListInputs,
   pullRequestListRowsAreEqual,
   scopedPullRequestListKey as pullRequestKey,
   type EnvironmentPullRequestListEntry,
@@ -176,10 +176,12 @@ export function PullRequestsScreen(
               environment.environmentId === controls.projectEnvironmentId),
         )
         .sort((left, right) => left.environmentId.localeCompare(right.environmentId))
-        .map((environment) => ({
-          environmentId: environment.environmentId,
-          input: pullRequestListInput(controls, query),
-        })),
+        .flatMap((environment) =>
+          pullRequestListInputs(controls, query).map((input) => ({
+            environmentId: environment.environmentId,
+            input,
+          })),
+        ),
     [environments, environmentId, configs, controls, query],
   );
   const result = usePullRequestList(targets);

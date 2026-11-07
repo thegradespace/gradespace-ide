@@ -19,7 +19,7 @@ import {
   pullRequestFilterChoices,
   pullRequestLabelColors,
   pullRequestListHead,
-  pullRequestListInput,
+  pullRequestListInputs,
   scopedPullRequestListKey,
   shownPullRequestListPages,
   pullRequestListRowsAreEqual,
@@ -29,6 +29,9 @@ import {
   withoutScratchProjectScope,
   pullRequestProjectChoices,
 } from "./pullRequestList";
+
+// These cases predate the "mine" default and check filtering over every listed PR.
+const ALL_PRS = { ...DEFAULT_PR_LIST_CONTROLS, involvement: "all" as const };
 
 function entry(number: number, patch: Partial<PullRequestListEntry> = {}): PullRequestListEntry {
   return {
@@ -166,7 +169,7 @@ describe("all-environment PR list", () => {
     ]);
     const rows = filterPullRequestList(
       merged.entries,
-      DEFAULT_PR_LIST_CONTROLS,
+      ALL_PRS,
       merged.viewers,
       "",
       merged.localSearchHosts,
@@ -204,7 +207,7 @@ describe("all-environment PR list", () => {
     ]);
     const byMe = filterPullRequestList(
       merged.entries,
-      { ...DEFAULT_PR_LIST_CONTROLS, involvement: "authored" },
+      { ...ALL_PRS, involvement: "authored" },
       merged.viewers,
       "",
       merged.localSearchHosts,
@@ -216,7 +219,7 @@ describe("all-environment PR list", () => {
     const localOnlySearch = new Set([`${cups} github.com`]);
     const searched = filterPullRequestList(
       merged.entries,
-      DEFAULT_PR_LIST_CONTROLS,
+      ALL_PRS,
       merged.viewers,
       "body match",
       localOnlySearch,
@@ -234,7 +237,7 @@ describe("all-environment PR list", () => {
     expect(
       filterPullRequestList(
         merged.entries,
-        { ...DEFAULT_PR_LIST_CONTROLS, projectId: "project", projectEnvironmentId: mbp },
+        { ...ALL_PRS, projectId: "project", projectEnvironmentId: mbp },
         merged.viewers,
         "",
         merged.localSearchHosts,
@@ -249,8 +252,21 @@ describe("mobile PR scan and filters", () => {
     const viewers = { "github.com": "Octocat", "enterprise.test": "someone-else" };
     expect(
       filterPullRequestList(
+        [
+          ...rows,
+          entry(3, { author: null, viewerReviewRequested: true }),
+          entry(4, { author: null }),
+        ],
+        DEFAULT_PR_LIST_CONTROLS,
+        viewers,
+        "",
+        new Set(),
+      ).map((row) => row.number),
+    ).toEqual([3, 1]);
+    expect(
+      filterPullRequestList(
         rows,
-        { ...DEFAULT_PR_LIST_CONTROLS, involvement: "authored" },
+        { ...ALL_PRS, involvement: "authored" },
         viewers,
         "",
         new Set(),
@@ -259,59 +275,56 @@ describe("mobile PR scan and filters", () => {
     expect(
       filterPullRequestList(
         rows,
-        { ...DEFAULT_PR_LIST_CONTROLS, filters: { author: "me" } },
+        { ...ALL_PRS, filters: { author: "me" } },
         viewers,
         "",
         new Set(),
       ).map((row) => row.number),
     ).toEqual([1]);
     expect(
-      filterPullRequestList(rows, DEFAULT_PR_LIST_CONTROLS, viewers, "author:@me", new Set()).map(
+      filterPullRequestList(rows, ALL_PRS, viewers, "author:@me", new Set()).map(
         (row) => row.number,
       ),
     ).toEqual([1]);
   });
   it("reads a typed draft qualifier as a filter and searches only the text left over", () => {
-    expect(pullRequestListInput(DEFAULT_PR_LIST_CONTROLS, "draft:false fix")).toEqual({
+    const input = {
       state: "open",
-      involvement: "all",
       filters: { draft: "hide" },
       limit: PR_LIST_PAGE_SIZE,
       query: "fix",
-    });
+    } as const;
+    expect(pullRequestListInputs(ALL_PRS, "draft:false fix")).toEqual([
+      { ...input, involvement: "all" },
+    ]);
+    // The default asks for the viewer's own and review-requested PRs, never strangers'.
+    expect(pullRequestListInputs(DEFAULT_PR_LIST_CONTROLS, "draft:false fix")).toEqual([
+      { ...input, involvement: "authored" },
+      { ...input, involvement: "reviewing" },
+    ]);
     const rows = [
       entry(1, { title: "Fix parser" }),
       entry(2, { title: "Fix drafts", isDraft: true }),
       entry(3),
     ];
     expect(
-      filterPullRequestList(
-        rows,
-        DEFAULT_PR_LIST_CONTROLS,
-        {},
-        "draft:false fix",
-        new Set(["github.com"]),
-      ).map((row) => row.number),
+      filterPullRequestList(rows, ALL_PRS, {}, "draft:false fix", new Set(["github.com"])).map(
+        (row) => row.number,
+      ),
     ).toEqual([1]);
   });
   it("does not label unsupported review summaries as reviewed or match text locally on host-search results", () => {
     expect(
       filterPullRequestList(
         [entry(1)],
-        { ...DEFAULT_PR_LIST_CONTROLS, filters: { review: "approved" } },
+        { ...ALL_PRS, filters: { review: "approved" } },
         {},
         "body text",
         new Set(),
       ),
     ).toHaveLength(1);
     expect(
-      filterPullRequestList(
-        [entry(1)],
-        DEFAULT_PR_LIST_CONTROLS,
-        {},
-        "body text",
-        new Set(["github.com"]),
-      ),
+      filterPullRequestList([entry(1)], ALL_PRS, {}, "body text", new Set(["github.com"])),
     ).toHaveLength(0);
   });
   it("lists a shared repository's row from a connected environment over an offline one", () => {
@@ -320,7 +333,7 @@ describe("mobile PR scan and filters", () => {
       { ...entry(1), environmentId: "server" },
     ];
     const pick = (connected: ReadonlySet<string>) =>
-      filterPullRequestList(rows, DEFAULT_PR_LIST_CONTROLS, {}, "", new Set(), connected).map(
+      filterPullRequestList(rows, ALL_PRS, {}, "", new Set(), connected).map(
         (row) => row.environmentId,
       );
     expect(pick(new Set(["server"]))).toEqual(["server"]);
@@ -337,7 +350,7 @@ describe("withoutScratchProjectScope", () => {
 
   it("reads a scope saved on the Scratch folder as all projects", () => {
     const controls = withoutScratchProjectScope(
-      { ...DEFAULT_PR_LIST_CONTROLS, projectId: "scratch", projectEnvironmentId: "env-a" },
+      { ...ALL_PRS, projectId: "scratch", projectEnvironmentId: "env-a" },
       projects,
     );
     expect(controls.projectId).toBeUndefined();
@@ -346,7 +359,7 @@ describe("withoutScratchProjectScope", () => {
 
   it("keeps a repository scope, and one whose projects have not arrived yet", () => {
     const repository = {
-      ...DEFAULT_PR_LIST_CONTROLS,
+      ...ALL_PRS,
       projectId: "repo",
       projectEnvironmentId: "env-a",
     };
@@ -357,7 +370,7 @@ describe("withoutScratchProjectScope", () => {
 
   it("keeps another server's project that shares the Scratch folder's id", () => {
     const elsewhere = {
-      ...DEFAULT_PR_LIST_CONTROLS,
+      ...ALL_PRS,
       projectId: "scratch",
       projectEnvironmentId: "env-b",
     };
@@ -421,7 +434,7 @@ describe("pullRequestProjectChoices", () => {
   ) =>
     pullRequestProjectChoices(projects, {
       environmentId: null,
-      controls: { ...DEFAULT_PR_LIST_CONTROLS, ...scope },
+      controls: { ...ALL_PRS, ...scope },
       environmentLabels: new Map([
         [laptop, "laptop"],
         [desktop, "desktop"],

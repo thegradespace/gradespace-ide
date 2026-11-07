@@ -16,7 +16,8 @@ export const PR_LIST_PAGE_SIZE = 30;
 export type { PullRequestListControls } from "../../persistence/mobile-preferences";
 export const DEFAULT_PR_LIST_CONTROLS: PullRequestListControls = {
   state: "open",
-  involvement: "all",
+  // Every open PR in a busy public repo is mostly strangers' work.
+  involvement: "mine",
   filters: {},
   sort: "updated",
 };
@@ -299,19 +300,22 @@ export function patchPullRequestListEntry(
   );
 }
 
-export function pullRequestListInput(
+/** One request per server involvement; "mine" is the authored and reviewing lists together. */
+export function pullRequestListInputs(
   controls: PullRequestListControls,
   query: string,
-): PullRequestListInput {
+): ReadonlyArray<PullRequestListInput> {
   const parsed = parsePullRequestQuery(query);
-  return {
+  const involvements =
+    controls.involvement === "mine" ? (["authored", "reviewing"] as const) : [controls.involvement];
+  return involvements.map((involvement) => ({
     state: controls.state,
-    involvement: controls.involvement,
+    involvement,
     filters: { ...controls.filters, ...parsed.filters },
     limit: PR_LIST_PAGE_SIZE,
     ...(controls.projectId ? { projectId: ProjectId.make(controls.projectId) } : {}),
     ...(parsed.text ? { query: parsed.text } : {}),
-  };
+  }));
 }
 
 export function nextPullRequestListInput(
@@ -417,12 +421,10 @@ export function filterPullRequestList<
       return false;
     const viewerKey = entry.environmentId ? `${entry.environmentId} ${entry.host}` : entry.host;
     const viewer = viewers[viewerKey];
+    const authored = !!viewer && normalize(entry.author?.login ?? "") === normalize(viewer);
     if (controls.involvement === "reviewing" && !entry.viewerReviewRequested) return false;
-    if (
-      controls.involvement === "authored" &&
-      (!viewer || normalize(entry.author?.login ?? "") !== normalize(viewer))
-    )
-      return false;
+    if (controls.involvement === "authored" && !authored) return false;
+    if (controls.involvement === "mine" && !authored && !entry.viewerReviewRequested) return false;
     if ((filters.draft === "only" && !entry.isDraft) || (filters.draft === "hide" && entry.isDraft))
       return false;
     if (filters.author) {

@@ -29,9 +29,16 @@ import { MobileStorageDecodeError, MobileStorageEncodeError } from "./mobile-sto
 const PREFERENCES_KEY = "t3code.preferences";
 const PREFERENCES_FALLBACK_KEY = "t3code.preferences.fallback";
 
+/** The server's involvements plus "mine", which the phone asks for as authored and reviewing. */
+export const PullRequestListInvolvement = Schema.Literals([
+  ...PullRequestInvolvement.literals,
+  "mine",
+]);
+export type PullRequestListInvolvement = typeof PullRequestListInvolvement.Type;
+
 export const PullRequestListControls = Schema.Struct({
   state: PullRequestListState,
-  involvement: PullRequestInvolvement,
+  involvement: PullRequestListInvolvement,
   filters: PullRequestListFilters,
   projectId: Schema.optional(Schema.String),
   projectEnvironmentId: Schema.optional(Schema.String),
