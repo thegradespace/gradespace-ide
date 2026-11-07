@@ -21,6 +21,7 @@ import { primaryServerKeybindingsAtom } from "~/state/server";
 
 import { FileSurfaceAction } from "../files/fileSurfaceChrome";
 import { StudioDownloadButton } from "./StudioDownloadButton";
+import { StudioTimelineCard } from "./StudioTimelineCard";
 import {
   type StudioManifest,
   type StudioVariant,
@@ -342,6 +343,9 @@ function StudioPane(
           onEscape={props.onEscape}
         />
       </div>
+      {props.variant.timeline !== undefined && props.version === null ? (
+        <StudioTimelineCard {...props} timeline={props.variant.timeline} />
+      ) : null}
     </div>
   );
 }

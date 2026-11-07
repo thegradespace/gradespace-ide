@@ -157,6 +157,19 @@ export type DesktopStudioExportRequest = typeof DesktopStudioExportRequest.Type;
 export const DesktopStudioExportResult = Schema.Literals(["saved", "cancelled"]);
 export type DesktopStudioExportResult = typeof DesktopStudioExportResult.Type;
 
+export const DesktopVideoEditor = Schema.Literals(["resolve", "premiere", "final-cut"]);
+export type DesktopVideoEditor = typeof DesktopVideoEditor.Type;
+
+export const DesktopOpenInVideoEditorRequest = Schema.Struct({
+  editor: DesktopVideoEditor,
+  path: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(4096)),
+});
+export type DesktopOpenInVideoEditorRequest = typeof DesktopOpenInVideoEditorRequest.Type;
+
+/** `revealed` when the editor cannot take the file directly, so it was shown in the file manager. */
+export const DesktopOpenInVideoEditorResult = Schema.Literals(["opened", "revealed"]);
+export type DesktopOpenInVideoEditorResult = typeof DesktopOpenInVideoEditorResult.Type;
+
 export const DesktopCaptureConfigRequest = Schema.Struct({
   operation: Schema.Literals(["install", "remove"]),
   chooseFile: Schema.Boolean,
@@ -1103,6 +1116,11 @@ export interface DesktopBridge {
   pickThemeFiles: () => Promise<readonly PickedThemeFile[] | null>;
   /** Renders a Studio design at its natural size and saves it where the user picks. */
   exportStudioDesign: (request: DesktopStudioExportRequest) => Promise<DesktopStudioExportResult>;
+  /** Video editors installed on this computer, for Studio's rough-cut timelines. */
+  listVideoEditors: () => Promise<readonly DesktopVideoEditor[]>;
+  openInVideoEditor: (
+    request: DesktopOpenInVideoEditorRequest,
+  ) => Promise<DesktopOpenInVideoEditorResult>;
   setTheme: (theme: DesktopTheme) => Promise<void>;
   showContextMenu: <T extends string>(
     items: readonly ContextMenuItem<T>[],
