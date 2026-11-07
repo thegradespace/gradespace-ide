@@ -71,6 +71,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.skillPacksInstall]: "server",
   [WS_METHODS.skillPacksUpdate]: "server",
   [WS_METHODS.skillPacksRemove]: "server",
+  [WS_METHODS.emailConnectionsStatus]: "server",
   [WS_METHODS.peerLinksList]: "peerLinks",
   [WS_METHODS.peerLinksLink]: "peerLinks",
   [WS_METHODS.peerLinksUnlink]: "peerLinks",

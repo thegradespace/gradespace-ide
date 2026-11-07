@@ -6,6 +6,7 @@ import * as StorageCleanup from "./storageCleanup.ts";
 import * as StateBackups from "./backup/StateBackups.ts";
 import * as StudioShare from "./studioShare/StudioShare.ts";
 import * as SkillPacks from "./skillPacks/SkillPacks.ts";
+import * as EmailConnections from "./emailConnections/EmailConnections.ts";
 import * as PullRequestSyncReactor from "./orchestration-v2/PullRequestSyncReactor.ts";
 import * as PullRequestWatchReactor from "./orchestration-v2/PullRequestWatchReactor.ts";
 import * as DelegatedTaskQuestionReactor from "./orchestration-v2/DelegatedTaskQuestionReactor.ts";
@@ -594,6 +595,7 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   StateBackups.layer,
   StudioShare.layer,
   SkillPacks.layer,
+  EmailConnections.layer,
   DatabaseStorage.layer.pipe(
     Layer.provide(ProjectionMaintenance.layer),
     Layer.provide(

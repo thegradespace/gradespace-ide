@@ -95,6 +95,8 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.skillPacksInstall]: AuthEnvironmentMaintainScope,
   [WS_METHODS.skillPacksUpdate]: AuthEnvironmentMaintainScope,
   [WS_METHODS.skillPacksRemove]: AuthEnvironmentMaintainScope,
+  // Only says whether an email connector is set up, never its account or messages.
+  [WS_METHODS.emailConnectionsStatus]: AuthOrchestrationReadScope,
   [WS_METHODS.peerLinksList]: AuthAccessReadScope,
   [WS_METHODS.serverUpdateSettings]: AuthSettingsWriteScope,
   [WS_METHODS.serverSearchAcpRegistry]: AuthOrchestrationReadScope,

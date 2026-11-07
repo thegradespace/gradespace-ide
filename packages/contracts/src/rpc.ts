@@ -98,6 +98,7 @@ import {
   SkillPackStatus,
   SkillPackUpdateInput,
 } from "./skillPacks.ts";
+import { EmailConnectionsReport } from "./emailConnections.ts";
 import {
   FilesystemGetMetadataInput,
   FilesystemGetMetadataResult,
@@ -536,6 +537,7 @@ export const WS_METHODS = {
   skillPacksInstall: "skillPacks.install",
   skillPacksUpdate: "skillPacks.update",
   skillPacksRemove: "skillPacks.remove",
+  emailConnectionsStatus: "emailConnections.status",
   peerLinksList: "peerLinks.list",
   peerLinksLink: "peerLinks.link",
   peerLinksUnlink: "peerLinks.unlink",
@@ -904,6 +906,12 @@ const WsSkillPacksRemoveRpc = Rpc.make(WS_METHODS.skillPacksRemove, {
   payload: SkillPackNamesInput,
   success: SkillPackStatus,
   error: SkillPacksRpcError,
+});
+
+const WsEmailConnectionsStatusRpc = Rpc.make(WS_METHODS.emailConnectionsStatus, {
+  payload: Schema.Struct({}),
+  success: EmailConnectionsReport,
+  error: EnvironmentAuthorizationError,
 });
 
 const WsPeerLinksListRpc = Rpc.make(WS_METHODS.peerLinksList, {
@@ -2122,6 +2130,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsSkillPacksInstallRpc,
   WsSkillPacksUpdateRpc,
   WsSkillPacksRemoveRpc,
+  WsEmailConnectionsStatusRpc,
   WsServerUpdateSettingsRpc,
   WsPeerLinksListRpc,
   WsPeerLinksLinkRpc,

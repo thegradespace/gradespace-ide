@@ -1230,6 +1230,12 @@ export function createServerEnvironmentAtoms<R, E>(
       staleTimeMs: 0,
       idleTtlMs: 0,
     }),
+    emailConnectionsStatus: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:email-connections-status",
+      tag: WS_METHODS.emailConnectionsStatus,
+      staleTimeMs: 0,
+      idleTtlMs: 0,
+    }),
     installSkillPacks: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:install-skill-packs",
       tag: WS_METHODS.skillPacksInstall,

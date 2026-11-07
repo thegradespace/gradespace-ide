@@ -35,6 +35,10 @@
       "types": "./src/workspaces.ts",
       "default": "./src/workspaces.ts"
     },
+    "./mailHome": {
+      "types": "./src/mailHome.ts",
+      "default": "./src/mailHome.ts"
+    },
     "./handoff": {
       "types": "./src/handoff.ts",
       "default": "./src/handoff.ts"

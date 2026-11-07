@@ -6,6 +6,7 @@ export * from "./background.ts";
 export * from "./backups.ts";
 export * from "./studioShare.ts";
 export * from "./skillPacks.ts";
+export * from "./emailConnections.ts";
 export * from "./acpRegistry.ts";
 export * from "./auth.ts";
 export * from "./environment.ts";

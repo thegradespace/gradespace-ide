@@ -10,6 +10,7 @@ import {
   presentationStyleLine,
   reviewerStyleLine,
   workspaceSeedPrompt,
+  workspaceSkillNotice,
 } from "./workspaces.ts";
 
 describe("workspace message lines", () => {
@@ -74,6 +75,45 @@ describe("workspaces", () => {
     ).toBe("");
     expect(workspaceSeedPrompt("mail", present, defaults)).toBe("");
     expect(workspaceSeedPrompt("code", present, defaults)).toBe("");
+  });
+
+  it("names the missing skill and a connected environment that has it", () => {
+    const env = (environmentId: string, skills: ReturnType<typeof skill>[]) => ({
+      environmentId,
+      label: environmentId.toUpperCase(),
+      providers: [{ skills }],
+    });
+    const environments = [env("air", [skill("gs-write")]), env("studio", [skill("gs-mail")])];
+    const notice = (
+      workspace: "mail" | "write" | "code",
+      environmentId: string,
+      writeMode = "draft" as const,
+    ) => workspaceSkillNotice({ workspace, settings: { writeMode }, environmentId, environments });
+    expect(notice("mail", "air")).toEqual({
+      skill: "gs-mail",
+      environmentLabel: "AIR",
+      alternative: { environmentId: "studio", label: "STUDIO" },
+    });
+    expect(notice("mail", "studio")).toBeNull();
+    expect(notice("write", "studio")?.alternative?.environmentId).toBe("air");
+    expect(
+      workspaceSkillNotice({
+        workspace: "write",
+        settings: { writeMode: "review" },
+        environmentId: "air",
+        environments,
+      }),
+    ).toEqual({ skill: "gs-review", environmentLabel: "AIR", alternative: null });
+    expect(notice("code", "air")).toBeNull();
+    // Providers still loading say nothing yet.
+    expect(
+      workspaceSkillNotice({
+        workspace: "mail",
+        settings: { writeMode: "draft" },
+        environmentId: "air",
+        environments: [{ environmentId: "air", label: "AIR", providers: [] }],
+      }),
+    ).toBeNull();
   });
 
   it("adds the chosen style, and Write's Review mode starts gs-review with a reviewer style", () => {

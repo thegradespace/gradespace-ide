@@ -409,3 +409,41 @@ export function assignThreadWorkspace(
   if (threadWorkspaces[threadId] === workspace) return threadWorkspaces;
   return { ...threadWorkspaces, [threadId]: workspace };
 }
+
+export interface WorkspaceSkillEnvironment {
+  readonly environmentId: string;
+  readonly label: string;
+  readonly providers: ReadonlyArray<{ readonly skills: ReadonlyArray<ServerProviderSkill> }>;
+}
+
+export interface WorkspaceSkillNotice {
+  readonly skill: string;
+  readonly environmentLabel: string;
+  /** A connected environment that has the skill, to switch to instead. */
+  readonly alternative: { readonly environmentId: string; readonly label: string } | null;
+}
+
+/** "<skill> isn't installed on <environment>", or null when there is nothing to say. */
+export function workspaceSkillNotice(input: {
+  readonly workspace: WorkspaceId;
+  readonly settings: Pick<WorkspaceSeedSettings, "writeMode">;
+  readonly environmentId: string;
+  readonly environments: ReadonlyArray<WorkspaceSkillEnvironment>;
+}): WorkspaceSkillNotice | null {
+  const skill = workspaceSkill(input.workspace, input.settings);
+  const current = input.environments.find((env) => env.environmentId === input.environmentId);
+  // An environment whose providers haven't loaded yet would flash the notice on every start.
+  if (skill === null || current === undefined || current.providers.length === 0) return null;
+  if (isSkillInstalled(skill, current.providers)) return null;
+  const alternative = input.environments.find(
+    (env) => env.environmentId !== input.environmentId && isSkillInstalled(skill, env.providers),
+  );
+  return {
+    skill,
+    environmentLabel: current.label,
+    alternative:
+      alternative === undefined
+        ? null
+        : { environmentId: alternative.environmentId, label: alternative.label },
+  };
+}
