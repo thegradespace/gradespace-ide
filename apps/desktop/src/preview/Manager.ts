@@ -20,6 +20,7 @@ import type {
   PreviewForwardedShortcut,
 } from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
+import { isPrivateNetworkHost } from "@t3tools/shared/hostClassification";
 import { matchesKeybindingShortcut } from "@t3tools/shared/keybindings";
 import { normalizePreviewUrl } from "@t3tools/shared/preview";
 import {
@@ -463,6 +464,16 @@ export const previewWindowOpenAction = (details: {
     ? "new-tab"
     : "navigate";
 };
+
+/**
+ * Agents drive preview tabs, so a trust prompt would stall them. Routers, NAS boxes and homelab
+ * servers on private-network hosts use self-signed certificates; public hosts keep Chromium's verdict.
+ * Codes are Electron's verify-proc results: 0 trusts the certificate, -3 keeps Chromium's result.
+ */
+export const previewCertificateVerdict = (request: {
+  readonly hostname: string;
+  readonly errorCode: number;
+}): 0 | -3 => (request.errorCode !== 0 && isPrivateNetworkHost(request.hostname) ? 0 : -3);
 
 const isPreviewRefreshShortcut = (input: Electron.Input): boolean =>
   input.type === "keyDown" &&
@@ -3571,6 +3582,7 @@ export const make = Effect.gen(function* PreviewManagerMake() {
   const browserHost = yield* DesktopBrowserHost.DesktopBrowserHost;
   const passkeys = yield* PreviewPasskeys.PreviewPasskeys;
   const downloadSessions = new WeakSet<Electron.Session>();
+  const configuredSessions = new WeakSet<Electron.Session>();
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const runForkDownload = Effect.runForkWith(yield* Effect.context<never>());
@@ -3612,6 +3624,15 @@ export const make = Effect.gen(function* PreviewManagerMake() {
     });
   };
 
+  const configurePreviewSession = (session: Electron.Session) => {
+    if (configuredSessions.has(session)) return;
+    configuredSessions.add(session);
+    // Keep Electron's own user agent: Google sign-in accepts it but rejects one stripped to look like Chrome.
+    session.setCertificateVerifyProc((request, callback) => {
+      callback(previewCertificateVerdict(request));
+    });
+  };
+
   const operations = yield* makeNativeOperations(
     environment.browserArtifactsDir,
     environment.path.join(environment.dirname, "preview-pip-preload.cjs"),
@@ -3629,6 +3650,7 @@ export const make = Effect.gen(function* PreviewManagerMake() {
               (cause) => new PreviewOperationError({ operation: "getBrowserSession", cause }),
             ),
           );
+        configurePreviewSession(session);
         placeServerDownloads(session);
         passkeys.installSessionHandlers(session);
         return session;
