@@ -77,9 +77,9 @@ chats with `$gs-review` and a `Reviewer style:` line (Calm, Balanced, Harsh or E
 triage), and **Attach manuscript** adds a .md, .docx, .pdf or .txt file. Both choices stay
 as this device's default for new chats.
 
-On the phone, the workspace chips above the thread list do the same, with the same Present
-and Write controls above a new thread's composer. Code there lists every thread, because
-chats started on another device arrive without their workspace. In a Present or Studio
+On the phone, the ☰ button beside the logo opens the same workspaces, and the header names
+the one you are in. Present and Write have the same controls above a new thread's composer.
+Code there lists every thread. In a Present or Studio
 chat, the Studio button lists the project's design sets: swipe between options, open one
 full screen, and **Pick** it.
 

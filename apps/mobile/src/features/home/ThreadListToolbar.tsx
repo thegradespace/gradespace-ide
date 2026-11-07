@@ -115,6 +115,7 @@ export function ThreadListToolbar(props: {
         titleAccessibilityLabel="GS, Threads"
         onOpenEnvironments={props.onOpenEnvironments}
         filter={filterButton}
+        workspaceMenu
       />
     </View>
   );

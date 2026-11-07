@@ -25,6 +25,7 @@ import {
 import { HomeRouteScreen } from "../home/HomeRouteScreen";
 import { dispatchHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import { WorkspaceConnectionTitle } from "../home/WorkspaceConnectionTitle";
+import { WithWorkspaceMenu, WorkspacePill } from "../gs-workspaces/WorkspaceDrawer";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { PullRequestsScreen } from "../pull-requests/PullRequestsScreen";
 import {
@@ -61,13 +62,23 @@ function WorkspaceRootTitle(props: {
     : enabled.length
       ? TAB_TITLES[state.selectedTab]
       : "Navigation";
+  const workspaceMenu = !settingsOpen && state.selectedTab === "threads";
+  const title = (
+    <WorkspaceConnectionTitle
+      brand={
+        <CompactBrandTitle
+          accessibilityLabel={`GS, ${tabTitle}`}
+          fit
+          trailing={workspaceMenu ? <WorkspacePill /> : undefined}
+        />
+      }
+      maxWidth={maxWidth}
+      onPress={props.onOpenEnvironments}
+    />
+  );
   return (
     <View style={{ width: maxWidth, minHeight: 32, justifyContent: "center" }}>
-      <WorkspaceConnectionTitle
-        brand={<CompactBrandTitle accessibilityLabel={`GS, ${tabTitle}`} fit />}
-        maxWidth={maxWidth}
-        onPress={props.onOpenEnvironments}
-      />
+      {workspaceMenu ? <WithWorkspaceMenu fill>{title}</WithWorkspaceMenu> : title}
     </View>
   );
 }

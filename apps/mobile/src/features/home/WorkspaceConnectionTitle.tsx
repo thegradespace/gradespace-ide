@@ -13,6 +13,7 @@ import {
 } from "../../components/CompactBrandTitle";
 import { useDeadlinePassed } from "../../lib/clock";
 import { useWorkspaceState } from "../../state/workspace";
+import { WithWorkspaceMenu, WorkspacePill } from "../gs-workspaces/WorkspaceDrawer";
 import {
   workspaceConnectionStatusPresentation,
   type WorkspaceConnectionStatusPresentation,
@@ -165,18 +166,25 @@ export function getConnectionAwareBrandHeaderOptions(opts: {
   readonly trailingItemCount?: number;
   readonly onOpenEnvironments: () => void;
   readonly fallbackTitleStyle?: NativeStackNavigationOptions["headerTitleStyle"];
+  /** The thread list's ☰ and active-workspace pill. */
+  readonly workspaceMenu?: boolean;
 }): NativeStackNavigationOptions {
   const maxWidth = Math.max(0, opts.headerWidth - 64 - 44 * (opts.trailingItemCount ?? 1));
 
   return {
     ...getCompactBrandHeaderOptions(opts.fallbackTitleStyle),
-    headerTitle: () => (
-      <WorkspaceConnectionTitle
-        brand={<CompactBrandTitle />}
-        maxWidth={maxWidth}
-        onPress={opts.onOpenEnvironments}
-        statusOffset={brandTitleOffset()}
-      />
-    ),
+    headerTitle: () => {
+      const title = (
+        <WorkspaceConnectionTitle
+          brand={
+            <CompactBrandTitle trailing={opts.workspaceMenu ? <WorkspacePill /> : undefined} />
+          }
+          maxWidth={opts.workspaceMenu ? maxWidth - 44 : maxWidth}
+          onPress={opts.onOpenEnvironments}
+          statusOffset={brandTitleOffset()}
+        />
+      );
+      return opts.workspaceMenu ? <WithWorkspaceMenu>{title}</WithWorkspaceMenu> : title;
+    },
   };
 }

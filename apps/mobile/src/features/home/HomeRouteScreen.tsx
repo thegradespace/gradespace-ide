@@ -228,6 +228,7 @@ export function HomeRouteScreen() {
                 headerWidth,
                 trailingItemCount: nativePrimaryColumn && deviceType === "pad" ? 2 : 1,
                 onOpenEnvironments: () => openSettings(navigation, "SettingsEnvironments"),
+                workspaceMenu: true,
               }),
               headerShown: Platform.OS !== "android",
             }}

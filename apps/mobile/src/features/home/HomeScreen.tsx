@@ -86,7 +86,7 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-sw
 import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
-import { WorkspaceChips } from "../gs-workspaces/WorkspaceChips";
+import { WorkspaceStudioShortcut } from "../gs-workspaces/WorkspaceStudioShortcut";
 import { showsAppEmptyState, workspaceEmptyCopy } from "../gs-workspaces/workspaceEmptyState";
 import { useWorkspacePreferences } from "../gs-workspaces/workspacePreferences";
 
@@ -723,7 +723,7 @@ export function HomeScreen(props: HomeScreenProps) {
   const v2ListHeader = (
     <>
       {listHeader}
-      <WorkspaceChips gutter={primaryColumn ? 8 : 0} threads={props.threads} />
+      <WorkspaceStudioShortcut threads={props.threads} />
       {Platform.OS === "ios" && workspace ? (
         <ThreadListFilters
           gutter={primaryColumn ? 8 : 0}

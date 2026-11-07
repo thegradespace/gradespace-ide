@@ -4,6 +4,7 @@ import { AndroidHeaderIconButton } from "../../components/ui/AndroidScreenHeader
 import { CompactBrandTitle } from "../../components/CompactBrandTitle";
 import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
 import { WorkspaceConnectionTitle } from "../home/WorkspaceConnectionTitle";
+import { WithWorkspaceMenu, WorkspacePill } from "../gs-workspaces/WorkspaceDrawer";
 
 /**
  * The Android header row above each workspace tab's list. Both tabs draw this same row, so
@@ -21,8 +22,24 @@ export function WorkspaceListToolbarRow(props: {
   readonly onOpenEnvironments: () => void;
   /** Stays trailing while searching, so it never moves and still narrows the results. */
   readonly filter: ReactNode;
+  /** The thread list's ☰ and active-workspace pill. */
+  readonly workspaceMenu?: boolean;
 }) {
   const { height } = useToolbarLayout();
+  const title = (
+    <WorkspaceConnectionTitle
+      grow
+      onPress={props.onOpenEnvironments}
+      brand={
+        <CompactBrandTitle
+          allowFontScaling={false}
+          accessibilityLabel={props.titleAccessibilityLabel}
+          fit
+          trailing={props.workspaceMenu ? <WorkspacePill /> : undefined}
+        />
+      }
+    />
+  );
   return (
     <View className="flex-row items-center gap-1" style={{ minHeight: height }}>
       {props.searching ? (
@@ -37,18 +54,8 @@ export function WorkspaceListToolbarRow(props: {
         </>
       ) : (
         <>
-          <View className="min-w-0 flex-1 pl-4">
-            <WorkspaceConnectionTitle
-              grow
-              onPress={props.onOpenEnvironments}
-              brand={
-                <CompactBrandTitle
-                  allowFontScaling={false}
-                  accessibilityLabel={props.titleAccessibilityLabel}
-                  fit
-                />
-              }
-            />
+          <View className="min-w-0 flex-1 flex-row items-center pl-4">
+            {props.workspaceMenu ? <WithWorkspaceMenu fill>{title}</WithWorkspaceMenu> : title}
           </View>
           <AndroidHeaderIconButton
             accessibilityLabel={props.searchAccessibilityLabel}

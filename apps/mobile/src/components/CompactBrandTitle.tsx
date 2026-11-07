@@ -1,7 +1,7 @@
 import { NATIVE_WORKSPACE_COLUMNS_SUPPORTED } from "../native/NativeWorkspaceColumns";
 import Constants from "expo-constants";
 import type { NativeStackNavigationOptions } from "@react-navigation/native-stack";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Platform, View } from "react-native";
 
 import { AppText as Text } from "./ui/AppText";
@@ -23,6 +23,8 @@ export function CompactBrandTitle(
     readonly accessibilityLabel?: string;
     /** Fills the row and hides the stage badge when the full title does not fit. */
     readonly fit?: boolean;
+    /** Sits right after the wordmark, such as the active workspace's pill. */
+    readonly trailing?: ReactNode;
   } = {},
 ) {
   const stageLabel = resolveMobileStageLabel(Constants.expoConfig?.extra?.appVariant);
@@ -82,12 +84,20 @@ export function CompactBrandTitle(
     </View>
   );
 
+  // Outside the heading so screen readers announce it on its own.
+  const trailing = props.trailing ? <View className="ml-2">{props.trailing}</View> : null;
   return props.fit ? (
     <View
       className="min-w-0 flex-1 flex-row items-center"
       onLayout={(event) => setAvailableWidth(event.nativeEvent.layout.width)}
     >
       {title}
+      {trailing}
+    </View>
+  ) : trailing ? (
+    <View className="flex-row items-center">
+      {title}
+      {trailing}
     </View>
   ) : (
     title
