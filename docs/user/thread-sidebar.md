@@ -67,7 +67,8 @@ left out; install it from **Settings → Skills**.
 Switch with `Ctrl+1` to `Ctrl+7` on macOS or `Alt+1` to `Alt+7` on Windows and Linux;
 `Cmd+1` to `Cmd+9` stay on jumping between threads. Change the keys in
 **Settings → Keybindings**. Opening a chat from another workspace, from search or a link,
-moves the rail to that workspace. A chat remembers its workspace on this device only.
+moves the rail to that workspace. A chat keeps its workspace on every device connected to
+the same environment.
 
 In Present, the style button above a new chat's composer picks one of six deck styles and
 lets you change its colours and fonts. The choice adds a `Style:` line under `$gs-present`,
