@@ -38,6 +38,20 @@ describe("codexEmailFinding", () => {
       ),
     ).toEqual({ state: "notConnected", connectors: [] });
   });
+
+  it("counts a cached account plugin unless config.toml turns it off", () => {
+    const cached = ["gmail@openai-curated-remote", "figma@openai-curated-remote"];
+    expect(EmailConnections.codexEmailFinding("", cached)).toEqual({
+      state: "connected",
+      connectors: ["Gmail"],
+    });
+    expect(
+      EmailConnections.codexEmailFinding(
+        '[plugins."gmail@openai-curated-remote"]\nenabled = false',
+        cached,
+      ).state,
+    ).toBe("notConnected");
+  });
 });
 
 describe("claudeEmailFinding", () => {
@@ -67,7 +81,12 @@ it.effect("reports every Codex and Claude instance from its own home", () =>
     const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-email-connections-" });
     const workCodex = path.join(home, "work-codex");
     yield* fs.makeDirectory(path.join(home, ".codex"));
-    yield* fs.makeDirectory(workCodex);
+    yield* fs.makeDirectory(
+      path.join(workCodex, "plugins", "cache", "openai-curated-remote", "outlook"),
+      {
+        recursive: true,
+      },
+    );
     yield* fs.writeFileString(
       path.join(home, ".codex", "config.toml"),
       '[plugins."gmail@openai-curated-remote"]\nenabled = true\n',
@@ -98,7 +117,7 @@ it.effect("reports every Codex and Claude instance from its own home", () =>
 
     expect(report.providers.map((p) => [p.instanceId, p.state, p.connectors])).toEqual([
       ["codex", "connected", ["Gmail"]],
-      ["codex_work", "notConnected", []],
+      ["codex_work", "connected", ["Outlook"]],
       ["claudeAgent", "notConnected", []],
     ]);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),

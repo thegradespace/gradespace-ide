@@ -59,7 +59,11 @@ const TOML_ENABLED = /^\s*enabled\s*=\s*(true|false)\s*(?:#.*)?$/u;
  * Enabled `[plugins."…"]` and `[mcp_servers.…]` tables in a Codex config.toml. A small line
  * scanner: the server has no TOML parser, and only these table headers and `enabled` matter.
  */
-export function codexEmailFinding(configToml: string): Finding {
+export function codexEmailFinding(
+  configToml: string,
+  /** `name@marketplace` for each plugin Codex has cached, which covers account plugins. */
+  cachedPlugins: ReadonlyArray<string> = [],
+): Finding {
   const tables: Array<{ name: string; enabled: boolean }> = [];
   let current: { name: string; enabled: boolean } | null = null;
   for (const line of configToml.split(/\r?\n/u)) {
@@ -76,7 +80,11 @@ export function codexEmailFinding(configToml: string): Finding {
     const enabled = current === null ? null : TOML_ENABLED.exec(line);
     if (current !== null && enabled) current.enabled = enabled[1] === "true";
   }
-  return found(tables.filter((table) => table.enabled).map((table) => table.name));
+  const disabled = new Set(tables.filter((table) => !table.enabled).map((table) => table.name));
+  return found([
+    ...tables.filter((table) => table.enabled).map((table) => table.name),
+    ...cachedPlugins.filter((plugin) => !disabled.has(plugin)),
+  ]);
 }
 
 const ClaudeGlobalConfig = Schema.fromJsonString(
@@ -142,11 +150,22 @@ const make = Effect.gen(function* () {
         ? { ...settings, homePath: environmentHome }
         : settings,
     );
+    // Remote plugins connected in ChatGPT never reach config.toml; Codex caches them under
+    // plugins/cache/<marketplace>/<plugin>.
+    const cacheRoot = path.join(layout.sharedHomePath, "plugins", "cache");
+    const listDirectory = (directory: string) =>
+      fs.readDirectory(directory).pipe(Effect.orElseSucceed((): string[] => []));
+    const cachedPlugins = (yield* Effect.forEach(yield* listDirectory(cacheRoot), (marketplace) =>
+      listDirectory(path.join(cacheRoot, marketplace)).pipe(
+        Effect.map((plugins) => plugins.map((plugin) => `${plugin}@${marketplace}`)),
+      ),
+    )).flat();
     // No config.toml means nothing is set up yet, which is a plain "not connected".
-    return yield* readFinding(path.join(layout.sharedHomePath, "config.toml"), codexEmailFinding, {
-      state: "notConnected",
-      connectors: [],
-    });
+    return yield* readFinding(
+      path.join(layout.sharedHomePath, "config.toml"),
+      (contents) => codexEmailFinding(contents, cachedPlugins),
+      codexEmailFinding("", cachedPlugins),
+    );
   });
 
   const claudeFinding = Effect.fn("EmailConnections.claudeFinding")(function* (
