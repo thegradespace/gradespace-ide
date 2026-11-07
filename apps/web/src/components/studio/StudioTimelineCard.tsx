@@ -151,7 +151,6 @@ function EditorButton(
       size="sm"
       variant={props.primary ? "default" : "outline"}
       title={action}
-      aria-label={action}
       onClick={(event) => run(event.currentTarget.ownerDocument)}
     >
       {props.primary ? `Open in ${editor.label}` : editor.label}
