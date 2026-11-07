@@ -74,7 +74,7 @@ export function useComposerAttachmentActions(props: {
       );
     });
   };
-  const onPickDraftFiles = async () => {
+  const onPickDraftFiles = async (options?: { readonly types?: ReadonlyArray<string> }) => {
     const key = props.draftKey;
     if (!key || props.locked) return;
     const maxBytes = capabilities?.fileAttachments?.maxUploadBytes;
@@ -87,6 +87,7 @@ export function useComposerAttachmentActions(props: {
       const result = await pickComposerFiles({
         existingCount: countComposerDraftAttachmentsAfterSelection(key, insertion),
         maxBytes,
+        ...(options?.types ? { types: options.types } : {}),
       });
       report(
         "Could not attach file",

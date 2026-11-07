@@ -7,11 +7,14 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import {
   EnvironmentId,
+  PresentationStyleChoice,
   PullRequestInvolvement,
   PullRequestListFilters,
   PullRequestListState,
   type ProviderInstanceId,
   type PullRequestMergeMethod,
+  ReviewerStyleId,
+  WriteWorkspaceMode,
   type SidebarProjectGroupingMode,
 } from "@t3tools/contracts";
 import type { AndroidNavigationStyle } from "../lib/androidNavigationStyle";
@@ -78,6 +81,10 @@ const WorkspaceSelections = Schema.Struct({
 export type WorkspaceSelections = typeof WorkspaceSelections.Type;
 
 const isThreadListFilters = Schema.is(ThreadListFilters);
+const isPresentationStyleChoice = Schema.is(PresentationStyleChoice);
+const isReviewerStyleId = Schema.is(ReviewerStyleId);
+const isWriteWorkspaceMode = Schema.is(WriteWorkspaceMode);
+const isStringRecord = Schema.is(Schema.Record(Schema.String, Schema.String));
 const isWorkspaceSelections = Schema.is(WorkspaceSelections);
 const isPullRequestListPreferences = Schema.is(PullRequestListPreferences);
 const ThreadProject = Schema.Struct({
@@ -128,6 +135,13 @@ export interface Preferences {
   readonly threadListFilters?: ThreadListFilters;
   readonly pullRequestListFilters?: PullRequestListPreferences;
   readonly workspaceSelections?: WorkspaceSelections;
+  /** Gradespace workspace the thread list shows; per device, like web's rail. */
+  readonly activeWorkspace?: string;
+  /** Thread id to workspace for chats started on this device; not synced with desktop. */
+  readonly threadWorkspaces?: Readonly<Record<string, string>>;
+  readonly presentStyle?: PresentationStyleChoice | null;
+  readonly writeMode?: WriteWorkspaceMode;
+  readonly reviewerStyle?: ReviewerStyleId;
 }
 
 export class MobilePreferencesLoadError extends Schema.TaggedError<MobilePreferencesLoadError>()(
@@ -205,6 +219,11 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     threadListFilters?: ThreadListFilters;
     pullRequestListFilters?: PullRequestListPreferences;
     workspaceSelections?: WorkspaceSelections;
+    activeWorkspace?: string;
+    threadWorkspaces?: Readonly<Record<string, string>>;
+    presentStyle?: PresentationStyleChoice | null;
+    writeMode?: WriteWorkspaceMode;
+    reviewerStyle?: ReviewerStyleId;
   } = {};
 
   if (Array.isArray(parsed.hiddenNavigationTabs)) {
@@ -359,6 +378,17 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   if (isWorkspaceSelections(parsed.workspaceSelections)) {
     preferences.workspaceSelections = parsed.workspaceSelections;
   }
+  if (typeof parsed.activeWorkspace === "string") {
+    preferences.activeWorkspace = parsed.activeWorkspace;
+  }
+  if (isStringRecord(parsed.threadWorkspaces)) {
+    preferences.threadWorkspaces = parsed.threadWorkspaces;
+  }
+  if (parsed.presentStyle === null || isPresentationStyleChoice(parsed.presentStyle)) {
+    preferences.presentStyle = parsed.presentStyle;
+  }
+  if (isWriteWorkspaceMode(parsed.writeMode)) preferences.writeMode = parsed.writeMode;
+  if (isReviewerStyleId(parsed.reviewerStyle)) preferences.reviewerStyle = parsed.reviewerStyle;
   return preferences;
 }
 

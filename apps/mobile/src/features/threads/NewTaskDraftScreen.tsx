@@ -4,6 +4,8 @@ import { DraftThreadHeader } from "./DraftThreadHeader";
 import { threadHeaderAppearance } from "./thread-header-appearance";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { useComposerAttachmentActions } from "../../state/use-composer-attachment-actions";
+import { MANUSCRIPT_MIME_TYPES, WorkspaceComposerBar } from "../gs-workspaces/WorkspaceComposerBar";
+import { readActiveWorkspace, recordThreadWorkspace } from "../gs-workspaces/workspacePreferences";
 import { useWorkspaceBackNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 import { submittedThreadParams } from "./thread-route-state";
 import { ThreadScreenBinding, ThreadScreenFallback } from "./ThreadScreenHost";
@@ -663,6 +665,7 @@ export function NewTaskDraftScreen(props: {
       );
       return null;
     }
+    recordThreadWorkspace(String(message.threadId), readActiveWorkspace());
     promptInputRef.current?.blur();
     navigation.dispatch(
       CommonActions.setParams(
@@ -930,6 +933,12 @@ export function NewTaskDraftScreen(props: {
                 </View>
               ) : null}
               {flow.canChooseWorkspace ? workspaceControls : null}
+              <WorkspaceComposerBar
+                draftKey={flow.draftKey}
+                providers={selectedEnvironmentServerConfig?.providers ?? []}
+                disabled={isComposerInteractionLocked}
+                onAttachManuscript={() => handlePickFiles({ types: MANUSCRIPT_MIME_TYPES })}
+              />
             </View>
           ),
           editorRef: promptInputRef,

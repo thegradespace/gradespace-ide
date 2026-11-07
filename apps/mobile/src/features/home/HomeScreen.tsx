@@ -86,6 +86,7 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-sw
 import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
+import { WorkspaceChips } from "../gs-workspaces/WorkspaceChips";
 
 interface HomeScreenProps {
   readonly projects: ReadonlyArray<EnvironmentProject>;
@@ -712,6 +713,7 @@ export function HomeScreen(props: HomeScreenProps) {
   const v2ListHeader = (
     <>
       {listHeader}
+      <WorkspaceChips gutter={primaryColumn ? 8 : 0} threads={props.threads} />
       {Platform.OS === "ios" && workspace ? (
         <ThreadListFilters
           gutter={primaryColumn ? 8 : 0}
@@ -760,10 +762,11 @@ export function HomeScreen(props: HomeScreenProps) {
     return (
       <View className="flex-1 bg-header">
         <View
-          className="flex-1 items-center justify-center overflow-hidden rounded-t-[28px] bg-screen px-4"
+          className="flex-1 overflow-hidden rounded-t-[28px] bg-screen px-4"
           style={{ paddingBottom: insets.bottom }}
         >
-          {v2ListEmpty}
+          {v2ListHeader}
+          <View className="flex-1 items-center justify-center">{v2ListEmpty}</View>
         </View>
       </View>
     );

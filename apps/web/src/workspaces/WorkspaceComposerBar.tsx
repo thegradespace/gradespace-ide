@@ -1,4 +1,5 @@
 import {
+  COMMON_PRESENTATION_FONTS,
   PRESENTATION_STYLES,
   REVIEWER_STYLES,
   presentationStyle,
@@ -31,19 +32,6 @@ import { Toggle, ToggleGroup } from "../components/ui/toggle-group";
 import { cn } from "../lib/utils";
 import { updateWorkspaceSeedSettings, useThreadWorkspaces } from "./workspaceStore";
 import { resolveThreadWorkspace, type WorkspaceSeedSettings } from "./workspaces.logic";
-
-const COMMON_FONTS = [
-  "Inter",
-  "Helvetica Neue",
-  "Avenir Next",
-  "Futura",
-  "Jost",
-  "Figtree",
-  "Georgia",
-  "Charter",
-  "Garamond",
-  "Arial",
-];
 
 const MANUSCRIPT_ACCEPT = ".md,.markdown,.docx,.pdf,.txt";
 
@@ -292,7 +280,7 @@ function FontField(props: {
   presetFont: string;
   onChange: (value: string) => void;
 }) {
-  const fonts = [...new Set([props.presetFont, props.value, ...COMMON_FONTS])];
+  const fonts = [...new Set([props.presetFont, props.value, ...COMMON_PRESENTATION_FONTS])];
   return (
     <div className="flex items-center gap-2">
       <span className="w-28 shrink-0 text-xs text-muted-foreground">{props.label}</span>

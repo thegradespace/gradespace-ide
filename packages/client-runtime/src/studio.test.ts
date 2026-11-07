@@ -6,6 +6,7 @@ import {
   studioDownloadFileName,
   studioPinLine,
   studioPlaybackTime,
+  studioSetPaths,
   studioShownVariant,
   studioVariantKind,
   studioViewedVersion,
@@ -14,7 +15,7 @@ import {
   withStudioPicked,
   withStudioPickLine,
   withStudioRestoreLine,
-} from "./studioManifest";
+} from "./studio.ts";
 
 const variant = (id: string, file = `${id.toLowerCase()}.html`) => ({ id, title: id, file });
 const manifestJson = (variants: unknown, extra: object = {}) =>
@@ -332,5 +333,19 @@ describe("studioVariantKind", () => {
     ["a.pptx", "other"],
   ])("%s is %s", (file, kind) => {
     expect(studioVariantKind(file)).toBe(kind);
+  });
+});
+
+describe("studioSetPaths", () => {
+  it("lists only set folders directly under the Studio root, newest first", () => {
+    expect(
+      studioSetPaths([
+        { path: ".gradespace/studio/2026-01-02-logo", kind: "directory" },
+        { path: ".gradespace/studio/2026-03-01-deck", kind: "directory" },
+        { path: ".gradespace/studio/2026-03-01-deck/assets", kind: "directory" },
+        { path: ".gradespace/studio/notes.md", kind: "file" },
+        { path: ".gradespace/other", kind: "directory" },
+      ]),
+    ).toEqual([".gradespace/studio/2026-03-01-deck", ".gradespace/studio/2026-01-02-logo"]);
   });
 });

@@ -42,6 +42,13 @@ export function ThreadHeader(
         onPress: filesVisible ? toggleAuxiliaryPane : props.onOpenFilesInspector,
       });
     }
+    if (props.gitControls.onOpenStudio) {
+      actions.push({
+        accessibilityLabel: "Open Studio designs",
+        icon: "square.on.square",
+        onPress: props.gitControls.onOpenStudio,
+      });
+    }
     if (props.hasWorkspaceRoot && props.gitControls.canOpenTerminal) {
       actions.push({
         accessibilityLabel: "Open terminal",
@@ -74,6 +81,7 @@ export function ThreadHeader(
     props.hasThreadCwd,
     props.hasWorkspaceRoot,
     props.gitControls.canOpenTerminal,
+    props.gitControls.onOpenStudio,
   ]);
 
   return (

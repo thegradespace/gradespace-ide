@@ -38,6 +38,11 @@ import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { openSettings } from "../settings/settings-navigation";
 import { useSelectWorkspaceTab } from "../workspace/useSelectWorkspaceTab";
 import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
+import {
+  pendingTasksForWorkspace,
+  threadsForWorkspace,
+  useWorkspacePreferences,
+} from "../gs-workspaces/workspacePreferences";
 
 export function HomeRouteScreen() {
   const { width: windowWidth } = useWindowDimensions();
@@ -103,7 +108,17 @@ export function HomeRouteScreen() {
     regenerateThreadTitle,
     unsettleThread,
   } = useThreadListActions();
-  const pendingTasks = usePendingNewTasks();
+  const gsWorkspace = useWorkspacePreferences();
+  const workspaceThreads = threadsForWorkspace(
+    threads,
+    gsWorkspace.active,
+    gsWorkspace.threadWorkspaces,
+  );
+  const pendingTasks = pendingTasksForWorkspace(
+    usePendingNewTasks(),
+    gsWorkspace.active,
+    gsWorkspace.threadWorkspaces,
+  );
   const { openPendingTask, confirmDeletePendingTask } =
     usePendingTaskListActions(selectThreadRoute);
   const connectionStateByEnvironmentId = new Map(
@@ -277,7 +292,7 @@ export function HomeRouteScreen() {
           searchQuery={searchQuery}
           selectedEnvironmentId={selectedEnvironmentId}
           selectedProjectKey={selectedProjectKey}
-          threads={threads}
+          threads={workspaceThreads}
         />
         <ThreadUndoNotice visible={visible} />
       </>

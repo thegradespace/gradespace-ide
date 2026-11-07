@@ -1,5 +1,7 @@
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 
+import { isWorkspaceSeedPrompt } from "@t3tools/client-runtime/workspaces";
+
 import { deriveThreadTitleFromPrompt } from "../lib/projectThreadStartTurn";
 import type { QueuedThreadCreation, QueuedThreadMessage } from "./thread-outbox-model";
 import { isNewTaskDraftKey } from "./new-task-draft-key";
@@ -36,7 +38,11 @@ export interface PendingDraftTask {
 }
 
 function composerDraftHasUserContent(draft: ComposerDraft): boolean {
-  return draft.text.trim().length > 0 || draft.attachments.length > 0;
+  // A Gradespace workspace seed alone is not the user's writing.
+  return (
+    (draft.text.trim().length > 0 && !isWorkspaceSeedPrompt(draft.text)) ||
+    draft.attachments.length > 0
+  );
 }
 
 function draftTitle(draft: ComposerDraft): string {

@@ -27,6 +27,10 @@
       "types": "./src/imageAttachmentSize.ts",
       "default": "./src/imageAttachmentSize.ts"
     },
+    "./studio": {
+      "types": "./src/studio.ts",
+      "default": "./src/studio.ts"
+    },
     "./workspaces": {
       "types": "./src/workspaces.ts",
       "default": "./src/workspaces.ts"

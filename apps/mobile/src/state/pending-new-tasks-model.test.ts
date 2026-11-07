@@ -1,7 +1,9 @@
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
+import { newTaskDraftKey } from "./new-task-draft-key";
 import {
+  buildPendingNewTasks,
   type PendingDraftProjectDefaults,
   pendingDraftBranchNeedsRefs,
   resolvePendingDraftBranch,
@@ -80,5 +82,17 @@ describe("resolvePendingDraftBranch", () => {
     const chosen = draft({ mode: "local", branch: "release", worktreePath: null });
     expect(pendingDraftBranchNeedsRefs(chosen, localDefault)).toBe(false);
     expect(resolve({ draft: chosen, branches, projectCwd })).toBe("release");
+  });
+});
+
+describe("buildPendingNewTasks", () => {
+  it("lists a draft once it holds more than a workspace seed", () => {
+    const listed = (text: string) =>
+      buildPendingNewTasks({
+        queuedMessages: [],
+        drafts: { [newTaskDraftKey("d1")]: { ...draft(), text } },
+      }).length;
+    expect(listed("$gs-present\nStyle: Bold\n")).toBe(0);
+    expect(listed("$gs-present a deck about tides")).toBe(1);
   });
 });

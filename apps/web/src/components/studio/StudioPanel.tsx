@@ -45,6 +45,7 @@ import {
   type StudioVariant,
   studioCompareDefault,
   studioLatestVersion,
+  studioSetPaths,
   studioShownVariant,
   studioVariantKind,
   studioViewedVersion,
@@ -607,15 +608,7 @@ export default function StudioPanel(props: {
   }, []);
   const readRevision = `${props.workspaceMutationId ?? ""}:${focusCount}`;
   const entries = useProjectEntriesQuery(props.environmentId, props.cwd, STUDIO_ROOT, readRevision);
-  // Set folders start with their date, so reverse name order is newest first.
-  const sets = (entries.data?.entries ?? [])
-    .filter(
-      (entry) =>
-        entry.kind === "directory" &&
-        entry.path.slice(0, Math.max(0, entry.path.lastIndexOf("/"))) === STUDIO_ROOT,
-    )
-    .map((entry) => entry.path)
-    .toSorted((left, right) => right.localeCompare(left));
+  const sets = studioSetPaths(entries.data?.entries ?? []);
   const target = props.target;
   const setPath =
     target !== undefined && (selected === null || target.requestId > selected.requestId)

@@ -257,6 +257,8 @@ export async function createComposerFileAttachment(input: {
 export async function pickComposerFiles(input: {
   readonly existingCount: number;
   readonly maxBytes?: number;
+  /** MIME types the picker offers; all files when omitted. */
+  readonly types?: ReadonlyArray<string>;
 }): Promise<{
   readonly files: ReadonlyArray<DraftComposerAttachment>;
   readonly error: string | null;
@@ -274,7 +276,11 @@ export async function pickComposerFiles(input: {
   let result: DocumentPickerResult;
   try {
     // Import a readable cache copy because FileSystem may not read provider URIs directly.
-    result = await getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
+    result = await getDocumentAsync({
+      multiple: true,
+      copyToCacheDirectory: true,
+      ...(input.types ? { type: [...input.types] } : {}),
+    });
   } catch (cause) {
     return {
       files: [],

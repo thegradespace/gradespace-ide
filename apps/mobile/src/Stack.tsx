@@ -49,6 +49,10 @@ import { ArchivedThreadsRouteScreen } from "./features/archive/ArchivedThreadsRo
 import { ConnectOnboardingRouteScreen } from "./features/cloud/ConnectOnboardingRouteScreen";
 import { AttachmentFileScreen } from "./features/files/AttachmentFileScreen";
 import { ThreadFilesTreeScreen, ThreadFileScreen } from "./features/files/ThreadFilesRouteScreen";
+import {
+  ThreadStudioRouteScreen,
+  ThreadStudioSetRouteScreen,
+} from "./features/studio/StudioRouteScreens";
 import { AdaptiveWorkspaceLayout } from "./features/layout/AdaptiveWorkspaceLayout";
 import { selectedPullRequestKey } from "./features/pull-requests/pullRequestSelection";
 import {
@@ -856,6 +860,16 @@ const RootStackConfig = createWorkspaceStackNavigator({
     ThreadFile: createNativeStackScreen({
       screen: ThreadFileScreen,
       linking: `${THREAD_LINKING_PREFIX}/files/:path*`,
+      options: GLASS_HEADER_OPTIONS,
+    }),
+    ThreadStudio: createNativeStackScreen({
+      screen: ThreadStudioRouteScreen,
+      linking: `${THREAD_LINKING_PREFIX}/studio`,
+      options: { ...GLASS_HEADER_OPTIONS, title: "Studio" },
+    }),
+    ThreadStudioSet: createNativeStackScreen({
+      screen: ThreadStudioSetRouteScreen,
+      linking: `${THREAD_LINKING_PREFIX}/studio/:set`,
       options: GLASS_HEADER_OPTIONS,
     }),
     ThreadMcpApp: createNativeStackScreen({

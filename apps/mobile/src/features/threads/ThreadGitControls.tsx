@@ -76,6 +76,7 @@ function compactMenuStatus(gitStatus: VcsStatusResult | null): string {
 type HeaderItem = Record<string, unknown>;
 type HeaderItems = HeaderItem[];
 type ThreadGitHeaderActionItems = {
+  readonly studio: HeaderItem | null;
   readonly terminal: HeaderItem;
   readonly files: HeaderItem;
   readonly git: HeaderItem;
@@ -95,6 +96,8 @@ export type ThreadGitMenuProps = {
   readonly gitOperationLabel: string | null;
   readonly onOpenFilesInspector?: () => void;
   readonly onOpenGitInspector?: () => void;
+  /** Set for Present and Studio chats, which open their designs like the desktop panel. */
+  readonly onOpenStudio?: () => void;
   readonly onMergeBack?: () => void;
   readonly onPull: () => Promise<void>;
   readonly onRunAction: (input: GitActionRequestInput) => Promise<GitRunStackedActionResult | null>;
@@ -279,6 +282,18 @@ function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGit
   const model = useThreadGitControlModel(props);
 
   return {
+    studio: props.onOpenStudio
+      ? {
+          accessibilityLabel: "Open Studio designs",
+          icon: { name: "square.on.square", type: "sfSymbol" },
+          identifier: "thread-right-studio",
+          label: "Studio",
+          onPress: props.onOpenStudio,
+          sharesBackground: true,
+          type: "button",
+          variant: "plain",
+        }
+      : null,
     terminal: {
       accessibilityLabel: "Open terminal",
       disabled: !props.canOpenTerminal,
@@ -419,12 +434,16 @@ function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGit
 
 export function useThreadGitRightHeaderItems(props: ThreadGitControlsProps): HeaderItems {
   const actionItems = useThreadGitHeaderActionItems(props);
-  return [actionItems.git, actionItems.files, actionItems.terminal] as HeaderItems;
+  return [actionItems.git, actionItems.files, actionItems.terminal, actionItems.studio].filter(
+    (item) => item !== null,
+  );
 }
 
 export function useThreadGitCenterHeaderItems(props: ThreadGitControlsProps): HeaderItems {
   const actionItems = useThreadGitHeaderActionItems(props);
-  return [actionItems.files, actionItems.git, actionItems.terminal] as HeaderItems;
+  return [actionItems.files, actionItems.git, actionItems.terminal, actionItems.studio].filter(
+    (item) => item !== null,
+  );
 }
 
 export function ThreadGitControls(props: ThreadGitControlsProps) {

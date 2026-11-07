@@ -76,6 +76,12 @@ chats with `$gs-review` and a `Reviewer style:` line (Calm, Balanced, Harsh or E
 triage), and **Attach manuscript** adds a .md, .docx, .pdf or .txt file. Both choices stay
 as this device's default for new chats.
 
+On the phone, the workspace chips above the thread list do the same, with the same Present
+and Write controls above a new thread's composer. Code there lists every thread, because
+chats started on another device arrive without their workspace. In a Present or Studio
+chat, the Studio button lists the project's design sets: swipe between options, open one
+full screen, and **Pick** it.
+
 Mail reads and drafts email through Claude's connectors: connect Gmail, Google Calendar or
 Outlook at claude.ai → Settings → Connectors first. To hide the rail, turn off
 **Settings → Appearance → Workspace rail**; every chat then shows in one list again.

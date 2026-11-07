@@ -1,3 +1,4 @@
+import { seedNewTaskDraft } from "../gs-workspaces/workspacePreferences";
 import { ActiveNewTaskContext } from "../../state/active-new-task";
 import { resolveNewThreadModelSelection } from "@t3tools/shared/usageLimits";
 import { useNowMinuteMs } from "../../lib/clock";
@@ -215,6 +216,8 @@ type NewTaskFlowContextValue = {
   readonly setExpandedProvider: (value: string | null) => void;
 };
 
+const EMPTY_PROVIDERS: ReadonlyArray<never> = [];
+
 const NewTaskFlowContext = React.createContext<NewTaskFlowContextValue | null>(null);
 
 export function NewTaskFlowProvider(
@@ -347,13 +350,16 @@ export function NewTaskFlowProvider(
       return;
     }
     // Creates the persistent draft once the project selection is ready; the key must exist before the composer mounts.
-    updateNewTaskFlowState(flowKey, {
-      draftKey: createNewTaskDraft({
-        environmentId: selectedProject.environmentId,
-        projectId: selectedProject.id,
-      }),
+    const draftKey = createNewTaskDraft({
+      environmentId: selectedProject.environmentId,
+      projectId: selectedProject.id,
     });
-  }, [activeDraftKey, flowKey, selectedProject, props.active, props.routeDraftId]);
+    seedNewTaskDraft(
+      draftKey,
+      serverConfigs.get(selectedProject.environmentId)?.providers ?? EMPTY_PROVIDERS,
+    );
+    updateNewTaskFlowState(flowKey, { draftKey });
+  }, [activeDraftKey, flowKey, selectedProject, props.active, props.routeDraftId, serverConfigs]);
   const activePendingKey =
     props.active === false
       ? null
