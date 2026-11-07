@@ -61,6 +61,177 @@ export class DesktopCliCommand extends Context.Service<
   }
 >()("@t3tools/desktop/app/DesktopCliCommand") {}
 
+/** PATH links to the app's launchers on macOS and Linux. */
+const makeLinks = Effect.gen(function* () {
+  const environment = yield* DesktopEnvironment.DesktopEnvironment;
+  const fs = yield* FileSystem.FileSystem;
+  const path = environment.path;
+  const candidates = unixCandidates(environment.homeDirectory, environment.platform);
+  const launcherFor = (name: DesktopCliShim.CliCommandName) =>
+    DesktopCliShim.launcherPath(environment, name);
+
+  const exists = (target: string) => fs.exists(target).pipe(Effect.orElseSucceed(() => false));
+  const present = (target: string) =>
+    fs.readLink(target).pipe(
+      Effect.as(true),
+      Effect.catch(() => exists(target)),
+    );
+  const writableDirectory = (directory: string) =>
+    fs.access(directory, { writable: true }).pipe(
+      Effect.as(true),
+      Effect.orElseSucceed(() => false),
+    );
+
+  // The launcher is a few KB; never read a large binary such as Ghostscript's `gs`.
+  const launcherText = Effect.fn("DesktopCliCommand.launcherText")(
+    function* (target: string) {
+      const info = yield* fs.stat(target);
+      if (info.type !== "File" || Number(info.size) > 16_384) return "";
+      return yield* fs.readFileString(target);
+    },
+    Effect.orElseSucceed(() => ""),
+  );
+
+  const isOurLink = Effect.fn("DesktopCliCommand.isOurLink")(
+    function* (link: string) {
+      yield* fs.readLink(link);
+      return DesktopCliShim.isOurLauncher(yield* launcherText(link));
+    },
+    Effect.orElseSucceed(() => false),
+  );
+
+  const isReplaceable = (target: string) =>
+    launcherText(target).pipe(Effect.map(DesktopCliShim.isReplaceableLauncher));
+
+  // PATH can reach the regular launcher directly; removal still requires isOurLink.
+  const runsOurLauncher = Effect.fn("DesktopCliCommand.runsOurLauncher")(
+    function* (candidate: string, name: DesktopCliShim.CliCommandName) {
+      if (yield* isOurLink(candidate)) return true;
+      const [resolved, ours] = yield* Effect.all([
+        fs.realPath(candidate),
+        fs.realPath(launcherFor(name)),
+      ]);
+      if (resolved !== ours) return false;
+      return DesktopCliShim.isOurLauncher(yield* launcherText(candidate));
+    },
+    Effect.orElseSucceed(() => false),
+  );
+
+  const isExecutableFile = Effect.fn("DesktopCliCommand.isExecutableFile")(
+    function* (target: string) {
+      if ((yield* fs.stat(target)).type !== "File") return false;
+      yield* Effect.tryPromise(() => NodeFSP.access(target, NodeFSP.constants.X_OK));
+      return true;
+    },
+    Effect.orElseSucceed(() => false),
+  );
+
+  const firstOnPath = Effect.fn("DesktopCliCommand.firstOnPath")(function* (
+    name: DesktopCliShim.CliCommandName,
+  ) {
+    for (const directory of pathEntries(process.env.PATH, ":")) {
+      const candidate = path.join(directory, name);
+      if (yield* isExecutableFile(candidate)) return Option.some(candidate);
+    }
+    return Option.none<string>();
+  });
+
+  const foreignFirstOnPath = Effect.fn("DesktopCliCommand.foreignFirstOnPath")(function* (
+    name: DesktopCliShim.CliCommandName,
+  ) {
+    const first = yield* firstOnPath(name);
+    if (Option.isNone(first)) return first;
+    if ((yield* runsOurLauncher(first.value, name)) || (yield* isReplaceable(first.value))) {
+      return Option.none<string>();
+    }
+    return first;
+  });
+
+  /** Ghostscript installs `gs`; ours would shadow it or be shadowed, so the command falls back to `t3`. */
+  const gsTakenBy = Effect.gen(function* () {
+    for (const directory of candidates) {
+      const candidate = path.join(directory, "gs");
+      if ((yield* present(candidate)) && !(yield* isReplaceable(candidate))) {
+        return Option.some(candidate);
+      }
+    }
+    for (const directory of pathEntries(process.env.PATH, ":")) {
+      const candidate = path.join(directory, "gs");
+      if (
+        (yield* isExecutableFile(candidate)) &&
+        !(yield* runsOurLauncher(candidate, "gs")) &&
+        !(yield* isReplaceable(candidate))
+      ) {
+        return Option.some(candidate);
+      }
+    }
+    return Option.none<string>();
+  });
+
+  const ourLinkIn = Effect.fn("DesktopCliCommand.ourLinkIn")(function* (
+    name: DesktopCliShim.CliCommandName,
+  ) {
+    for (const directory of candidates) {
+      const link = path.join(directory, name);
+      if (yield* isOurLink(link)) return Option.some(link);
+    }
+    return Option.none<string>();
+  });
+
+  const placeLink = Effect.fn("DesktopCliCommand.placeLink")(function* (
+    name: DesktopCliShim.CliCommandName,
+    directories: ReadonlyArray<string>,
+  ) {
+    for (const directory of directories) {
+      const link = path.join(directory, name);
+      if (yield* present(link)) {
+        if (!(yield* isReplaceable(link))) continue;
+        const removed = yield* fs.remove(link).pipe(
+          Effect.as(true),
+          Effect.orElseSucceed(() => false),
+        );
+        if (!removed) continue;
+      }
+      const created = (yield* exists(directory))
+        ? yield* writableDirectory(directory)
+        : yield* fs.makeDirectory(directory, { recursive: true }).pipe(
+            Effect.as(true),
+            Effect.orElseSucceed(() => false),
+          );
+      if (!created) continue;
+      const linked = yield* fs.symlink(launcherFor(name), link).pipe(
+        Effect.as(true),
+        Effect.orElseSucceed(() => false),
+      );
+      if (linked) return Option.some(link);
+    }
+    return Option.none<string>();
+  });
+
+  return {
+    candidates,
+    launcherFor,
+    isOurLink,
+    runsOurLauncher,
+    firstOnPath,
+    foreignFirstOnPath,
+    gsTakenBy,
+    ourLinkIn,
+    placeLink,
+  };
+});
+
+/** Adds `gs` beside a `t3` link from before the rename when no other `gs` is there or on PATH. */
+export const handover = Effect.gen(function* () {
+  const environment = yield* DesktopEnvironment.DesktopEnvironment;
+  if (!environment.isPackaged || environment.platform === "win32") return Option.none<string>();
+  const links = yield* makeLinks;
+  if (Option.isSome(yield* links.ourLinkIn("gs"))) return Option.none<string>();
+  const t3 = yield* links.ourLinkIn("t3");
+  if (Option.isNone(t3) || Option.isSome(yield* links.gsTakenBy)) return Option.none<string>();
+  return yield* links.placeLink("gs", [environment.path.dirname(t3.value)]);
+}).pipe(Effect.withSpan("desktop.cliCommand.handover"));
+
 /** @public */
 export const make = Effect.gen(function* () {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
@@ -71,39 +242,10 @@ export const make = Effect.gen(function* () {
   const launcher = DesktopCliShim.launcherPath(environment);
   const binDirectory = path.dirname(launcher);
   const ownedPathMarker = path.join(environment.stateDir, "cli-command-path-entry");
+  const links = yield* makeLinks;
 
   const fail = (message: string) => new DesktopCliCommandError({ message });
   const exists = (target: string) => fs.exists(target).pipe(Effect.orElseSucceed(() => false));
-  const writableDirectory = (directory: string) =>
-    fs.access(directory, { writable: true }).pipe(
-      Effect.as(true),
-      Effect.orElseSucceed(() => false),
-    );
-
-  const isOurLink = Effect.fn("DesktopCliCommand.isOurLink")(
-    function* (link: string) {
-      yield* fs.readLink(link);
-      // The launcher is a few KB; never read a large binary another `t3` links to.
-      const info = yield* fs.stat(link);
-      if (info.type !== "File" || Number(info.size) > 16_384) return false;
-      const content = yield* fs.readFileString(link);
-      return content.includes(DesktopCliShim.MARKER);
-    },
-    Effect.orElseSucceed(() => false),
-  );
-
-  // PATH can reach the regular launcher directly; removal still requires isOurLink.
-  const runsOurLauncher = Effect.fn("DesktopCliCommand.runsOurLauncher")(
-    function* (candidate: string) {
-      if (yield* isOurLink(candidate)) return true;
-      const [resolved, ours] = yield* Effect.all([fs.realPath(candidate), fs.realPath(launcher)]);
-      if (resolved !== ours) return false;
-      const info = yield* fs.stat(candidate);
-      if (info.type !== "File" || Number(info.size) > 16_384) return false;
-      return (yield* fs.readFileString(candidate)).includes(DesktopCliShim.MARKER);
-    },
-    Effect.orElseSucceed(() => false),
-  );
 
   const powershell = (env: Record<string, string>) =>
     Effect.scoped(
@@ -134,86 +276,68 @@ export const make = Effect.gen(function* () {
       Effect.mapError(() => fail("Could not update your PATH.")),
     );
 
-  const isExecutableFile = Effect.fn("DesktopCliCommand.isExecutableFile")(
-    function* (target: string) {
-      if ((yield* fs.stat(target)).type !== "File") return false;
-      yield* Effect.tryPromise(() => NodeFSP.access(target, NodeFSP.constants.X_OK));
-      return true;
-    },
-    Effect.orElseSucceed(() => false),
-  );
-
-  const firstOnPath = Effect.gen(function* () {
-    for (const directory of pathEntries(process.env.PATH, ":")) {
-      const candidate = path.join(directory, "t3");
-      if (yield* isExecutableFile(candidate)) return Option.some(candidate);
-    }
-    return Option.none<string>();
+  const windowsInstalled = Effect.gen(function* () {
+    if (!(yield* exists(ownedPathMarker))) return Option.none<string>();
+    const entries = pathEntries(yield* readUserPath, ";");
+    return entries.some((entry) => sameWindowsPath(entry, binDirectory))
+      ? Option.some(launcher)
+      : Option.none<string>();
   });
 
-  const foreignFirstOnPath = Effect.gen(function* () {
-    if (windows) return Option.none<string>();
-    const first = yield* firstOnPath;
-    if (Option.isNone(first) || (yield* runsOurLauncher(first.value))) return Option.none<string>();
-    return first;
-  });
-
-  const installedAt = Effect.gen(function* () {
-    if (windows) {
-      if (!(yield* exists(ownedPathMarker))) return Option.none<string>();
-      const entries = pathEntries(yield* readUserPath, ";");
-      return entries.some((entry) => sameWindowsPath(entry, binDirectory))
-        ? Option.some(launcher)
-        : Option.none<string>();
-    }
-    for (const directory of unixCandidates(environment.homeDirectory, environment.platform)) {
-      const link = path.join(directory, "t3");
-      if (yield* isOurLink(link)) return Option.some(link);
-    }
-    return Option.none<string>();
-  });
+  const unsupported = {
+    supported: false,
+    installedPath: null,
+    onPath: false,
+    launcherPath: null,
+    commandName: "gs",
+  } as const;
 
   const state: DesktopCliCommand["Service"]["state"] = Effect.gen(function* () {
-    if (!environment.isPackaged) {
-      return { supported: false, installedPath: null, onPath: false, launcherPath: null } as const;
-    }
+    if (!environment.isPackaged) return unsupported;
     const launcherPath = (yield* exists(launcher)) ? launcher : null;
-    const installed = yield* installedAt;
-    const shadowedBy = yield* foreignFirstOnPath;
+    if (windows) {
+      const installed = yield* windowsInstalled;
+      return {
+        supported: true,
+        installedPath: Option.getOrNull(installed),
+        onPath: Option.isSome(installed),
+        launcherPath,
+        commandName: "gs",
+      } as const;
+    }
+    const gs = yield* links.ourLinkIn("gs");
+    const t3 = Option.isSome(gs) ? Option.none<string>() : yield* links.ourLinkIn("t3");
+    const commandName: DesktopCliShim.CliCommandName =
+      Option.isNone(gs) && (Option.isSome(t3) || Option.isSome(yield* links.gsTakenBy))
+        ? "t3"
+        : "gs";
+    const shadowedBy = yield* links.foreignFirstOnPath(commandName);
     const shadow = Option.isSome(shadowedBy) ? { shadowedBy: shadowedBy.value } : {};
-    const first = yield* firstOnPath;
-    const onPath = windows
-      ? Option.isSome(installed)
-      : Option.isSome(first) && (yield* runsOurLauncher(first.value));
+    const first = yield* links.firstOnPath(commandName);
+    const onPath = Option.isSome(first) && (yield* links.runsOurLauncher(first.value, commandName));
     return {
       supported: true,
-      installedPath: Option.getOrNull(installed),
+      installedPath: Option.getOrNull(Option.orElse(gs, () => t3)),
       onPath,
       launcherPath,
+      commandName,
       ...shadow,
     };
-  }).pipe(
-    Effect.orElseSucceed(() => ({
-      supported: false,
-      installedPath: null,
-      onPath: false,
-      launcherPath: null,
-    })),
-  );
+  }).pipe(Effect.orElseSucceed(() => unsupported));
 
   const ensureLauncher = DesktopCliShim.install.pipe(
     Effect.provideService(DesktopEnvironment.DesktopEnvironment, environment),
     Effect.provideService(FileSystem.FileSystem, fs),
     Effect.flatMap(
       Option.match({
-        onNone: () => Effect.fail(fail(`Could not set up the t3 launcher at ${launcher}.`)),
+        onNone: () => Effect.fail(fail(`Could not set up the gs launcher at ${launcher}.`)),
         onSome: () => Effect.void,
       }),
     ),
   );
 
   const install: DesktopCliCommand["Service"]["install"] = Effect.gen(function* () {
-    if (!environment.isPackaged) return yield* fail("The t3 command needs an installed app.");
+    if (!environment.isPackaged) return yield* fail("The gs command needs an installed app.");
     yield* ensureLauncher;
     if (windows) {
       const entries = pathEntries(yield* readUserPath, ";");
@@ -221,46 +345,34 @@ export const make = Effect.gen(function* () {
         yield* writeUserPath([...entries, binDirectory].join(";"));
         yield* fs
           .writeFileString(ownedPathMarker, `${binDirectory}\n`)
-          .pipe(Effect.mapError(() => fail("Added t3 to your PATH but could not record it.")));
+          .pipe(Effect.mapError(() => fail("Added gs to your PATH but could not record it.")));
       }
       return yield* state;
     }
-    const existing = yield* installedAt;
+    const name: DesktopCliShim.CliCommandName = Option.isSome(yield* links.gsTakenBy) ? "t3" : "gs";
+    const target = links.launcherFor(name);
+    const existing = yield* links.ourLinkIn(name);
     if (Option.isSome(existing)) {
-      const target = yield* fs.readLink(existing.value).pipe(Effect.option);
-      if (Option.getOrUndefined(target) === launcher) return yield* state;
+      const current = yield* fs.readLink(existing.value).pipe(Effect.option);
+      if (Option.getOrUndefined(current) === target) return yield* state;
       yield* fs
         .remove(existing.value)
         .pipe(Effect.mapError(() => fail(`Could not replace ${existing.value}.`)));
     }
-    const shadowedBy = yield* foreignFirstOnPath;
+    const shadowedBy = yield* links.foreignFirstOnPath(name);
     if (Option.isSome(shadowedBy)) {
       return yield* fail(
-        `Another t3 at ${shadowedBy.value} runs first in a new terminal. Remove it, or run the launcher directly at ${launcher}.`,
+        `Another ${name} at ${shadowedBy.value} runs first in a new terminal. Remove it, or run the launcher directly at ${launcher}.`,
       );
     }
     const onPath = pathEntries(process.env.PATH, ":");
-    const candidates = unixCandidates(environment.homeDirectory, environment.platform);
-    for (const directory of [
-      ...candidates.filter((candidate) => onPath.includes(candidate)),
-      ...candidates.filter((candidate) => !onPath.includes(candidate)),
-    ]) {
-      const link = path.join(directory, "t3");
-      const created = (yield* exists(directory))
-        ? yield* writableDirectory(directory)
-        : yield* fs.makeDirectory(directory, { recursive: true }).pipe(
-            Effect.as(true),
-            Effect.orElseSucceed(() => false),
-          );
-      if (!created) continue;
-      const linked = yield* fs.symlink(launcher, link).pipe(
-        Effect.as(true),
-        Effect.orElseSucceed(() => false),
-      );
-      if (linked) return yield* state;
-    }
+    const placed = yield* links.placeLink(name, [
+      ...links.candidates.filter((candidate) => onPath.includes(candidate)),
+      ...links.candidates.filter((candidate) => !onPath.includes(candidate)),
+    ]);
+    if (Option.isSome(placed)) return yield* state;
     return yield* fail(
-      `Another t3 command is already installed, or no folder on your PATH is writable. Run the launcher directly at ${launcher}.`,
+      `Another ${name} command is already installed, or no folder on your PATH is writable. Run the launcher directly at ${launcher}.`,
     );
   }).pipe(Effect.withSpan("desktop.cliCommand.install"));
 
@@ -274,10 +386,12 @@ export const make = Effect.gen(function* () {
       }
       return yield* state;
     }
-    for (const directory of unixCandidates(environment.homeDirectory, environment.platform)) {
-      const link = path.join(directory, "t3");
-      if (yield* isOurLink(link)) {
-        yield* fs.remove(link).pipe(Effect.mapError(() => fail(`Could not remove ${link}.`)));
+    for (const directory of links.candidates) {
+      for (const name of ["gs", "t3"] as const) {
+        const link = path.join(directory, name);
+        if (yield* links.isOurLink(link)) {
+          yield* fs.remove(link).pipe(Effect.mapError(() => fail(`Could not remove ${link}.`)));
+        }
       }
     }
     return yield* state;

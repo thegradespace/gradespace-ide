@@ -16,12 +16,17 @@ const notOnPath = (launcherPath: string | null): DesktopCliCommandState => ({
   installedPath: null,
   onPath: false,
   launcherPath,
+  commandName: "gs",
 });
 
 describe("resolveTriageCommand", () => {
-  it("prefers t3 on PATH, then the desktop launcher", async () => {
-    const onPath = { ...notOnPath("/home/me/.t3/bin/t3"), onPath: true };
-    await expect(resolveTriageCommand(desktopWith(async () => onPath))).resolves.toBe("t3 triage");
+  it("prefers the installed command on PATH, then the desktop launcher", async () => {
+    const onPath = { ...notOnPath("/home/me/.t3/bin/gs"), onPath: true };
+    await expect(resolveTriageCommand(desktopWith(async () => onPath))).resolves.toBe("gs triage");
+    const fallback = { ...onPath, commandName: "t3" as const };
+    await expect(resolveTriageCommand(desktopWith(async () => fallback))).resolves.toBe(
+      "t3 triage",
+    );
     await expect(
       resolveTriageCommand(desktopWith(async () => notOnPath("/home/me/.t3/bin/t3"))),
     ).resolves.toBe("/home/me/.t3/bin/t3 triage");

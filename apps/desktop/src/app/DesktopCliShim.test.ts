@@ -26,10 +26,11 @@ const writeExecutable = (path: string, content: string) => {
   NodeFS.writeFileSync(path, content, { mode: 0o755 });
 };
 
-const writeShim = (root: string, target: CliShimTarget) => {
-  const shim = NodePath.join(root, "bin", "t3");
-  writeExecutable(shim, renderCliShim({ target, shimPath: shim, t3Home: `${root}/home` }));
-  return shim;
+const writeShim = (root: string, target: CliShimTarget, compat = false) => {
+  const shim = NodePath.join(root, "bin", "gs");
+  const file = compat ? NodePath.join(root, "bin", "t3") : shim;
+  writeExecutable(file, renderCliShim({ target, shimPath: shim, t3Home: `${root}/home`, compat }));
+  return file;
 };
 
 const run = (shim: string, args: ReadonlyArray<string>, env: NodeJS.ProcessEnv = {}) =>
@@ -83,8 +84,26 @@ describe("renderCliShim", () => {
     });
     expect(run(shim, []).stdout).toContain(`home=${root}/home`);
     expect(run(shim, [], { T3CODE_HOME: "/elsewhere" }).stdout).toContain("home=/elsewhere");
-    const relative = NodeChildProcess.spawnSync("./bin/t3", [], { cwd: root, encoding: "utf8" });
+    const relative = NodeChildProcess.spawnSync("./bin/gs", [], { cwd: root, encoding: "utf8" });
     expect(relative.stdout).toContain(`cli=${shim}`);
+  });
+
+  it("keeps t3 working as gs, quietly when stderr is not a terminal", () => {
+    const root = tempRoot();
+    writeExecutable(NodePath.join(root, "app"), REPORTER);
+    const target: CliShimTarget = {
+      kind: "direct",
+      executable: NodePath.join(root, "app"),
+      entry: "/bin.mjs",
+    };
+    const compat = writeShim(root, target, true);
+    const result = run(compat, ["status"]);
+    expect(result.stdout).toContain(`cli=${NodePath.join(root, "bin", "gs")}`);
+    expect(result.stdout).toContain("status");
+    expect(result.stderr).toBe("");
+    expect(NodeFS.readFileSync(compat, "utf8")).toContain(
+      'if [ -t 2 ]; then echo "t3 is now gs. t3 keeps working for now." >&2; fi',
+    );
   });
 
   it("runs an installed app's server directly", () => {
@@ -108,7 +127,7 @@ describe("renderCliShim", () => {
     const executable = "C:\\Apps\\R&whoami&X 100%\\!CHANNEL!\\T3 Code.exe";
     const script = renderCliShim({
       target: { kind: "windows", executable, entry: "C:\\Apps\\server.asar\\bin.mjs" },
-      shimPath: "C:\\Users\\José\\.t3\\bin\\t3.cmd",
+      shimPath: "C:\\Users\\José\\.t3\\bin\\gs.cmd",
       t3Home: "C:\\Users\\José\\.t3",
     });
     const lines = script.split("\r\n");
@@ -121,6 +140,6 @@ describe("renderCliShim", () => {
       (line) => line.includes("whoami") && !/"[^"]*whoami[^"]*"/.test(line),
     );
     expect(bare).toEqual([]);
-    expect(lines).toContain('set "T3CODE_CLI_PATH=C:\\Users\\José\\.t3\\bin\\t3.cmd"');
+    expect(lines).toContain('set "T3CODE_CLI_PATH=C:\\Users\\José\\.t3\\bin\\gs.cmd"');
   });
 });

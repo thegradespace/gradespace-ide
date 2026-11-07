@@ -26,7 +26,10 @@ export function CliCommandSettingsRow() {
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: action === "install" ? "Could not install gs" : "Could not remove gs",
+            title:
+              action === "install"
+                ? `Could not install ${state?.commandName ?? "gs"}`
+                : `Could not remove ${state?.commandName ?? "gs"}`,
             description: error instanceof Error ? error.message : "Something went wrong.",
           }),
         );
@@ -36,13 +39,18 @@ export function CliCommandSettingsRow() {
 
   if (!bridge || !state?.supported) return null;
   const installed = state.installedPath !== null;
+  const name = state.commandName;
+  const fallback =
+    name === "t3"
+      ? ` Ghostscript or another program already uses gs, so the command ${installed ? "is installed" : "installs"} as t3.`
+      : "";
   const description = state.shadowedBy
-    ? `Another gs at ${state.shadowedBy} runs first in a new terminal. Remove it to use GS's.`
+    ? `Another ${name} at ${state.shadowedBy} runs first in a new terminal. Remove it to use Gradespace IDE's.`
     : !installed
-      ? "Run GS's CLI as `gs` from any terminal."
+      ? `Run Gradespace IDE's CLI as \`${name}\` from any terminal.${fallback}`
       : state.onPath
-        ? `Installed at ${state.installedPath}. Open a new terminal to use it.`
-        : `Installed at ${state.installedPath}, which is not on your PATH yet. Add its folder to your PATH to run \`gs\`.`;
+        ? `Installed at ${state.installedPath}. Open a new terminal to use it.${fallback}`
+        : `Installed at ${state.installedPath}, which is not on your PATH yet. Add its folder to your PATH to run \`${name}\`.`;
 
   return (
     <SettingsRow

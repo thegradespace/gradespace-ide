@@ -9,7 +9,20 @@ import { makeComponentLogger } from "./DesktopObservability.ts";
 // AppImage mounts change each run; the launcher must mount the image itself.
 const { logInfo, logWarning } = makeComponentLogger("desktop-cli-shim");
 
-export const MARKER = "Written by T3 Code: runs the desktop app's bundled t3 CLI.";
+export const MARKER = "Written by Gradespace IDE: runs the desktop app's bundled gs CLI.";
+/** Launchers from before the rename to `gs`; still ours to overwrite and remove. */
+const LEGACY_MARKER = "Written by T3 Code: runs the desktop app's bundled t3 CLI.";
+/** A developer launcher from `scripts/install-gs-command.ts`; ours to replace, never to count as installed. */
+const DEV_MARKER = "# Installed by scripts/install-gs-command.ts";
+
+export const isOurLauncher = (content: string) =>
+  content.includes(MARKER) || content.includes(LEGACY_MARKER);
+export const isReplaceableLauncher = (content: string) =>
+  isOurLauncher(content) || content.includes(DEV_MARKER);
+
+/** `gs` is the command; `t3` is kept working for people and scripts from before the rename. */
+export type CliCommandName = "gs" | "t3";
+const COMPAT_NOTICE = "t3 is now gs. t3 keeps working for now.";
 
 const SERVER_ENTRY = "apps/server/dist/bin.mjs";
 
@@ -28,8 +41,11 @@ export type CliShimTarget =
 /** Embed this install's home and executable path so `sudo`, which clears the environment, uses the same install. */
 export const renderCliShim = (input: {
   readonly target: CliShimTarget;
+  /** The `gs` launcher, which the CLI reports as its own path. */
   readonly shimPath: string;
   readonly t3Home: string;
+  /** The `t3` compatibility launcher tells people in a terminal about the rename. */
+  readonly compat?: boolean;
 }) => {
   const { target } = input;
   if (target.kind === "windows") {
@@ -70,6 +86,7 @@ export const renderCliShim = (input: {
   const header = [
     "#!/bin/sh",
     `# ${MARKER}`,
+    ...(input.compat ? [`if [ -t 2 ]; then echo "${COMPAT_NOTICE}" >&2; fi`] : []),
     `export T3CODE_CLI_PATH=${shellWord(input.shimPath)}`,
     `home=${shellWord(input.t3Home)}`,
     'export T3CODE_HOME="${T3CODE_HOME:-$home}"',
@@ -112,11 +129,14 @@ export const renderCliShim = (input: {
   ].join("\n");
 };
 
-export const launcherPath = (environment: DesktopEnvironment.DesktopEnvironment["Service"]) =>
+export const launcherPath = (
+  environment: DesktopEnvironment.DesktopEnvironment["Service"],
+  name: CliCommandName = "gs",
+) =>
   environment.path.join(
     environment.baseDir,
     "bin",
-    environment.platform === "win32" ? "t3.cmd" : "t3",
+    environment.platform === "win32" ? `${name}.cmd` : name,
   );
 
 export const install = Effect.gen(function* () {
@@ -137,28 +157,40 @@ export const install = Effect.gen(function* () {
         }),
         onNone: () => ({ kind: "direct" as const, executable: process.execPath, entry }),
       });
-  const content = renderCliShim({ target, shimPath, t3Home: environment.baseDir });
+  const write = Effect.fn("DesktopCliShim.write")(
+    function* (file: string, content: string) {
+      const existing = yield* fs.readFileString(file).pipe(Effect.option);
+      if (Option.isSome(existing) && !isOurLauncher(existing.value)) {
+        yield* logWarning("leaving a launcher the app did not write", { file });
+        return false;
+      }
+      if (Option.getOrUndefined(existing) !== content) {
+        yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+        const staging = `${file}.${process.pid}.tmp`;
+        yield* fs.writeFileString(staging, content, { mode: 0o755 });
+        yield* fs.rename(staging, file);
+        yield* logInfo("installed launcher", { file });
+      }
+      return true;
+    },
+    (effect, file) =>
+      effect.pipe(
+        Effect.catchCause((cause) =>
+          logWarning("could not install launcher", { file, cause: Cause.pretty(cause) }).pipe(
+            Effect.as(false),
+          ),
+        ),
+      ),
+  );
 
   return yield* Effect.gen(function* () {
-    const existing = yield* fs.readFileString(shimPath).pipe(Effect.option);
-    if (Option.isSome(existing) && !existing.value.includes(MARKER)) {
-      yield* logWarning("leaving a t3 launcher the app did not write", { shimPath });
-      return Option.none<string>();
-    }
-    if (Option.getOrUndefined(existing) !== content) {
-      yield* fs.makeDirectory(path.dirname(shimPath), { recursive: true });
-      const staging = `${shimPath}.${process.pid}.tmp`;
-      yield* fs.writeFileString(staging, content, { mode: 0o755 });
-      yield* fs.rename(staging, shimPath);
-      yield* logInfo("installed t3 launcher", { shimPath });
-    }
-    return Option.some(shimPath);
-  }).pipe(
-    Effect.catchCause((cause) =>
-      logWarning("could not install t3 launcher", { shimPath, cause: Cause.pretty(cause) }).pipe(
-        Effect.as(Option.none<string>()),
-      ),
-    ),
-    Effect.withSpan("desktop.cliShim.install"),
-  );
+    const t3Home = environment.baseDir;
+    const installed = yield* write(shimPath, renderCliShim({ target, shimPath, t3Home }));
+    // Old PATH links, scripts and agents still run bin/t3.
+    yield* write(
+      launcherPath(environment, "t3"),
+      renderCliShim({ target, shimPath, t3Home, compat: true }),
+    );
+    return installed ? Option.some(shimPath) : Option.none<string>();
+  }).pipe(Effect.withSpan("desktop.cliShim.install"));
 });

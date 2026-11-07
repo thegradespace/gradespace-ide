@@ -17,6 +17,7 @@ import * as SynchronizedRef from "effect/SynchronizedRef";
 import serverPackageJson from "../../../server/package.json" with { type: "json" };
 
 import * as DesktopBackendManager from "./DesktopBackendManager.ts";
+import * as DesktopCliCommand from "../app/DesktopCliCommand.ts";
 import * as DesktopCliShim from "../app/DesktopCliShim.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as DesktopServerExposure from "./DesktopServerExposure.ts";
@@ -779,6 +780,15 @@ export const make = Effect.gen(function* () {
       Effect.provideService(DesktopEnvironment.DesktopEnvironment, environment),
     );
     const cliPath = yield* DesktopCliShim.install.pipe(
+      Effect.tap((installed) =>
+        Option.isSome(installed)
+          ? DesktopCliCommand.handover.pipe(
+              Effect.catchCause((cause) =>
+                Effect.logWarning("could not add the gs command beside t3", cause),
+              ),
+            )
+          : Effect.void,
+      ),
       Effect.provideService(FileSystem.FileSystem, fileSystem),
       Effect.provideService(DesktopEnvironment.DesktopEnvironment, environment),
     );

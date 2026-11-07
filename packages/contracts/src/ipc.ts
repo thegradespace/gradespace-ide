@@ -353,8 +353,10 @@ export const DesktopCliCommandStateSchema = Schema.Struct({
   installedPath: Schema.NullOr(Schema.String),
   onPath: Schema.Boolean,
   shadowedBy: Schema.optionalKey(Schema.String),
-  /** The app's bundled `t3` launcher, which runs without Node or a PATH entry. */
+  /** The app's bundled `gs` launcher, which runs without Node or a PATH entry. */
   launcherPath: Schema.NullOr(Schema.String),
+  /** `t3` when another program (usually Ghostscript) already owns `gs` on this machine. */
+  commandName: Schema.Literals(["gs", "t3"]),
 });
 export type DesktopCliCommandState = typeof DesktopCliCommandStateSchema.Type;
 

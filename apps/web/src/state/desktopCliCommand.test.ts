@@ -19,6 +19,7 @@ describe("desktopCliCommandStateAtom", () => {
       installedPath: null,
       onPath: false,
       launcherPath: null,
+      commandName: "gs",
     });
     using now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
     const registry = AtomRegistry.make();
