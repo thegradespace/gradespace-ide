@@ -139,6 +139,30 @@ describe("previewWindowOpenAction", () => {
   });
 });
 
+describe("previewCertificateVerdict", () => {
+  const ERR_CERT_AUTHORITY_INVALID = -202;
+
+  it("trusts a certificate Chromium rejected only on a private-network host", () => {
+    for (const hostname of ["192.168.0.1", "10.0.0.5", "homelab", "nas.local", "localhost"]) {
+      expect(
+        PreviewManager.previewCertificateVerdict({
+          hostname,
+          errorCode: ERR_CERT_AUTHORITY_INVALID,
+        }),
+      ).toBe(0);
+    }
+    expect(
+      PreviewManager.previewCertificateVerdict({
+        hostname: "example.com",
+        errorCode: ERR_CERT_AUTHORITY_INVALID,
+      }),
+    ).toBe(-3);
+    expect(
+      PreviewManager.previewCertificateVerdict({ hostname: "192.168.0.1", errorCode: 0 }),
+    ).toBe(-3);
+  });
+});
+
 const {
   browserWindowConstructor,
   clipboardItemConstructor,

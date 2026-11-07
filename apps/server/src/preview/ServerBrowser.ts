@@ -84,6 +84,7 @@ import * as ServerBrowserPage from "./ServerBrowserPage.ts";
 import * as PreviewBrowser from "./PreviewBrowser.ts";
 import * as PreviewBrowserHost from "./PreviewBrowserHost.ts";
 import { presentAsChrome, ServerBrowserContexts } from "./ServerBrowserContexts.ts";
+import { answerCertificateErrors } from "./PrivateNetworkCertificates.ts";
 import { BrowserControlInterrupted, SessionControl } from "./SessionControl.ts";
 import { installPdfDocumentNavigation, isPdfAssetUrl } from "./PdfDocumentNavigation.ts";
 
@@ -804,6 +805,13 @@ const make = Effect.gen(function* () {
     if (!desktop) await prepareContext(context);
     const page = adopted?.page ?? desktop?.page ?? (await context.newPage());
     const cdp = await context.newCDPSession(page);
+    let declinedCertificate: { readonly url: string; readonly errorType: string } | null = null;
+    // The desktop's page answers certificate errors in its own session.
+    if (!desktop) {
+      await answerCertificateErrors(cdp, (url, errorType) => {
+        declinedCertificate = { url, errorType };
+      });
+    }
     await installPdfDocumentNavigation(cdp);
     // The desktop's page is already a normal browser. A popup's first request
     // went out before it became a tab; everything after presents as Chrome.
@@ -922,8 +930,10 @@ const make = Effect.gen(function* () {
       // Newer navigations own status; untracked initial popup requests yield to any tracked navigation.
       const generation = navigationGenerations.get(request) ?? 0;
       if (generation !== tab.navigationGeneration) return;
+      const certificateError =
+        declinedCertificate?.url === request.url() ? declinedCertificate.errorType : null;
       // An aborted navigation is usually a download; its `download` event settles the status.
-      if (errorText.includes("ERR_ABORTED")) {
+      if (certificateError === null && errorText.includes("ERR_ABORTED")) {
         const url = request.url();
         const navigationGeneration = tab.navigationGeneration;
         clearAbortedNavigation(tab);
@@ -939,7 +949,7 @@ const make = Effect.gen(function* () {
         return;
       }
       tab.loading = false;
-      const { code, description } = ServerBrowserPage.parseNetError(errorText);
+      const { code, description } = ServerBrowserPage.parseNetError(certificateError ?? errorText);
       report(tab, {
         _tag: "LoadFailed",
         url: ServerBrowserPage.withoutDataPayload(request.url()).slice(0, 2048),

@@ -961,6 +961,55 @@ it.live("a tab opened to a file the browser cannot show reports the file to down
   ).pipe(Effect.provide(layer)),
 );
 
+it.live("certificate errors pass on private hosts and keep their real error on public ones", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const manager = yield* Manager.PreviewManager;
+      const events = yield* manager.subscribeEvents;
+      yield* ready;
+      const page = contexts[0]!.page;
+      const cdp = contexts[0]!.sessions[0]!;
+      const certificateError = (eventId: number, requestURL: string) =>
+        cdp.emit("Security.certificateError", {
+          eventId,
+          requestURL,
+          errorType: "ERR_CERT_AUTHORITY_INVALID",
+        });
+
+      certificateError(1, "https://192.168.0.1/");
+      certificateError(2, "https://expired.example.com/");
+      expect(cdp.send).toHaveBeenCalledWith("Security.handleCertificateError", {
+        eventId: 1,
+        action: "continue",
+      });
+      expect(cdp.send).toHaveBeenCalledWith("Security.handleCertificateError", {
+        eventId: 2,
+        action: "cancel",
+      });
+
+      // Chromium fails a cancelled certificate as ERR_ABORTED, which otherwise waits for a download.
+      const navigation = {
+        url: () => "https://expired.example.com/",
+        method: () => "GET",
+        isNavigationRequest: () => true,
+        frame: () => page,
+        failure: () => ({ errorText: "net::ERR_ABORTED" }),
+      };
+      page.emit("request", navigation);
+      page.emit("requestfailed", navigation);
+      let event;
+      do {
+        event = yield* PubSub.take(events);
+      } while (event.type !== "failed");
+      expect(event).toMatchObject({
+        url: "https://expired.example.com/",
+        code: -202,
+        description: "ERR_CERT_AUTHORITY_INVALID",
+      });
+    }),
+  ).pipe(Effect.provide(layer)),
+);
+
 it.live(
   "a late failure from a request that predates tracking leaves a newer navigation loading",
   () =>

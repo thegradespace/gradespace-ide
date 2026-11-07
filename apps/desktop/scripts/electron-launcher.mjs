@@ -13,24 +13,13 @@ const repoRoot = NodePath.resolve(desktopDir, "..", "..");
 const devBundleIdSuffix = NodePath.basename(repoRoot)
   .toLowerCase()
   .replaceAll(/[^a-z0-9]+/g, "");
-const APP_DISPLAY_NAME = isDevelopment ? "T3 Code (Dev)" : "T3 Code (Beta)";
+const APP_DISPLAY_NAME = isDevelopment ? "Gradespace IDE (Dev)" : "Gradespace IDE (Beta)";
 const APP_BUNDLE_ID = isDevelopment
   ? `com.gradespace.ide.dev.${devBundleIdSuffix || "local"}`
   : "com.gradespace.ide";
 const APP_PROTOCOL_SCHEMES = isDevelopment ? ["t3code-dev"] : ["t3code"];
-const LAUNCHER_VERSION = 21;
-const developmentMacIconPngPath = NodePath.join(
-  repoRoot,
-  "assets",
-  "dev",
-  "blueprint-macos-1024.png",
-);
-const productionMacIconPngPath = NodePath.join(
-  repoRoot,
-  "assets",
-  "prod",
-  "gradespace-macos-1024.png",
-);
+const LAUNCHER_VERSION = 22;
+const macIconPngPath = NodePath.join(repoRoot, "assets", "prod", "gradespace-macos-1024.png");
 // oxlint-disable-next-line t3code/no-global-process-runtime -- Standalone launcher script has no Effect runtime.
 const hostPlatform = NodeOS.platform();
 
@@ -206,13 +195,11 @@ function registerMacLauncherBundle(appBundlePath) {
 }
 
 // Bundle-internal paths are macOS paths whatever host builds them.
-function resolveMacLauncherIconPaths(runtimeDir, development = isDevelopment) {
+// Dev builds use the Gradespace icon too; the name's "(Dev)" tells them apart.
+function resolveMacLauncherIconPaths(runtimeDir) {
   return {
-    sourceIconPath: development ? developmentMacIconPngPath : productionMacIconPngPath,
-    generatedIconPath: NodePath.posix.join(
-      runtimeDir,
-      development ? "icon-dev.icns" : "icon-prod.icns",
-    ),
+    sourceIconPath: macIconPngPath,
+    generatedIconPath: NodePath.posix.join(runtimeDir, "icon-prod.icns"),
   };
 }
 
