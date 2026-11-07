@@ -46,6 +46,39 @@ describe("parseStudioManifest", () => {
   });
 });
 
+describe("timeline", () => {
+  const video = variant("A", "a.mp4");
+  const timeline = { fcpxml: "a.fcpxml", xml: "a.xml", edl: "a.edl" };
+
+  it("reads a rough cut's editor files beside its preview", () => {
+    const parsed = parseStudioManifest(manifestJson([{ ...video, timeline }]));
+    expect(parsed?.variants[0]).toEqual({ ...video, timeline });
+  });
+
+  it("keeps the files that are safe and of the right kind, and the set", () => {
+    const parsed = parseStudioManifest(
+      manifestJson([
+        {
+          ...video,
+          timeline: { fcpxml: "../cut.fcpxml", xml: "a.edl", edl: "cuts/a.edl", otio: "a.otio" },
+        },
+      ]),
+    );
+    expect(parsed?.variants[0]?.timeline).toEqual({ edl: "cuts/a.edl" });
+  });
+
+  it.each([
+    ["a string", "a.fcpxml"],
+    ["an empty object", {}],
+    ["only unsafe paths", { fcpxml: "/Users/me/a.fcpxml", xml: "C:\\a.xml" }],
+  ])("treats timeline as absent when it is %s", (_name, value) => {
+    expect(parseStudioManifest(manifestJson([{ ...video, timeline: value }]))).toEqual({
+      title: "Launch",
+      variants: [video],
+    });
+  });
+});
+
 describe("revisions", () => {
   const revisions = [
     { file: "b.v1.html", note: "first draft", createdAt: "2026-11-03T10:00:00Z" },

@@ -198,6 +198,9 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   pickThemeFiles: () => ipcRenderer.invoke(IpcChannels.PICK_THEME_FILES_CHANNEL, undefined),
   exportStudioDesign: (request) =>
     ipcRenderer.invoke(IpcChannels.EXPORT_STUDIO_DESIGN_CHANNEL, request),
+  listVideoEditors: () => ipcRenderer.invoke(IpcChannels.LIST_VIDEO_EDITORS_CHANNEL, undefined),
+  openInVideoEditor: (request) =>
+    ipcRenderer.invoke(IpcChannels.OPEN_IN_VIDEO_EDITOR_CHANNEL, request),
   setTheme: (theme) => ipcRenderer.invoke(IpcChannels.SET_THEME_CHANNEL, theme),
   showContextMenu: (items, position) =>
     ipcRenderer.invoke(IpcChannels.CONTEXT_MENU_CHANNEL, {

@@ -71,6 +71,7 @@ import * as PreviewIpc from "./methods/preview.ts";
 import * as AppActivationIpc from "./methods/appActivation.ts";
 import * as WebLinksIpc from "./methods/webLinks.ts";
 import { exportStudioDesign } from "./methods/studioExport.ts";
+import { listVideoEditors, openInVideoEditor } from "./methods/videoEditors.ts";
 import {
   completeLegacyLocalStorage,
   takeLegacyLocalStorage,
@@ -143,6 +144,8 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(pickProjectFavicon);
   yield* ipc.handle(pickThemeFiles);
   yield* ipc.handle(exportStudioDesign);
+  yield* ipc.handle(listVideoEditors);
+  yield* ipc.handle(openInVideoEditor);
   yield* ipc.handle(setTheme);
   yield* ipc.handle(showContextMenu);
   yield* ipc.handle(openExternal);

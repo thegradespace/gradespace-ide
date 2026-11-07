@@ -17,6 +17,15 @@ const StudioRevision = Schema.Struct({
 });
 export type StudioRevision = typeof StudioRevision.Type;
 
+/** Editor timeline files for a video rough cut, beside its preview `file`. */
+const StudioTimeline = Schema.Struct({
+  fcpxml: Schema.optional(Schema.String),
+  xml: Schema.optional(Schema.String),
+  edl: Schema.optional(Schema.String),
+});
+export type StudioTimeline = typeof StudioTimeline.Type;
+export type StudioTimelineFormat = keyof StudioTimeline;
+
 const StudioVariant = Schema.Struct({
   id: Schema.String,
   title: Schema.String,
@@ -24,6 +33,7 @@ const StudioVariant = Schema.Struct({
   file: Schema.String,
   /** Earlier versions, oldest first. `file` is always the latest. */
   revisions: Schema.optional(Schema.Array(StudioRevision)),
+  timeline: Schema.optional(StudioTimeline),
 });
 export type StudioVariant = typeof StudioVariant.Type;
 
@@ -78,23 +88,51 @@ function cleanRevisions(value: unknown): StudioRevision[] {
   });
 }
 
-function withCleanRevisions(manifest: Record<string, unknown>): Record<string, unknown> {
+const TIMELINE_EXTENSIONS: Record<StudioTimelineFormat, RegExp> = {
+  fcpxml: /\.fcpxml$/i,
+  xml: /\.xml$/i,
+  edl: /\.edl$/i,
+};
+
+/** Like revisions, a bad timeline entry is dropped; the preview still shows. */
+function cleanTimeline(value: unknown): StudioTimeline | null {
+  const timeline = asRecord(value);
+  if (timeline === null) return null;
+  const clean = Object.fromEntries(
+    (Object.keys(TIMELINE_EXTENSIONS) as StudioTimelineFormat[]).flatMap((format) => {
+      const file = timeline[format];
+      return typeof file === "string" &&
+        staysInsideSet(file) &&
+        TIMELINE_EXTENSIONS[format].test(file)
+        ? [[format, file]]
+        : [];
+    }),
+  );
+  return Object.keys(clean).length === 0 ? null : clean;
+}
+
+function withCleanExtras(manifest: Record<string, unknown>): Record<string, unknown> {
   if (!Array.isArray(manifest.variants)) return manifest;
   return {
     ...manifest,
     variants: manifest.variants.map((entry: unknown) => {
       const variant = asRecord(entry);
       if (variant === null) return entry;
-      const { revisions, ...rest } = variant;
+      const { revisions, timeline, ...rest } = variant;
       const clean = cleanRevisions(revisions);
-      return clean.length === 0 ? rest : { ...rest, revisions: clean };
+      const cleanTimelineFiles = cleanTimeline(timeline);
+      return {
+        ...rest,
+        ...(clean.length === 0 ? {} : { revisions: clean }),
+        ...(cleanTimelineFiles === null ? {} : { timeline: cleanTimelineFiles }),
+      };
     }),
   };
 }
 
 export function parseStudioManifest(contents: string): StudioManifest | null {
   const raw = parseJsonObject(contents);
-  const manifest = Option.getOrNull(decodeManifest(raw === null ? null : withCleanRevisions(raw)));
+  const manifest = Option.getOrNull(decodeManifest(raw === null ? null : withCleanExtras(raw)));
   if (manifest === null || manifest.variants.length === 0) return null;
   const ids = new Set(manifest.variants.map((variant) => variant.id));
   if (ids.size !== manifest.variants.length) return null;
