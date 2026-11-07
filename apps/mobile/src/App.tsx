@@ -1,4 +1,5 @@
 import { installPermissionUpdateNotice } from "./features/connection/permissionUpdateNotice";
+import { installThreadWorkspaceSync } from "./features/gs-workspaces/workspacePreferences";
 import { installComposerAttachmentUploads } from "./state/composer-attachment-uploads";
 import { installThreadOutboxDelivery } from "./state/threadOutboxDelivery";
 import * as Linking from "expo-linking";
@@ -184,6 +185,7 @@ const appServiceDisposers = [
   installSubscriptionUsageRefresh(),
   installPermissionUpdateNotice(),
   installThreadOutboxDelivery(),
+  installThreadWorkspaceSync(),
   installComposerAttachmentUploads(),
   startIncomingShareInbox(),
   installAgentNotificationNavigation(linkToAppPath),

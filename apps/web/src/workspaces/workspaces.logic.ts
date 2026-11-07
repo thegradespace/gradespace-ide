@@ -5,7 +5,9 @@ export {
   isSkillInstalled,
   isWorkspaceId,
   isWorkspaceSeedPrompt,
+  planThreadWorkspaceSync,
   resolveThreadWorkspace,
+  threadWorkspaceTags,
   WORKSPACES,
   workspaceDefinition,
   workspaceForCommand,
@@ -13,4 +15,5 @@ export {
   type WorkspaceSeedSettings,
   workspaceSeedPrompt,
   workspaceSkill,
+  withoutThreadWorkspaces,
 } from "@t3tools/client-runtime/workspaces";

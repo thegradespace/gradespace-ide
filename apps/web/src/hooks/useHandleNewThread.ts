@@ -47,7 +47,11 @@ import { readUnloadedThreadCount } from "../state/olderSettledShelf";
 import { resolveProjectDefaultProviderModelSelection } from "../providerInstances";
 import { resolveNewThreadModelSelection } from "@t3tools/shared/usageLimits";
 import { useRightPanelStore } from "../rightPanelStore";
-import { readActiveWorkspace, recordThreadWorkspace } from "../workspaces/workspaceStore";
+import {
+  readActiveWorkspace,
+  readThreadWorkspaces,
+  recordThreadWorkspace,
+} from "../workspaces/workspaceStore";
 import {
   isWorkspaceSeedPrompt,
   resolveThreadWorkspace,
@@ -118,10 +122,7 @@ export function createNewThreadHandler(router: AnyRouter): NewThreadHandler {
       ...(options?.prompt === undefined && seed !== "" ? { prompt: seed } : {}),
     });
     if (opened === null) return null;
-    const previous = resolveThreadWorkspace(
-      { id: opened.threadId },
-      getClientSettings().threadWorkspaces,
-    );
+    const previous = resolveThreadWorkspace({ id: opened.threadId }, readThreadWorkspaces());
     recordThreadWorkspace(opened.threadId, workspace);
     const session = useComposerDraftStore.getState().getDraftSession(opened.draftId);
     if (session) {

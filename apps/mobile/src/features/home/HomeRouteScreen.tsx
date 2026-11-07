@@ -41,6 +41,7 @@ import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail"
 import {
   pendingTasksForWorkspace,
   threadsForWorkspace,
+  useThreadWorkspaces,
   useWorkspacePreferences,
 } from "../gs-workspaces/workspacePreferences";
 
@@ -109,15 +110,12 @@ export function HomeRouteScreen() {
     unsettleThread,
   } = useThreadListActions();
   const gsWorkspace = useWorkspacePreferences();
-  const workspaceThreads = threadsForWorkspace(
-    threads,
-    gsWorkspace.active,
-    gsWorkspace.threadWorkspaces,
-  );
+  const threadWorkspaces = useThreadWorkspaces();
+  const workspaceThreads = threadsForWorkspace(threads, gsWorkspace.active, threadWorkspaces);
   const pendingTasks = pendingTasksForWorkspace(
     usePendingNewTasks(),
     gsWorkspace.active,
-    gsWorkspace.threadWorkspaces,
+    threadWorkspaces,
   );
   const { openPendingTask, confirmDeletePendingTask } =
     usePendingTaskListActions(selectThreadRoute);

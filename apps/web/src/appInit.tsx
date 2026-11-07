@@ -55,6 +55,7 @@ import { installCommandPaletteCommands } from "./shortcuts/commandPaletteCommand
 import { registerOpenFavoriteEditorCommand } from "./components/chat/OpenInPickerShortcut";
 import { environmentThreadShells } from "./state/threads";
 import { resolveThreadRouteTarget } from "./threadRoutes";
+import { startThreadWorkspaceSync } from "./workspaces/threadWorkspaceSync";
 
 /** Writes appearance settings onto the document, touching only the groups that changed. */
 function startClientAppearance(): void {
@@ -208,6 +209,7 @@ export function startAppServices(): AppRouter {
   startWorkspaceFocus(router);
   startBackgroundThreadAnnouncements(appAtomRegistry, router);
   startThreadVisitedMigration(appAtomRegistry);
+  startThreadWorkspaceSync(appAtomRegistry);
   startSshPasswordPromptQueue();
 
   startKeybindingsUpdateToasts();

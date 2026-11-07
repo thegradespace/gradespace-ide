@@ -1,5 +1,8 @@
 import { resolveThreadWorkspace, workspaceDefinition } from "@t3tools/client-runtime/workspaces";
-import { useWorkspacePreferences } from "../gs-workspaces/workspacePreferences";
+import {
+  useThreadWorkspaces,
+  useWorkspacePreferences,
+} from "../gs-workspaces/workspacePreferences";
 import * as Dialog from "../../components/ui/Dialog";
 import { useRememberThreadProject } from "./useRememberThreadProject";
 import { useOpenPullRequest } from "../../native/useOpenPullRequest";
@@ -563,6 +566,7 @@ function ThreadRouteContent(
   const gitActionProgress = useGitActionProgress(gitActionProgressTarget);
 
   const gsWorkspace = useWorkspacePreferences();
+  const threadWorkspaces = useThreadWorkspaces();
   const handleOpenGitInspector = () => {
     if (!fileInspector.supported) {
       if (selectedThread === null) {
@@ -789,13 +793,12 @@ function ThreadRouteContent(
       terminalId: targetTerminalId,
     });
   };
-  // Desktop chats reach the phone untagged, so the phone's own Present or Studio view also counts.
+  // A server without tags leaves desktop chats untagged, so the phone's own Present or Studio view also counts.
   const opensStudio =
     selectedThread !== null &&
     selectedThreadCwd !== null &&
     (workspaceDefinition(gsWorkspace.active).opensStudio ||
-      workspaceDefinition(resolveThreadWorkspace(selectedThread, gsWorkspace.threadWorkspaces))
-        .opensStudio);
+      workspaceDefinition(resolveThreadWorkspace(selectedThread, threadWorkspaces)).opensStudio);
   const threadGitControlProps = {
     environmentId: environmentIdRaw ?? "",
     threadId: threadId ?? "",

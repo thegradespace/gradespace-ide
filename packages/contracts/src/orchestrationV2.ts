@@ -440,6 +440,23 @@ const LenientThreadOpens = Schema.NullOr(OrchestrationV2ThreadOpens).pipe(
   Schema.catchDecoding(() => Effect.succeedSome(null)),
 );
 
+/** Gradespace workspaces a thread can be tagged with; absent means Code. */
+export const ThreadWorkspaceId = Schema.Literals([
+  "code",
+  "present",
+  "studio",
+  "research",
+  "write",
+  "mail",
+  "qa",
+]);
+export type ThreadWorkspaceId = typeof ThreadWorkspaceId.Type;
+
+// A workspace a newer build added reads as untagged instead of failing the whole thread.
+const LenientThreadWorkspace = Schema.NullOr(ThreadWorkspaceId).pipe(
+  Schema.catchDecoding(() => Effect.succeedSome(null)),
+);
+
 export const OrchestrationV2AppThread = Schema.Struct({
   ...OrchestrationV2CreationFields,
   id: ThreadId,
@@ -493,6 +510,7 @@ export const OrchestrationV2AppThread = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
   opens: Schema.optional(LenientThreadOpens),
+  workspace: Schema.optional(LenientThreadWorkspace),
   titleRegeneration: Schema.optional(
     Schema.NullOr(
       Schema.Struct({
@@ -2131,6 +2149,8 @@ export const OrchestrationV2ThreadShell = Schema.Struct({
   activeOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   lastVisitedAt: Schema.optional(Schema.NullOr(Schema.DateTimeUtc)),
   opens: Schema.optional(LenientThreadOpens),
+  /** Absent from servers that predate workspace tags, which clients keep on the device. */
+  workspace: Schema.optional(LenientThreadWorkspace),
   titleRegeneration: Schema.optional(
     Schema.NullOr(
       Schema.Struct({
@@ -2987,6 +3007,13 @@ export const OrchestrationV2Command = Schema.Union([
     commandId: CommandId,
     threadId: ThreadId,
     enabled: Schema.Boolean,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("thread.workspace.set"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    /** Null or "code" clears the tag. */
+    workspace: Schema.NullOr(ThreadWorkspaceId),
   }),
   Schema.Struct({
     type: Schema.Literal("thread.pin"),

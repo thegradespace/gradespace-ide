@@ -10,12 +10,14 @@ import {
 } from "../hooks/useLocalStorage";
 import { getClientSettings, updateClientSettings, useClientSettings } from "../hooks/useSettings";
 import { appAtomRegistry } from "../rpc/atomRegistry";
+import { readThreadShells, useQuietThreadShells } from "../state/entities";
 import { environmentServerConfigsAtom } from "../state/server";
 import {
   assignThreadWorkspace,
   DEFAULT_WORKSPACE_ID,
   isWorkspaceId,
   isWorkspaceSeedPrompt,
+  threadWorkspaceTags,
   type WorkspaceId,
   type WorkspaceSeedSettings,
   workspaceSeedPrompt,
@@ -47,10 +49,18 @@ export function setActiveWorkspace(workspace: WorkspaceId): void {
   writeLocalStorageValue(ACTIVE_WORKSPACE_STORAGE_KEY, workspace, "", Schema.String);
 }
 
+/** Each thread's workspace tag: the server's, else this device's until it reaches the server. */
 export function useThreadWorkspaces(): Readonly<Record<string, string>> {
-  return useClientSettings((settings) => settings.threadWorkspaces);
+  const local = useClientSettings((settings) => settings.threadWorkspaces);
+  const threads = useQuietThreadShells();
+  return threadWorkspaceTags(threads, local);
 }
 
+export function readThreadWorkspaces(): Readonly<Record<string, string>> {
+  return threadWorkspaceTags(readThreadShells(), getClientSettings().threadWorkspaces);
+}
+
+/** Tags a new chat on this device; the workspace sync hands it to the server once the thread exists. */
 export function recordThreadWorkspace(threadId: string, workspace: WorkspaceId): void {
   const current = getClientSettings().threadWorkspaces;
   const next = assignThreadWorkspace(current, threadId, workspace);

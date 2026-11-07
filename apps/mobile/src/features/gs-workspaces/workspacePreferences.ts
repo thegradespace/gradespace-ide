@@ -5,16 +5,22 @@ import {
   filterThreadsForWorkspace,
   isWorkspaceId,
   isWorkspaceSeedPrompt,
+  planThreadWorkspaceSync,
+  threadWorkspaceTags,
   type WorkspaceId,
   type WorkspaceSeedSettings,
   workspaceSeedPrompt,
+  withoutThreadWorkspaces,
 } from "@t3tools/client-runtime/workspaces";
+import { runAtomCommand } from "@t3tools/client-runtime/state/runtime";
 import type { ServerProviderSkill } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
+import { useMemo } from "react";
 
 import type * as MobilePreferences from "../../persistence/mobile-preferences";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
+import { environmentThreadShells, threadEnvironment } from "../../state/threads";
 import { getComposerDraftSnapshot, setComposerDraftText } from "../../state/use-composer-drafts";
 
 type Providers = ReadonlyArray<{ readonly skills: ReadonlyArray<ServerProviderSkill> }>;
@@ -46,13 +52,65 @@ export function useWorkspacePreferences() {
   const preferences = AsyncResult.isSuccess(result) ? result.value : {};
   return {
     active: activeWorkspaceOf(preferences),
-    threadWorkspaces: preferences.threadWorkspaces ?? EMPTY_TAGS,
     seedSettings: seedSettingsOf(preferences),
     setActive: (workspace: WorkspaceId) => save({ activeWorkspace: workspace }),
   };
 }
 
-/** Code lists every thread on the phone: the tag map is per device, so desktop chats arrive untagged. */
+/** Each thread's workspace tag: the server's, else this phone's until it reaches the server. */
+export function useThreadWorkspaces(): Readonly<Record<string, string>> {
+  const result = useAtomValue(mobilePreferencesAtom);
+  const local =
+    (AsyncResult.isSuccess(result) ? result.value.threadWorkspaces : undefined) ?? EMPTY_TAGS;
+  const threads = useAtomValue(environmentThreadShells.quietThreadShellsAtom);
+  return useMemo(() => threadWorkspaceTags(threads, local), [threads, local]);
+}
+
+/**
+ * Hands this phone's tags to each thread's server, then forgets them once the server's tag
+ * shows up. Covers the one-time migration and chats tagged before their thread existed.
+ */
+export function installThreadWorkspaceSync(): () => void {
+  // Sent or failed this launch; a failure waits for the next launch instead of retrying per update.
+  const attempted = new Set<string>();
+  const sync = () => {
+    const result = appAtomRegistry.get(mobilePreferencesAtom);
+    if (!AsyncResult.isSuccess(result)) return;
+    const local = result.value.threadWorkspaces ?? EMPTY_TAGS;
+    const plan = planThreadWorkspaceSync(
+      appAtomRegistry.get(environmentThreadShells.threadShellsAtom),
+      local,
+    );
+    for (const { thread, workspace } of plan.push) {
+      if (attempted.has(thread.id)) continue;
+      attempted.add(thread.id);
+      void runAtomCommand(
+        appAtomRegistry,
+        threadEnvironment.setWorkspace,
+        { environmentId: thread.environmentId, input: { threadId: thread.id, workspace } },
+        { reportFailure: false },
+      );
+    }
+    if (plan.drop.length === 0) return;
+    appAtomRegistry.set(updateMobilePreferencesAtom, {
+      transform: (current) => {
+        const tags = current.threadWorkspaces ?? EMPTY_TAGS;
+        const next = withoutThreadWorkspaces(tags, plan.drop);
+        return next === tags ? {} : { threadWorkspaces: next };
+      },
+    });
+  };
+  const unsubscribes = [
+    appAtomRegistry.subscribe(environmentThreadShells.threadShellsAtom, sync),
+    appAtomRegistry.subscribe(mobilePreferencesAtom, sync),
+  ];
+  sync();
+  return () => {
+    for (const unsubscribe of unsubscribes) unsubscribe();
+  };
+}
+
+/** Code lists every thread on the phone; older servers leave desktop chats untagged here. */
 export function threadsForWorkspace<
   T extends { readonly id: string; readonly lineage?: { readonly rootThreadId: string } | null },
 >(

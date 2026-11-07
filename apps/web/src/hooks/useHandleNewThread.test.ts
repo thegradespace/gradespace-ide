@@ -249,7 +249,6 @@ vi.mock("../uiStateStore", () => ({
 }));
 vi.mock("./useSettings", () => ({
   getClientSettings: () => ({
-    threadWorkspaces: {},
     presentStyle: null,
     writeMode: "draft",
     reviewerStyle: "balanced",
@@ -257,6 +256,7 @@ vi.mock("./useSettings", () => ({
 }));
 vi.mock("../workspaces/workspaceStore", () => ({
   readActiveWorkspace: () => "code",
+  readThreadWorkspaces: () => ({}),
   recordThreadWorkspace: () => undefined,
 }));
 vi.mock("../rightPanelStore", () => ({ useRightPanelStore: { getState: () => ({}) } }));

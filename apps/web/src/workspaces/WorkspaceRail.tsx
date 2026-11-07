@@ -4,7 +4,7 @@ import { LibraryIcon, SettingsIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { useComposerDraftStore } from "../composerDraftStore";
-import { getClientSettings, useClientSettings } from "../hooks/useSettings";
+import { getClientSettings } from "../hooks/useSettings";
 import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
 import { shortcutLabelForCommand } from "../keybindings";
 import { cn } from "../lib/utils";
@@ -14,7 +14,13 @@ import { primaryServerKeybindingsAtom } from "../state/server";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { WORKSPACE_ICONS } from "./workspaceIcons";
-import { readActiveWorkspace, setActiveWorkspace, useActiveWorkspace } from "./workspaceStore";
+import {
+  readActiveWorkspace,
+  readThreadWorkspaces,
+  setActiveWorkspace,
+  useActiveWorkspace,
+  useThreadWorkspaces,
+} from "./workspaceStore";
 import {
   resolveThreadWorkspace,
   WORKSPACES,
@@ -24,7 +30,7 @@ import {
 
 function readRouteThreadWorkspace(router: AnyRouter): WorkspaceId | null {
   const target = resolveThreadRouteTarget(router.state.matches.at(-1)?.params ?? {});
-  const threadWorkspaces = getClientSettings().threadWorkspaces;
+  const threadWorkspaces = readThreadWorkspaces();
   if (target?.kind === "server") {
     const shell = readThreadShell(target.threadRef);
     return resolveThreadWorkspace(shell ?? { id: target.threadRef.threadId }, threadWorkspaces);
@@ -74,7 +80,7 @@ function useFollowRouteWorkspace() {
   const routeTarget = useThreadRouteTarget();
   const routeThreadRef = routeTarget?.kind === "server" ? routeTarget.threadRef : null;
   const shell = useQuietThreadShell(routeThreadRef);
-  const threadWorkspaces = useClientSettings((settings) => settings.threadWorkspaces);
+  const threadWorkspaces = useThreadWorkspaces();
   const routeWorkspace =
     routeThreadRef === null
       ? null

@@ -411,6 +411,31 @@ it.effect(
         assert.ok(shell);
         assert.equal(shell.autoSettleDisabledAt == null, enabled);
       }
+      const beforeWorkspace = yield* projections.getThreadShell(threadId);
+      assert.ok(beforeWorkspace);
+      for (const [workspace, expected] of [
+        ["present", "present"],
+        ["code", null],
+        ["write", "write"],
+        [null, null],
+      ] as const) {
+        yield* TestClock.adjust("1 second");
+        yield* orchestrator.dispatch({
+          type: "thread.workspace.set",
+          commandId: CommandId.make(`workspace-${workspace}`),
+          threadId,
+          workspace,
+        });
+        const updated = yield* projections.getThreadProjection(threadId);
+        assert.equal(updated.thread.workspace ?? null, expected);
+        const shell = yield* projections.getThreadShell(threadId);
+        assert.ok(shell);
+        assert.equal(shell.workspace ?? null, expected);
+        assert.equal(
+          DateTime.formatIso(shell.updatedAt),
+          DateTime.formatIso(beforeWorkspace.updatedAt),
+        );
+      }
       yield* sql`INSERT INTO orchestration_v2_projection_messages
       (message_id, thread_id, run_id, node_id, role, streaming, created_at, updated_at, payload_json)
       VALUES ('obsolete', ${threadId}, NULL, NULL, 'assistant', 0, ${DateTime.formatIso(now)}, ${DateTime.formatIso(now)}, '{"obsolete":true}')`;

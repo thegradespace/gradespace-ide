@@ -505,6 +505,7 @@ function commandThreadId(command: OrchestrationV2ServerCommand): ThreadId {
     case "thread.snooze":
     case "thread.unsnooze":
     case "thread.auto-settle.set":
+    case "thread.workspace.set":
     case "thread.pin":
     case "thread.unpin":
     case "thread.pin.reorder":
@@ -2964,6 +2965,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           | "thread.snooze"
           | "thread.unsnooze"
           | "thread.auto-settle.set"
+          | "thread.workspace.set"
           | "thread.pin"
           | "thread.unpin"
           | "thread.pin.reorder"
@@ -3460,6 +3462,11 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             updatedAt: unchanged ? thread.updatedAt : now,
           };
         }
+        case "thread.workspace.set": {
+          // Organizing a thread is not activity, so the list order stays put.
+          const workspace = command.workspace === "code" ? null : command.workspace;
+          return { ...thread, workspace };
+        }
         case "thread.pin": {
           const alreadyPinned = thread.pinnedAt != null;
           const promotes = thread.settledOverride === "settled" || thread.snoozedUntil != null;
@@ -3865,6 +3872,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           return "thread.unsnoozed" as const;
         case "thread.auto-settle.set":
           return "thread.auto-settle-set" as const;
+        case "thread.workspace.set":
+          return "thread.metadata-updated" as const;
         case "thread.pin":
           return "thread.pinned" as const;
         case "thread.unpin":
@@ -12971,6 +12980,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       case "thread.snooze":
       case "thread.unsnooze":
       case "thread.auto-settle.set":
+      case "thread.workspace.set":
       case "thread.pin":
       case "thread.unpin":
       case "thread.pin.reorder":

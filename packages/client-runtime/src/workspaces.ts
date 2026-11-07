@@ -3,10 +3,11 @@ import type {
   PresentationStyleChoice,
   ReviewerStyleId,
   ServerProviderSkill,
+  ThreadWorkspaceId,
   WorkspaceKeybindingCommand,
 } from "@t3tools/contracts";
 
-export type WorkspaceId = "code" | "present" | "studio" | "research" | "write" | "mail" | "qa";
+export type WorkspaceId = ThreadWorkspaceId;
 
 export interface WorkspaceDefinition {
   readonly id: WorkspaceId;
@@ -266,6 +267,65 @@ export function resolveThreadWorkspace(
 ): WorkspaceId {
   const own = threadWorkspaces[thread.id] ?? threadWorkspaces[thread.lineage?.rootThreadId ?? ""];
   return isWorkspaceId(own) ? own : DEFAULT_WORKSPACE_ID;
+}
+
+interface TaggableThread {
+  readonly id: string;
+  readonly workspace?: string | null;
+}
+
+/** Server tags over the device's map; a local entry only stands in until it reaches the server. */
+export function threadWorkspaceTags(
+  threads: ReadonlyArray<TaggableThread>,
+  localTags: Readonly<Record<string, string>>,
+): Readonly<Record<string, string>> {
+  let tags: Record<string, string> | null = null;
+  for (const thread of threads) {
+    if (thread.workspace == null || localTags[thread.id] === thread.workspace) continue;
+    (tags ??= { ...localTags })[thread.id] = thread.workspace;
+  }
+  return tags ?? localTags;
+}
+
+export interface ThreadWorkspaceSyncPlan<T> {
+  readonly push: ReadonlyArray<{ readonly thread: T; readonly workspace: WorkspaceId }>;
+  /** Local entries the server has settled, either already tagged or nothing to send. */
+  readonly drop: ReadonlyArray<string>;
+}
+
+/**
+ * Moves the device's tags onto threads whose server keeps them (`workspace` present).
+ * Entries for threads not visible yet (drafts, older servers) wait; a server tag wins.
+ */
+export function planThreadWorkspaceSync<T extends TaggableThread>(
+  threads: ReadonlyArray<T>,
+  localTags: Readonly<Record<string, string>>,
+): ThreadWorkspaceSyncPlan<T> {
+  const push: Array<ThreadWorkspaceSyncPlan<T>["push"][number]> = [];
+  const drop: string[] = [];
+  if (Object.keys(localTags).length === 0) return { push, drop };
+  const byId = new Map(threads.map((thread) => [thread.id, thread]));
+  for (const [threadId, tag] of Object.entries(localTags)) {
+    const thread = byId.get(threadId);
+    if (thread?.workspace === undefined) continue;
+    if (thread.workspace === null && isWorkspaceId(tag) && tag !== DEFAULT_WORKSPACE_ID) {
+      push.push({ thread, workspace: tag });
+    } else {
+      drop.push(threadId);
+    }
+  }
+  return { push, drop };
+}
+
+/** The local map without the entries the server now holds. */
+export function withoutThreadWorkspaces(
+  localTags: Readonly<Record<string, string>>,
+  threadIds: ReadonlyArray<string>,
+): Readonly<Record<string, string>> {
+  if (!threadIds.some((id) => id in localTags)) return localTags;
+  const next = { ...localTags };
+  for (const id of threadIds) delete next[id];
+  return next;
 }
 
 export function filterThreadsForWorkspace<

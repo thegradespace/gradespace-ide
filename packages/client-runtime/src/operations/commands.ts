@@ -25,6 +25,7 @@ import {
   type RuntimeRequestId,
   type ThreadId,
   type ThreadEnvMode,
+  type ThreadWorkspaceId,
   type UploadChatAttachment,
   type GuestMessageId,
 } from "@t3tools/contracts";
@@ -518,6 +519,20 @@ export const setThreadAutoSettle = Effect.fn("EnvironmentCommands.setThreadAutoS
     commandId: yield* allocateCommandId(input),
     threadId: input.threadId,
     enabled: input.enabled,
+  });
+});
+
+export interface SetThreadWorkspaceInput extends ThreadCommandInput {
+  readonly workspace: ThreadWorkspaceId | null;
+}
+export const setThreadWorkspace = Effect.fn("EnvironmentCommands.setThreadWorkspace")(function* (
+  input: SetThreadWorkspaceInput,
+) {
+  return yield* dispatch({
+    type: "thread.workspace.set",
+    commandId: yield* allocateCommandId(input),
+    threadId: input.threadId,
+    workspace: input.workspace,
   });
 });
 

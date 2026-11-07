@@ -3,6 +3,9 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   assignThreadWorkspace,
   filterThreadsForWorkspace,
+  planThreadWorkspaceSync,
+  threadWorkspaceTags,
+  withoutThreadWorkspaces,
   isWorkspaceSeedPrompt,
   presentationStyleLine,
   reviewerStyleLine,
@@ -98,6 +101,37 @@ describe("workspaces", () => {
     expect(isWorkspaceSeedPrompt("$gs-present\nStyle: Bold · accent #00FF88\n")).toBe(true);
     expect(isWorkspaceSeedPrompt("$gs-review\nReviewer style: Harsh\n")).toBe(true);
     expect(isWorkspaceSeedPrompt("$gs-present\nStyle: Bold\nmake it about tides")).toBe(false);
+  });
+
+  it("moves device tags onto the server once, and lets server tags win", () => {
+    const threads = [
+      { id: "untagged", workspace: null },
+      { id: "tagged", workspace: "studio" },
+      { id: "junk", workspace: null },
+      { id: "old-server" },
+    ];
+    const local = {
+      untagged: "present",
+      tagged: "write",
+      junk: "workspace-from-a-newer-client",
+      "old-server": "qa",
+      draft: "research",
+    };
+    expect(threadWorkspaceTags(threads, local)).toEqual({ ...local, tagged: "studio" });
+    expect(threadWorkspaceTags([], local)).toBe(local);
+
+    const plan = planThreadWorkspaceSync(threads, local);
+    expect(plan).toEqual({
+      push: [{ thread: threads[0], workspace: "present" }],
+      drop: ["tagged", "junk"],
+    });
+    // Once sent, only entries for an older server's thread and an unsent draft remain.
+    const remaining = withoutThreadWorkspaces(local, [
+      ...plan.push.map((entry) => entry.thread.id),
+      ...plan.drop,
+    ]);
+    expect(remaining).toEqual({ "old-server": "qa", draft: "research" });
+    expect(planThreadWorkspaceSync(threads, remaining)).toEqual({ push: [], drop: [] });
   });
 
   it("drops the tag when a draft is reused in Code", () => {

@@ -193,6 +193,8 @@ export interface EnvironmentThreadShell {
   readonly lastVisitedAt?: string | null;
   /** Server-tracked open history for search ranking. */
   readonly opens?: import("@t3tools/contracts").OrchestrationV2ThreadOpens | null;
+  /** Server-kept workspace tag; `undefined` when the server predates workspace tags. */
+  readonly workspace?: import("@t3tools/contracts").ThreadWorkspaceId | null;
   readonly titleRegeneration?: { readonly requestId: string; readonly startedAt: string } | null;
   readonly deletedAt: string | null;
   readonly source: OrchestrationV2ThreadShell;
@@ -347,6 +349,7 @@ export function presentThreadShell(
       ? {}
       : { lastVisitedAt: nullableIso(thread.lastVisitedAt) }),
     opens: thread.opens ?? null,
+    ...(thread.workspace === undefined ? {} : { workspace: thread.workspace }),
     titleRegeneration:
       thread.titleRegeneration == null
         ? null
