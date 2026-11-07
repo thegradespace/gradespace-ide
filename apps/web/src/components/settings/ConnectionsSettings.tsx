@@ -1196,7 +1196,7 @@ export function ConnectionsSettings({ view }: { readonly view: "environments" | 
                 <AlertDialogDescription>
                   {pendingDesktopServerExposureMode === "network-accessible"
                     ? "Let your other devices connect to GS over the network. Pair devices to give them access. GS will restart."
-                    : "Devices connected over your local network will disconnect. Existing tunnels, such as T3 Connect or Tailscale HTTPS, keep working. GS will restart."}
+                    : "Devices connected over your local network will disconnect. Existing tunnels, such as Gradespace Connect or Tailscale HTTPS, keep working. GS will restart."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

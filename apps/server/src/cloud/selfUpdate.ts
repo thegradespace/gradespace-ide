@@ -163,7 +163,7 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* () {
         );
       }
       return yield* failWith(
-        "This server is managed by the T3 Code desktop app on its machine; update the desktop app to update it.",
+        "This server is managed by the Gradespace IDE desktop app on its machine; update the desktop app to update it.",
       );
     }
     if (capability === null) {

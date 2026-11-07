@@ -231,7 +231,7 @@ function SubscriptionUsage(
           >
             {(period === "auto" ? (provider.totalWindows ?? windows.length) : windows.length) -
               limit}{" "}
-            more in T3
+            more in Gradespace
           </Text>
         ) : null}
       </VStack>

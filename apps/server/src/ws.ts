@@ -1605,7 +1605,7 @@ export const layerWsRpc = (
               if (racedImport !== null) return { threadId, imported: false } as const;
               return yield* new AcpRegistryOperationError({
                 reason: "session_import_failed",
-                message: "Could not create a T3 thread for the ACP session.",
+                message: "Could not create a Gradespace thread for the ACP session.",
                 cause: launched.failure,
               });
             }
@@ -1646,7 +1646,8 @@ export const layerWsRpc = (
             if (importedThread !== null) {
               return yield* new AcpRegistryOperationError({
                 reason: "session_delete_failed",
-                message: "Delete the imported T3 thread before deleting its native ACP session.",
+                message:
+                  "Delete the imported Gradespace thread before deleting its native ACP session.",
               });
             }
             yield* manager.deleteSession({
