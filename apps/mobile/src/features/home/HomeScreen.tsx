@@ -87,6 +87,8 @@ import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
 import { WorkspaceChips } from "../gs-workspaces/WorkspaceChips";
+import { showsAppEmptyState, workspaceEmptyCopy } from "../gs-workspaces/workspaceEmptyState";
+import { useWorkspacePreferences } from "../gs-workspaces/workspacePreferences";
 
 interface HomeScreenProps {
   readonly projects: ReadonlyArray<EnvironmentProject>;
@@ -241,6 +243,7 @@ function renderHomeScrollView(props: ScrollViewProps) {
 }
 
 export function HomeScreen(props: HomeScreenProps) {
+  const { active: activeWorkspace } = useWorkspacePreferences();
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
   const workspace = useWorkspaceTabs();
   const [initialScrollOffset] = useState(() => workspace?.getScrollOffset("threads") ?? 0);
@@ -648,6 +651,7 @@ export function HomeScreen(props: HomeScreenProps) {
     workingShelfEnabled,
   };
 
+  const activeWorkspaceEmpty = workspaceEmptyCopy(activeWorkspace);
   const hasAnyThreads =
     props.threads.some((thread) => thread.archivedAt === null) ||
     props.pendingTasks.length > 0 ||
@@ -662,7 +666,13 @@ export function HomeScreen(props: HomeScreenProps) {
     projectCount: props.projects.length,
   });
 
-  if (!hasAnyThreads) {
+  if (
+    showsAppEmptyState({
+      hasAnyThreads,
+      workspace: activeWorkspace,
+      hasReadyEnvironment: props.catalogState.hasReadyEnvironment,
+    })
+  ) {
     return (
       <View className={containerClassName}>
         <View
@@ -736,6 +746,14 @@ export function HomeScreen(props: HomeScreenProps) {
       <EmptyState
         title="No results"
         detail={`No threads matching "${props.searchQuery}".`}
+        variant={Platform.OS === "android" ? "plain" : undefined}
+      />
+    ) : activeWorkspace !== "code" ? (
+      <EmptyState
+        title={activeWorkspaceEmpty.title}
+        detail="Chats you start here, on any device, show up in this workspace."
+        actionLabel={activeWorkspaceEmpty.actionLabel}
+        onAction={props.onStartNewTask}
         variant={Platform.OS === "android" ? "plain" : undefined}
       />
     ) : v2ScopedProjectGroup !== null ? (
