@@ -20,6 +20,11 @@ import {
   type DraftSessionState,
 } from "../../composerDraftStore";
 import { draftPenClassName, draftSurfaceClassName } from "./SidebarThreadRow";
+import {
+  isWorkspaceSeedPrompt,
+  resolveThreadWorkspace,
+  type WorkspaceId,
+} from "../../workspaces/workspaces.logic";
 
 const SidebarDraftRow = memo(function SidebarDraftRow(props: {
   draftId: DraftId;
@@ -138,10 +143,20 @@ interface SidebarDraftRowData {
   composer: ComposerThreadDraftState;
 }
 
+/** A draft holding only its workspace's skill was never written in. */
+export function isUntouchedWorkspaceDraft(composer: ComposerThreadDraftState): boolean {
+  return (
+    isWorkspaceSeedPrompt(composer.prompt) &&
+    !composerDraftHasUserContent({ ...composer, prompt: "" })
+  );
+}
+
 export const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
   projectByKey: ReadonlyMap<string, EnvironmentProject>;
   projectDisplayNameByKey: ReadonlyMap<string, string>;
   scopedProjectKeys: ReadonlySet<string> | null;
+  workspace: WorkspaceId;
+  threadWorkspaces: Readonly<Record<string, string>>;
   routeDraftId: string | null;
   onNavigateToDraft: (draftId: DraftId) => void;
   onDraftContextMenu: (draftId: DraftId, position: { x: number; y: number }) => void;
@@ -159,7 +174,11 @@ export const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
       const session = draftThreadsByThreadKey[draftId];
       const composer = draftsByThreadKey[draftId];
       row =
-        session && session.promotedTo == null && composer && composerDraftHasUserContent(composer)
+        session &&
+        session.promotedTo == null &&
+        composer &&
+        composerDraftHasUserContent(composer) &&
+        !isUntouchedWorkspaceDraft(composer)
           ? { draftId, session, composer }
           : null;
     }
@@ -177,6 +196,11 @@ export const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
       ) {
         continue;
       }
+      if (
+        resolveThreadWorkspace({ id: session.threadId }, props.threadWorkspaces) !== props.workspace
+      ) {
+        continue;
+      }
       if (draftKey === props.routeDraftId) {
         if (frozenActive.routeDraftId === draftKey && frozenActive.row !== null) {
           rows.push(frozenActive.row);
@@ -184,7 +208,11 @@ export const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
         continue;
       }
       const composer = draftsByThreadKey[draftKey];
-      if (!composer || !composerDraftHasUserContent(composer)) {
+      if (
+        !composer ||
+        !composerDraftHasUserContent(composer) ||
+        isUntouchedWorkspaceDraft(composer)
+      ) {
         continue;
       }
       rows.push({ draftId: DraftId.make(draftKey), session, composer });

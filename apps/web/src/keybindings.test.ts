@@ -361,6 +361,41 @@ describe("thread navigation helpers", () => {
     );
   });
 
+  it("switches workspaces with Ctrl+digit on Mac and Alt+digit elsewhere, clear of thread jumps", () => {
+    const options = (platform: string) => ({ platform, context: { isDesktop: true } });
+    assert.strictEqual(
+      resolveShortcutCommand(
+        event({ key: "2", ctrlKey: true }),
+        DEFAULT_RESOLVED_KEYBINDINGS,
+        options("MacIntel"),
+      ),
+      "workspaces.present",
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(
+        event({ key: "2", altKey: true }),
+        DEFAULT_RESOLVED_KEYBINDINGS,
+        options("Win32"),
+      ),
+      "workspaces.present",
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(
+        event({ key: "2", ctrlKey: true }),
+        DEFAULT_RESOLVED_KEYBINDINGS,
+        options("Win32"),
+      ),
+      "thread.jump.2",
+    );
+    assert.isNull(
+      resolveShortcutCommand(
+        event({ key: "2", altKey: true }),
+        DEFAULT_RESOLVED_KEYBINDINGS,
+        options("MacIntel"),
+      ),
+    );
+  });
+
   it("keeps default thread jumps off the web so the browser can switch tabs", () => {
     const input = event({ key: "1", metaKey: true });
     assert.isNull(

@@ -371,6 +371,31 @@ export function AppearanceSettingsPanel() {
           }
         />
         <SettingsRow
+          {...searchableSetting("workspace-rail")}
+          description="Show the icons left of the sidebar for Code, Present, Studio, Research, Write, Mail and QA. Hiding it shows every chat as Code."
+          resetAction={
+            settings.workspaceRailEnabled !== DEFAULT_UNIFIED_SETTINGS.workspaceRailEnabled ? (
+              <SettingResetButton
+                label="workspace rail"
+                onClick={() =>
+                  updateSettings({
+                    workspaceRailEnabled: DEFAULT_UNIFIED_SETTINGS.workspaceRailEnabled,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.workspaceRailEnabled}
+              onCheckedChange={(checked) =>
+                updateSettings({ workspaceRailEnabled: Boolean(checked) })
+              }
+              aria-label="Show workspace rail"
+            />
+          }
+        />
+        <SettingsRow
           {...searchableSetting("sidebar-collapsed-style")}
           description="Choose what stays on screen when the sidebar is collapsed."
           resetAction={

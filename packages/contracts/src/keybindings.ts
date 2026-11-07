@@ -34,6 +34,17 @@ export const MODEL_PICKER_JUMP_KEYBINDING_COMMANDS = [
 export type ModelPickerJumpKeybindingCommand =
   (typeof MODEL_PICKER_JUMP_KEYBINDING_COMMANDS)[number];
 
+export const WORKSPACE_KEYBINDING_COMMANDS = [
+  "workspaces.code",
+  "workspaces.present",
+  "workspaces.studio",
+  "workspaces.research",
+  "workspaces.write",
+  "workspaces.mail",
+  "workspaces.qa",
+] as const;
+export type WorkspaceKeybindingCommand = (typeof WORKSPACE_KEYBINDING_COMMANDS)[number];
+
 const THREAD_KEYBINDING_COMMANDS = [
   "thread.stop",
   "thread.steerQueuedMessage",
@@ -117,6 +128,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "usage.period.quarter",
   ...MODEL_PICKER_KEYBINDING_COMMANDS,
   ...THREAD_KEYBINDING_COMMANDS,
+  ...WORKSPACE_KEYBINDING_COMMANDS,
 ] as const;
 
 export const SCRIPT_RUN_COMMAND_PATTERN = Schema.TemplateLiteral([

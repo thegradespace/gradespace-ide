@@ -126,6 +126,8 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --workspace-controls-right: calc(env(safe-area-inset-right) + 0.75rem);
   --workspace-native-controls-inset: 0px;
   --workspace-titlebar-control-size: 1.75rem;
+  /* The workspace rail left of the sidebar; 0 when it is hidden or on phones. */
+  --workspace-rail-width: 0px;
   --workspace-titlebar-control-gap: 0.75rem;
   --workspace-titlebar-scroll-fade-height: 1.5rem;
   --chat-content-max-width: 46rem;
@@ -284,6 +286,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --color-sidebar-control-surface: var(--sidebar-control-surface);
   --color-sidebar-row-hover: var(--sidebar-row-hover);
   --color-sidebar-row-active: var(--sidebar-row-active);
+  --color-workspace-marker: var(--workspace-marker);
   --color-sidebar-row-selected: var(--sidebar-row-selected);
   --color-sidebar-border: var(--contrast-sidebar-border);
   --radius-sm: calc(var(--radius) - 4px);
@@ -1181,6 +1184,8 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --sidebar-control-surface: var(--color-zinc-100);
   --sidebar-row-hover: var(--color-zinc-25);
   --sidebar-row-active: var(--color-white);
+  /* Gradespace lilac, the active workspace's bar on the rail. */
+  --workspace-marker: #7a72f2;
   --sidebar-row-selected: var(--color-white);
   --sidebar-border: var(--border);
   --sidebar-stage-fade: var(--sidebar);
@@ -1234,6 +1239,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
     --sidebar-control-surface: var(--muted);
     --sidebar-row-hover: var(--accent);
     --sidebar-row-active: var(--accent);
+    --workspace-marker: #9d97ff;
     --sidebar-row-selected: var(--muted);
     --sidebar-stage-fade: var(--card);
     --terminal-cursor: rgb(180 203 255);
@@ -2583,6 +2589,11 @@ code {
 }
 
 @media (min-width: 768px) {
+  [data-slot="sidebar-wrapper"][data-workspace-rail] {
+    --workspace-rail-width: 60px;
+    padding-left: var(--workspace-rail-width);
+  }
+
   /* The window controls and toggle overflow the 52px rail on Mac; headers clear what is left. */
   [data-slot="sidebar-wrapper"][data-sidebar-state="collapsed"][data-collapsed-style="project-dock"]
     > *,
@@ -2592,7 +2603,8 @@ code {
       var(--workspace-gutter-start),
       calc(
         var(--workspace-controls-left) + var(--workspace-titlebar-control-size) +
-          var(--workspace-titlebar-control-gap) - var(--sidebar-rail-width)
+          var(--workspace-titlebar-control-gap) - var(--sidebar-rail-width) -
+          var(--workspace-rail-width)
       )
     );
   }
@@ -2613,7 +2625,7 @@ code {
     > [data-collapsed-tabs] {
       padding-left: calc(
         var(--workspace-controls-left) + var(--workspace-titlebar-control-size) +
-          var(--workspace-titlebar-control-gap)
+          var(--workspace-titlebar-control-gap) - var(--workspace-rail-width)
       );
     }
 

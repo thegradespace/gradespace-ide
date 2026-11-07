@@ -50,6 +50,8 @@ const testState = vi.hoisted(() => {
     setLogicalProjectDraftThreadId: vi.fn(),
     setModelSelection: vi.fn(),
     setPrompt: vi.fn(),
+    draftThreadsByThreadKey: {},
+    draftsByThreadKey: {},
   };
 
   return {
@@ -245,7 +247,12 @@ vi.mock("../uiStateStore", () => ({
   legacyProjectCwdPreferenceKey: () => "remote-project",
   useUiStateStore: () => [],
 }));
-vi.mock("./useSettings", () => ({ getClientSettings: () => ({}) }));
+vi.mock("./useSettings", () => ({ getClientSettings: () => ({ threadWorkspaces: {} }) }));
+vi.mock("../workspaces/workspaceStore", () => ({
+  readActiveWorkspace: () => "code",
+  recordThreadWorkspace: () => undefined,
+}));
+vi.mock("../rightPanelStore", () => ({ useRightPanelStore: { getState: () => ({}) } }));
 
 import { useNewThreadHandler } from "./useHandleNewThread";
 
