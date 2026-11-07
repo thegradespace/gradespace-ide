@@ -86,6 +86,7 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-sw
 import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
+import { MailHome } from "../gs-workspaces/MailHome";
 import { WorkspaceStudioShortcut } from "../gs-workspaces/WorkspaceStudioShortcut";
 import { showsAppEmptyState, workspaceEmptyCopy } from "../gs-workspaces/workspaceEmptyState";
 import { useWorkspacePreferences } from "../gs-workspaces/workspacePreferences";
@@ -719,11 +720,20 @@ export function HomeScreen(props: HomeScreenProps) {
   }
 
   const listHeader = Platform.OS === "ios" ? undefined : <HomeTopContentSpacer />;
+  const mailEnvironmentId =
+    props.selectedEnvironmentId ??
+    props.environments.find((environment) => environment.connectionState === "connected")
+      ?.environmentId ??
+    null;
+  const showsMailHome = activeWorkspace === "mail" && !hasSearchQuery;
 
   const v2ListHeader = (
     <>
       {listHeader}
       <WorkspaceStudioShortcut threads={props.threads} />
+      {showsMailHome && threadListV2Items.length > 0 ? (
+        <MailHome environmentId={mailEnvironmentId} compact onStartNewTask={props.onStartNewTask} />
+      ) : null}
       {Platform.OS === "ios" && workspace ? (
         <ThreadListFilters
           gutter={primaryColumn ? 8 : 0}
@@ -748,6 +758,12 @@ export function HomeScreen(props: HomeScreenProps) {
         detail={`No threads matching "${props.searchQuery}".`}
         variant={Platform.OS === "android" ? "plain" : undefined}
       />
+    ) : showsMailHome ? (
+      <View className="w-full items-center px-4 py-4">
+        <View className="w-full max-w-[430px]">
+          <MailHome environmentId={mailEnvironmentId} onStartNewTask={props.onStartNewTask} />
+        </View>
+      </View>
     ) : activeWorkspace !== "code" ? (
       <EmptyState
         title={activeWorkspaceEmpty.title}
@@ -784,7 +800,11 @@ export function HomeScreen(props: HomeScreenProps) {
           style={{ paddingBottom: insets.bottom }}
         >
           {v2ListHeader}
-          <View className="flex-1 items-center justify-center">{v2ListEmpty}</View>
+          {showsMailHome ? (
+            <ScrollView className="flex-1">{v2ListEmpty}</ScrollView>
+          ) : (
+            <View className="flex-1 items-center justify-center">{v2ListEmpty}</View>
+          )}
         </View>
       </View>
     );

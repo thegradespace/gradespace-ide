@@ -12,16 +12,22 @@ import {
   workspaceSeedPrompt,
   withoutThreadWorkspaces,
 } from "@t3tools/client-runtime/workspaces";
+import { isMailQuickJobPrompt } from "@t3tools/client-runtime/mailHome";
 import { runAtomCommand } from "@t3tools/client-runtime/state/runtime";
-import type { ServerProviderSkill } from "@t3tools/contracts";
+import type { ProviderInstanceId, ServerProvider, ServerProviderSkill } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { useMemo } from "react";
 
+import * as Dialog from "../../components/ui/Dialog";
 import type * as MobilePreferences from "../../persistence/mobile-preferences";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { environmentThreadShells, threadEnvironment } from "../../state/threads";
-import { getComposerDraftSnapshot, setComposerDraftText } from "../../state/use-composer-drafts";
+import {
+  getComposerDraftSnapshot,
+  setComposerDraftText,
+  updateComposerDraftSettings,
+} from "../../state/use-composer-drafts";
 
 type Providers = ReadonlyArray<{ readonly skills: ReadonlyArray<ServerProviderSkill> }>;
 
@@ -154,10 +160,62 @@ export function recordThreadWorkspace(threadId: string, workspace: WorkspaceId):
   });
 }
 
-/** Fills an untouched new-task draft with the active workspace's skill and style line. */
-export function seedNewTaskDraft(draftKey: string, providers: Providers): void {
+interface PendingTaskSeed {
+  readonly prompt: string;
+  readonly instanceId: ProviderInstanceId | null;
+  readonly requestedAt: number;
+}
+
+// A Mail quick job waits here between its tap and the new task's draft; stale ones lapse.
+const PENDING_SEED_TTL_MS = 10_000;
+let pendingTaskSeed: PendingTaskSeed | null = null;
+
+/** The next new task starts with this text, on this provider when one is given. */
+export function requestNewTaskSeed(prompt: string, instanceId: ProviderInstanceId | null): void {
+  pendingTaskSeed = { prompt, instanceId, requestedAt: Date.now() };
+}
+
+function takePendingTaskSeed(): PendingTaskSeed | null {
+  const seed = pendingTaskSeed;
+  pendingTaskSeed = null;
+  return seed !== null && Date.now() - seed.requestedAt <= PENDING_SEED_TTL_MS ? seed : null;
+}
+
+type SeedProviders = ReadonlyArray<Pick<ServerProvider, "instanceId" | "models" | "skills">>;
+
+/** The provider's default model, which the flow re-validates like any draft selection. */
+function defaultModelOf(providers: SeedProviders, instanceId: ProviderInstanceId) {
+  const models = providers.find((provider) => provider.instanceId === instanceId)?.models ?? [];
+  return (
+    models.find((model) => model.isDefault) ??
+    models.find((model) => !model.isLegacy) ??
+    models[0]
+  )?.slug;
+}
+
+/** Fills an untouched new-task draft with a quick job, else the active workspace's skill. */
+export function seedNewTaskDraft(draftKey: string, providers: SeedProviders): void {
+  const pending = takePendingTaskSeed();
   const prompt = getComposerDraftSnapshot(draftKey).text;
-  if (prompt.trim() !== "" && !isWorkspaceSeedPrompt(prompt)) return;
+  const untouched = prompt.trim() === "" || isWorkspaceSeedPrompt(prompt);
+  // A quick job may replace another quick job's text, but a plain re-seed never does.
+  if (!untouched && !(pending !== null && isMailQuickJobPrompt(prompt))) {
+    if (pending !== null) {
+      Dialog.alert("Your draft was kept", "Clear the new chat's text, then pick the job again.");
+    }
+    return;
+  }
+  if (pending !== null) {
+    setComposerDraftText(draftKey, pending.prompt);
+    const model =
+      pending.instanceId === null ? undefined : defaultModelOf(providers, pending.instanceId);
+    if (pending.instanceId !== null && model !== undefined) {
+      updateComposerDraftSettings(draftKey, {
+        modelSelection: { instanceId: pending.instanceId, model },
+      });
+    }
+    return;
+  }
   const preferences = readPreferences();
   const seed = workspaceSeedPrompt(
     activeWorkspaceOf(preferences),

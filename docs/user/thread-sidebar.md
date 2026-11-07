@@ -61,8 +61,10 @@ The icons left of the sidebar switch between workspaces: Code, Present, Studio, 
 Write, Mail and QA. Code is the app as it always was and lists every chat that was not
 started in another workspace. Each other workspace lists only its own chats, and a new
 chat there starts with its Gradespace skill in the composer, such as `$gs-present` for
-Present. Present and Studio also open the Studio panel. A skill that is not installed is
-left out; install it from **Settings → Skills**.
+Present. Present and Studio also open the Studio panel. When the skill is not installed on
+the environment the chat runs on, a notice above the composer says so, with **Install** to
+add it there (or a link to **Settings → Skills**) and, when another connected environment
+has it, **Switch to** that one.
 
 Switch with `Ctrl+1` to `Ctrl+7` on macOS or `Alt+1` to `Alt+7` on Windows and Linux;
 `Cmd+1` to `Cmd+9` stay on jumping between threads. Change the keys in
@@ -83,9 +85,17 @@ Code there lists every thread. In a Present or Studio
 chat, the Studio button lists the project's design sets: swipe between options, open one
 full screen, and **Pick** it.
 
-Mail reads and drafts email through Claude's connectors: connect Gmail, Google Calendar or
-Outlook at claude.ai → Settings → Connectors first. To hide the rail, turn off
-**Settings → Appearance → Workspace rail**; every chat then shows in one list again.
+Mail reads and drafts email through your agent's own email connection: the Gmail plugin
+in Codex (ChatGPT or Codex app → Plugins → Gmail) or the Gmail connector in Claude
+(claude.ai → Settings → Connectors). A new email, and the Mail list on the phone, shows
+**Your email** with each agent's status: **How to connect** walks through the steps and
+**Check** looks again without starting a chat. Claude's status shows after you have started
+at least one Claude chat since connecting. The **Start** tiles (triage, draft a reply, find a
+meeting time, follow-ups) fill in a request and pick a connected agent. Nothing is ever
+sent: replies and invites are saved as drafts for you to approve. Outlook comes later.
+
+To hide the rail, turn off **Settings → Appearance → Workspace rail**; every chat then shows
+in one list again.
 
 ## Pin and reorder threads
 

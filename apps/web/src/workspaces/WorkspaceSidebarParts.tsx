@@ -14,7 +14,7 @@ import {
 } from "./workspaces.logic";
 
 const MAIL_CONNECTOR_NOTE =
-  "Connect Gmail, Google Calendar or Outlook in Claude's connectors (claude.ai → Settings → Connectors), then ask here. Every email is a draft you approve; nothing sends by itself.";
+  "Mail works through your agent's own email connection: Gmail in Codex's plugins or Claude's connectors. A new email shows which are connected. Every email is a draft you approve; nothing sends by itself.";
 
 export function WorkspaceNewChatButton(props: {
   workspace: WorkspaceId;

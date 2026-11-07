@@ -5,7 +5,12 @@ import { threadHeaderAppearance } from "./thread-header-appearance";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { useComposerAttachmentActions } from "../../state/use-composer-attachment-actions";
 import { MANUSCRIPT_MIME_TYPES, WorkspaceComposerBar } from "../gs-workspaces/WorkspaceComposerBar";
-import { readActiveWorkspace, recordThreadWorkspace } from "../gs-workspaces/workspacePreferences";
+import {
+  readActiveWorkspace,
+  recordThreadWorkspace,
+  seedNewTaskDraft,
+} from "../gs-workspaces/workspacePreferences";
+import { WorkspaceSkillNotice } from "../gs-workspaces/WorkspaceSkillNotice";
 import { useWorkspaceBackNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 import { submittedThreadParams } from "./thread-route-state";
 import { ThreadScreenBinding, ThreadScreenFallback } from "./ThreadScreenHost";
@@ -94,8 +99,9 @@ import {
 } from "./new-task-context-presentation";
 import { incomingShareImports, useIncomingShare } from "../sharing/IncomingShareProvider";
 import { idleShareFlagAtom, idleShareImportPhaseAtom } from "./incomingShareImport";
-import { newTaskFlowKey } from "./new-task-flow-state";
+import { newTaskFlowKey, readNewTaskFlowState } from "./new-task-flow-state";
 import { appAtomRegistry } from "../../state/atom-registry";
+import { environmentServerConfigsAtom } from "../../state/server";
 
 import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
 
@@ -933,6 +939,23 @@ export function NewTaskDraftScreen(props: {
                 </View>
               ) : null}
               {flow.canChooseWorkspace ? workspaceControls : null}
+              <WorkspaceSkillNotice
+                draftKey={flow.draftKey}
+                environmentId={selectedProject.environmentId}
+                environments={flow.environments}
+                onSwitchEnvironment={(environmentId) =>
+                  void flow.switchEnvironment(environmentId).then((switched) => {
+                    const draftKey =
+                      flowKey === undefined ? null : readNewTaskFlowState(flowKey).draftKey;
+                    if (!switched || draftKey === null) return;
+                    seedNewTaskDraft(
+                      draftKey,
+                      appAtomRegistry.get(environmentServerConfigsAtom).get(environmentId)
+                        ?.providers ?? [],
+                    );
+                  })
+                }
+              />
               <WorkspaceComposerBar
                 draftKey={flow.draftKey}
                 providers={selectedEnvironmentServerConfig?.providers ?? []}

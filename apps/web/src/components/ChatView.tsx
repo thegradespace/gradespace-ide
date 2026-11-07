@@ -166,6 +166,7 @@ import {
 import { createChatCanvasStore, resolveChatCanvasModel } from "./chat/canvasStore";
 import { usePreviewSession } from "./preview/usePreviewSession";
 import { getConfiguredPreviewUrls } from "./preview/previewEmptyStateLogic";
+import { MailHome } from "../workspaces/MailHome";
 
 import {
   previewMiniPlayerSourceKey,
@@ -3911,6 +3912,17 @@ export default function ChatView(props: ChatViewProps) {
                         // Out of flow, like the headline, so a notice never moves the centered composer.
                         <div className="absolute inset-x-0 top-full flex flex-col gap-1 pt-4">
                           <ComposerBannerStack items={composerBannerItems} detached />
+                        </div>
+                      ) : null}
+                      {isDraftHeroState && composerBannerItems.length === 0 && !embedded ? (
+                        <div className="absolute inset-x-0 top-full max-h-[calc(50dvh-6rem)] overflow-y-auto pt-4 empty:hidden">
+                          <MailHome
+                            threadId={threadId}
+                            environmentId={environmentId}
+                            composerDraftTarget={composerDraftTarget}
+                            activeProviderInstanceId={activeProviderInstanceId}
+                            onStarted={() => composerRef.current?.focusAtEnd()}
+                          />
                         </div>
                       ) : null}
                     </ComposerSurface.Shell>

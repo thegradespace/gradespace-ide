@@ -15,5 +15,6 @@ export {
   type WorkspaceSeedSettings,
   workspaceSeedPrompt,
   workspaceSkill,
+  workspaceSkillNotice,
   withoutThreadWorkspaces,
 } from "@t3tools/client-runtime/workspaces";

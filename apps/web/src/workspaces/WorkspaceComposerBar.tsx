@@ -31,6 +31,7 @@ import {
 import { Toggle, ToggleGroup } from "../components/ui/toggle-group";
 import { cn } from "../lib/utils";
 import { updateWorkspaceSeedSettings, useThreadWorkspaces } from "./workspaceStore";
+import { WorkspaceSkillNotice } from "./WorkspaceSkillNotice";
 import { resolveThreadWorkspace, type WorkspaceSeedSettings } from "./workspaces.logic";
 
 const MANUSCRIPT_ACCEPT = ".md,.markdown,.docx,.pdf,.txt";
@@ -41,7 +42,7 @@ const fontStack = (font: string) => `"${font}", system-ui, sans-serif`;
 
 type SeedChange = (patch: Partial<WorkspaceSeedSettings>) => void;
 
-/** Present and Write controls above a new chat's composer; they set this device's defaults. */
+/** A missing-skill notice, and Present and Write defaults, above a new chat's composer. */
 export function WorkspaceComposerBar(props: {
   composerDraftTarget: ScopedThreadRef | DraftId;
   environmentId: EnvironmentId;
@@ -51,20 +52,33 @@ export function WorkspaceComposerBar(props: {
   const railEnabled = useClientSettings((settings) => settings.workspaceRailEnabled);
   const threadWorkspaces = useThreadWorkspaces();
   const workspace = resolveThreadWorkspace({ id: props.threadId }, threadWorkspaces);
-  if (!railEnabled || (workspace !== "present" && workspace !== "write")) return null;
+  if (!railEnabled) return null;
   const change: SeedChange = (patch) =>
     updateWorkspaceSeedSettings(patch, {
       target: props.composerDraftTarget,
       environmentId: props.environmentId,
       workspace,
     });
+  const notice = (
+    <WorkspaceSkillNotice
+      workspace={workspace}
+      environmentId={props.environmentId}
+      composerDraftTarget={props.composerDraftTarget}
+    />
+  );
+  if (workspace !== "present" && workspace !== "write") {
+    return <div className="mb-2 empty:hidden">{notice}</div>;
+  }
   return (
-    <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2 px-1">
-      {workspace === "present" ? (
-        <PresentStylePicker onChange={change} />
-      ) : (
-        <WriteModeControls onChange={change} addAttachments={props.addAttachments} />
-      )}
+    <div className="mb-2 flex min-w-0 flex-col gap-2">
+      {notice}
+      <div className="flex min-w-0 flex-wrap items-center gap-2 px-1">
+        {workspace === "present" ? (
+          <PresentStylePicker onChange={change} />
+        ) : (
+          <WriteModeControls onChange={change} addAttachments={props.addAttachments} />
+        )}
+      </div>
     </div>
   );
 }
