@@ -247,7 +247,14 @@ vi.mock("../uiStateStore", () => ({
   legacyProjectCwdPreferenceKey: () => "remote-project",
   useUiStateStore: () => [],
 }));
-vi.mock("./useSettings", () => ({ getClientSettings: () => ({ threadWorkspaces: {} }) }));
+vi.mock("./useSettings", () => ({
+  getClientSettings: () => ({
+    threadWorkspaces: {},
+    presentStyle: null,
+    writeMode: "draft",
+    reviewerStyle: "balanced",
+  }),
+}));
 vi.mock("../workspaces/workspaceStore", () => ({
   readActiveWorkspace: () => "code",
   recordThreadWorkspace: () => undefined,

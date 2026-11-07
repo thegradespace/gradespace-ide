@@ -27,6 +27,10 @@
       "types": "./src/imageAttachmentSize.ts",
       "default": "./src/imageAttachmentSize.ts"
     },
+    "./workspaces": {
+      "types": "./src/workspaces.ts",
+      "default": "./src/workspaces.ts"
+    },
     "./handoff": {
       "types": "./src/handoff.ts",
       "default": "./src/handoff.ts"

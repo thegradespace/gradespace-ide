@@ -461,6 +461,23 @@ export type ModelPreferences = {
   readonly providerModelPreferences: typeof ProviderModelPreferences.Type;
 };
 
+/** A gs-present preset by name plus the colours and fonts changed from it. */
+export const PresentationStyleChoice = Schema.Struct({
+  name: Schema.String,
+  accent: Schema.optionalKey(Schema.String),
+  second: Schema.optionalKey(Schema.String),
+  background: Schema.optionalKey(Schema.String),
+  headingFont: Schema.optionalKey(Schema.String),
+  bodyFont: Schema.optionalKey(Schema.String),
+});
+export type PresentationStyleChoice = typeof PresentationStyleChoice.Type;
+
+export const ReviewerStyleId = Schema.Literals(["calm", "balanced", "harsh", "editor-triage"]);
+export type ReviewerStyleId = typeof ReviewerStyleId.Type;
+
+export const WriteWorkspaceMode = Schema.Literals(["draft", "review"]);
+export type WriteWorkspaceMode = typeof WriteWorkspaceMode.Type;
+
 export const ClientSettingsSchema = Schema.Struct({
   notificationMode: NotificationMode.pipe(
     Schema.withDecodingDefault(Effect.succeed("off" as const)),
@@ -655,6 +672,14 @@ export const ClientSettingsSchema = Schema.Struct({
   // so a workspace this client does not know survives a downgrade and reads as Code.
   threadWorkspaces: Schema.Record(Schema.String, Schema.String).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
+  ),
+  // Defaults for new chats in the Present and Write workspaces. Null means no style is named.
+  presentStyle: Schema.NullOr(PresentationStyleChoice).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
+  writeMode: WriteWorkspaceMode.pipe(Schema.withDecodingDefault(Effect.succeed("draft" as const))),
+  reviewerStyle: ReviewerStyleId.pipe(
+    Schema.withDecodingDefault(Effect.succeed("balanced" as const)),
   ),
 });
 export type ClientSettings = typeof ClientSettingsSchema.Type;
@@ -1964,5 +1989,8 @@ export const ClientSettingsPatch = Schema.Struct({
   quickActions: Schema.optionalKey(QuickActions),
   workspaceRailEnabled: Schema.optionalKey(Schema.Boolean),
   threadWorkspaces: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+  presentStyle: Schema.optionalKey(Schema.NullOr(PresentationStyleChoice)),
+  writeMode: Schema.optionalKey(WriteWorkspaceMode),
+  reviewerStyle: Schema.optionalKey(ReviewerStyleId),
 });
 export type ClientSettingsPatch = typeof ClientSettingsPatch.Type;

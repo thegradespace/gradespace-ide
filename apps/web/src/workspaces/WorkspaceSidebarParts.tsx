@@ -5,7 +5,13 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { environmentServerConfigsAtom } from "../state/server";
-import { isSkillInstalled, workspaceDefinition, type WorkspaceId } from "./workspaces.logic";
+import { useClientSettings } from "../hooks/useSettings";
+import {
+  isSkillInstalled,
+  workspaceDefinition,
+  workspaceSkill,
+  type WorkspaceId,
+} from "./workspaces.logic";
 
 const MAIL_CONNECTOR_NOTE =
   "Connect Gmail, Google Calendar or Outlook in Claude's connectors (claude.ai → Settings → Connectors), then ask here. Every email is a draft you approve; nothing sends by itself.";
@@ -41,7 +47,9 @@ export function WorkspaceNewChatButton(props: {
 
 export function WorkspaceInfoCard({ workspace }: { workspace: WorkspaceId }) {
   const serverConfigs = useAtomValue(environmentServerConfigsAtom);
-  const { skill, opensStudio } = workspaceDefinition(workspace);
+  const writeMode = useClientSettings((settings) => settings.writeMode);
+  const { opensStudio } = workspaceDefinition(workspace);
+  const skill = workspaceSkill(workspace, { writeMode });
   if (skill === null) return null;
   const installed = [...serverConfigs.values()].some((config) =>
     isSkillInstalled(skill, config.providers),

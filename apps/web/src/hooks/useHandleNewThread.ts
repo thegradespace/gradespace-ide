@@ -98,7 +98,7 @@ export function createNewThreadHandler(router: AnyRouter): NewThreadHandler {
     const providers =
       appAtomRegistry.get(environmentServerConfigsAtom).get(projectRef.environmentId)?.providers ??
       [];
-    const seed = workspaceSeedPrompt(workspace, providers);
+    const seed = workspaceSeedPrompt(workspace, providers, getClientSettings());
     const drafts = useComposerDraftStore.getState();
     // A draft holding only another workspace's skill counts as untouched, so it is reused.
     for (const [draftKey, session] of Object.entries(drafts.draftThreadsByThreadKey)) {

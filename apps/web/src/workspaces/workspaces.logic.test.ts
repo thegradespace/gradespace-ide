@@ -8,6 +8,7 @@ import {
 } from "./workspaces.logic";
 
 const skill = (name: string, enabled = true) => ({ name, path: `/skills/${name}`, enabled });
+const defaults = { presentStyle: null, writeMode: "draft", reviewerStyle: "balanced" } as const;
 
 describe("workspaces", () => {
   it("lists untagged chats in Code and forks and subagents with their root", () => {
@@ -29,18 +30,40 @@ describe("workspaces", () => {
   });
 
   it("starts with the skill only when a provider has it enabled", () => {
-    expect(workspaceSeedPrompt("present", [{ skills: [skill("gs-present")] }])).toBe(
-      "$gs-present ",
-    );
-    expect(workspaceSeedPrompt("present", [{ skills: [skill("gs-present", false)] }])).toBe("");
-    expect(workspaceSeedPrompt("mail", [{ skills: [skill("gs-present")] }])).toBe("");
-    expect(workspaceSeedPrompt("code", [{ skills: [skill("gs-present")] }])).toBe("");
+    const present = [{ skills: [skill("gs-present")] }];
+    expect(workspaceSeedPrompt("present", present, defaults)).toBe("$gs-present ");
+    expect(
+      workspaceSeedPrompt("present", [{ skills: [skill("gs-present", false)] }], defaults),
+    ).toBe("");
+    expect(workspaceSeedPrompt("mail", present, defaults)).toBe("");
+    expect(workspaceSeedPrompt("code", present, defaults)).toBe("");
+  });
+
+  it("adds the chosen style, and Write's Review mode starts gs-review with a reviewer style", () => {
+    const providers = [{ skills: [skill("gs-present"), skill("gs-write"), skill("gs-review")] }];
+    expect(
+      workspaceSeedPrompt("present", providers, {
+        ...defaults,
+        presentStyle: { name: "Bold", accent: "#00FF88" },
+      }),
+    ).toBe("$gs-present\nStyle: Bold · accent #00FF88\n");
+    expect(workspaceSeedPrompt("write", providers, defaults)).toBe("$gs-write ");
+    expect(
+      workspaceSeedPrompt("write", providers, {
+        ...defaults,
+        writeMode: "review",
+        reviewerStyle: "harsh",
+      }),
+    ).toBe("$gs-review\nReviewer style: Harsh\n");
   });
 
   it("treats only a bare workspace skill as untouched", () => {
     expect(isWorkspaceSeedPrompt("$gs-present ")).toBe(true);
     expect(isWorkspaceSeedPrompt("$gs-present make it shorter")).toBe(false);
     expect(isWorkspaceSeedPrompt("$gs-video ")).toBe(false);
+    expect(isWorkspaceSeedPrompt("$gs-present\nStyle: Bold · accent #00FF88\n")).toBe(true);
+    expect(isWorkspaceSeedPrompt("$gs-review\nReviewer style: Harsh\n")).toBe(true);
+    expect(isWorkspaceSeedPrompt("$gs-present\nStyle: Bold\nmake it about tides")).toBe(false);
   });
 
   it("drops the tag when a draft is reused in Code", () => {

@@ -1,17 +1,24 @@
+import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 import { useSyncExternalStore } from "react";
 
+import { type DraftId, useComposerDraftStore } from "../composerDraftStore";
 import {
   readLocalStorageValue,
   subscribeLocalStorageKey,
   writeLocalStorageValue,
 } from "../hooks/useLocalStorage";
 import { getClientSettings, updateClientSettings, useClientSettings } from "../hooks/useSettings";
+import { appAtomRegistry } from "../rpc/atomRegistry";
+import { environmentServerConfigsAtom } from "../state/server";
 import {
   assignThreadWorkspace,
   DEFAULT_WORKSPACE_ID,
   isWorkspaceId,
+  isWorkspaceSeedPrompt,
   type WorkspaceId,
+  type WorkspaceSeedSettings,
+  workspaceSeedPrompt,
 } from "./workspaces.logic";
 
 const ACTIVE_WORKSPACE_STORAGE_KEY = "t3code:active-workspace:v1";
@@ -51,4 +58,25 @@ export function recordThreadWorkspace(threadId: string, workspace: WorkspaceId):
   void updateClientSettings({ threadWorkspaces: next }).catch((error: unknown) => {
     console.error("Could not save the chat's workspace.", error);
   });
+}
+
+/** Saves a Present or Write default, then refreshes an untouched composer to the new seed. */
+export function updateWorkspaceSeedSettings(
+  patch: Partial<WorkspaceSeedSettings>,
+  composer: {
+    readonly target: ScopedThreadRef | DraftId;
+    readonly environmentId: EnvironmentId;
+    readonly workspace: WorkspaceId;
+  },
+): void {
+  const next = { ...getClientSettings(), ...patch };
+  void updateClientSettings(patch).catch((error: unknown) => {
+    console.error("Could not save the workspace default.", error);
+  });
+  const drafts = useComposerDraftStore.getState();
+  const prompt = drafts.getComposerDraft(composer.target)?.prompt ?? "";
+  if (prompt.trim() !== "" && !isWorkspaceSeedPrompt(prompt)) return;
+  const providers =
+    appAtomRegistry.get(environmentServerConfigsAtom).get(composer.environmentId)?.providers ?? [];
+  drafts.setPrompt(composer.target, workspaceSeedPrompt(composer.workspace, providers, next));
 }

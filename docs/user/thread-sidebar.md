@@ -69,6 +69,13 @@ Switch with `Ctrl+1` to `Ctrl+7` on macOS or `Alt+1` to `Alt+7` on Windows and L
 **Settings → Keybindings**. Opening a chat from another workspace, from search or a link,
 moves the rail to that workspace. A chat remembers its workspace on this device only.
 
+In Present, the style button above a new chat's composer picks one of six deck styles and
+lets you change its colours and fonts. The choice adds a `Style:` line under `$gs-present`,
+which you can still edit before sending. In Write, switch **Draft | Review**: Review starts
+chats with `$gs-review` and a `Reviewer style:` line (Calm, Balanced, Harsh or Editor
+triage), and **Attach manuscript** adds a .md, .docx, .pdf or .txt file. Both choices stay
+as this device's default for new chats.
+
 Mail reads and drafts email through Claude's connectors: connect Gmail, Google Calendar or
 Outlook at claude.ai → Settings → Connectors first. To hide the rail, turn off
 **Settings → Appearance → Workspace rail**; every chat then shows in one list again.

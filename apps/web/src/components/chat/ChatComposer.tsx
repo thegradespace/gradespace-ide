@@ -278,6 +278,7 @@ import {
   usePreparingComposerImages,
 } from "./preparingComposerImages";
 import { ComposerControlsBar } from "./ComposerControlsBar";
+import { WorkspaceComposerBar } from "../../workspaces/WorkspaceComposerBar";
 import { composerCommandKeyHandler } from "./composerCommandKey";
 
 function consumePasteAsTextShortcut(deadline: { current: number }): boolean {
@@ -3142,6 +3143,22 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       data-chat-composer-form="true"
       {...threadContextDropTargetProps()}
     >
+      {routeKind === "draft" ? (
+        <WorkspaceComposerBar
+          composerDraftTarget={composerDraftTarget}
+          environmentId={environmentId}
+          threadId={routeThreadRef.threadId}
+          addAttachments={
+            showComposerAttachAction
+              ? (files) => {
+                  // After the seed's style line, not inside it.
+                  composerEditorRef.current?.focusAtEnd();
+                  return addComposerAttachments(files);
+                }
+              : null
+          }
+        />
+      ) : null}
       <ComposerBanner.Dock>
         <ComposerBanner.Column>
           <ComposerBannerStack items={shelfItems} />
