@@ -3377,7 +3377,12 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 }
                 onNewProject={openAddProjectCommandPalette}
                 onNewThread={handleNewThreadClick}
-                newThreadDisabled={projects.length === 0}
+                newThreadDisabled={
+                  projects.length === 0 &&
+                  // Outside Code a new chat needs no project, only a no-project folder.
+                  (workspace === DEFAULT_WORKSPACE_ID ||
+                    scratch.scratchEnvironmentId(null) === null)
+                }
                 newThreadName={workspaceDefinition(workspace).newChatLabel}
                 newThreadShortcutLabel={newThreadShortcutLabel}
                 newThreadInProjectShortcutLabel={newThreadInProjectShortcutLabel}
