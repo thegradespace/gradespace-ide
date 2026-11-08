@@ -35,6 +35,19 @@ export const CareerApplication = Schema.Struct({
   needsYou: Schema.optional(
     Schema.Array(Schema.Struct({ question: Schema.String, answer: OptionalText })),
   ),
+  /** Each document's count from gs-jobs' last check, against the advert's limit. */
+  documents: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String,
+        words: Schema.Number,
+        limit: Schema.optional(Schema.NullOr(Schema.Number)),
+        unit: Schema.optional(Schema.NullOr(Schema.Literals(["words", "characters"]))),
+        flags: Schema.optional(Schema.NullOr(Schema.Number)),
+      }),
+    ),
+  ),
+  polishedAt: OptionalText,
   note: OptionalText,
   foundAt: OptionalText,
   appliedAt: OptionalText,

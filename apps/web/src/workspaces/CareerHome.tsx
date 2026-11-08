@@ -6,6 +6,7 @@ import {
   careerPrompt,
   type CareerProfileRow,
   closingLabel,
+  documentChecks,
   statementSegments,
 } from "@t3tools/client-runtime/career";
 import type {
@@ -438,6 +439,29 @@ function ReviewDialog(props: {
                   ))}
                 </ul>
               ) : null}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {documentChecks(application).map((check) => (
+                  <span
+                    key={check.name}
+                    className={cn(
+                      "rounded-full border px-2 py-0.5 text-xs",
+                      check.state === "ok"
+                        ? "border-success/40 text-success"
+                        : check.state === "over"
+                          ? "border-destructive/50 text-destructive"
+                          : "border-warning/50 text-warning",
+                    )}
+                  >
+                    {check.state === "ok" ? "✓ " : ""}
+                    {check.label}
+                  </span>
+                ))}
+                {application.documents === undefined || application.documents.length === 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    Word counts not checked yet. Polish checks them and rewrites to fit.
+                  </span>
+                ) : null}
+              </div>
               {props.statement ? (
                 <p className="text-xs text-muted-foreground">
                   Highlighted lines each come from an example in your evidence bank.
@@ -491,6 +515,13 @@ function ReviewDialog(props: {
               onClick={() => props.onAction({ kind: "revise", id: application.id }, "prefill")}
             >
               Edit with agent
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => props.onAction({ kind: "polish", id: application.id }, "send")}
+            >
+              Polish
             </Button>
             <Button
               type="button"

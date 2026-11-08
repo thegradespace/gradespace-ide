@@ -1,7 +1,13 @@
 import type { CareerApplication } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import { careerHome, careerProfileRows, careerPrompt, statementSegments } from "./career.ts";
+import {
+  careerHome,
+  careerProfileRows,
+  careerPrompt,
+  documentChecks,
+  statementSegments,
+} from "./career.ts";
 
 const application = (
   id: string,
@@ -73,5 +79,23 @@ it("highlights the sentence before each evidence marker", () => {
     { text: "Hello.\n\n", evidence: null },
     { text: "I built it. ", evidence: "A" },
     { text: " Next.", evidence: null },
+  ]);
+});
+
+it("labels each document's count against its limit", () => {
+  expect(
+    documentChecks(
+      application("a", "ready", {
+        documents: [
+          { name: "Cover letter", words: 298, limit: 300 },
+          { name: "Statement", words: 520, limit: 500, flags: 0 },
+          { name: "Box", words: 900, limit: null, unit: "characters", flags: 2 },
+        ],
+      }),
+    ),
+  ).toEqual([
+    { name: "Cover letter", label: "Cover letter · 298 / 300 words", state: "ok" },
+    { name: "Statement", label: "Statement · 520 / 500 words", state: "over" },
+    { name: "Box", label: "Box · 900 characters · 2 to fix", state: "issues" },
   ]);
 });

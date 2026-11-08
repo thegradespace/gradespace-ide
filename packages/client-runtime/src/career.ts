@@ -86,6 +86,7 @@ export type CareerAction =
   | { readonly kind: "submit"; readonly id: string }
   | { readonly kind: "revise"; readonly id: string }
   | { readonly kind: "skip"; readonly id: string }
+  | { readonly kind: "polish"; readonly id: string }
   | { readonly kind: "interview"; readonly id: string }
   | { readonly kind: "followUp"; readonly id: string };
 
@@ -103,6 +104,8 @@ function careerRequest(action: CareerAction): string {
       return `Submit application ${action.id}`;
     case "revise":
       return `Revise application ${action.id}: `;
+    case "polish":
+      return `Polish application ${action.id}: check the word limits and make it sound natural.`;
     case "skip":
       return `Skip application ${action.id}.`;
     case "interview":
@@ -161,4 +164,28 @@ export function statementSegments(statement: string): ReadonlyArray<StatementSeg
   const tail = clean(statement.slice(last));
   if (tail) segments.push({ text: tail, evidence: null });
   return segments;
+}
+
+export interface DocumentCheck {
+  readonly name: string;
+  readonly label: string;
+  readonly state: "ok" | "over" | "issues";
+}
+
+/** "Cover letter · 298 / 300 words", and whether it's within its limit with nothing flagged. */
+export function documentChecks(application: CareerApplication): ReadonlyArray<DocumentCheck> {
+  return (application.documents ?? []).map((document) => {
+    const unit = document.unit ?? "words";
+    const count =
+      document.limit == null
+        ? `${document.words} ${unit}`
+        : `${document.words} / ${document.limit} ${unit}`;
+    const over = document.limit != null && document.words > document.limit;
+    const issues = (document.flags ?? 0) > 0;
+    return {
+      name: document.name,
+      label: `${document.name} · ${count}${issues ? ` · ${document.flags} to fix` : ""}`,
+      state: over ? "over" : issues ? "issues" : "ok",
+    };
+  });
 }

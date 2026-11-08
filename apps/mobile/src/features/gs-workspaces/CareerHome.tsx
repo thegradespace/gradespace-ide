@@ -5,6 +5,7 @@ import {
   careerProfileRows,
   careerPrompt,
   closingLabel,
+  documentChecks,
   statementSegments,
 } from "@t3tools/client-runtime/career";
 import { isSkillInstalled } from "@t3tools/client-runtime/workspaces";
@@ -341,6 +342,22 @@ function ReviewSheet(props: {
             </Text>
           </View>
         ))}
+        {documentChecks(application).map((check) => (
+          <Text
+            key={check.name}
+            textRole="footnote"
+            className={cn(
+              check.state === "ok"
+                ? "text-adaptive-emerald-600-400"
+                : check.state === "over"
+                  ? "text-danger-foreground"
+                  : "text-adaptive-amber-700-300",
+            )}
+          >
+            {check.state === "ok" ? "✓ " : ""}
+            {check.label}
+          </Text>
+        ))}
         {props.statement ? (
           <View className="gap-1.5">
             <Text textRole="label" className="text-foreground-muted">
@@ -383,6 +400,10 @@ function ReviewSheet(props: {
           <ListPillButton
             label="Edit with agent"
             onPress={() => props.onAction({ kind: "revise", id: application.id })}
+          />
+          <ListPillButton
+            label="Polish"
+            onPress={() => props.onAction({ kind: "polish", id: application.id })}
           />
           <ListPillButton
             label="Skip"
