@@ -97,6 +97,7 @@ import * as StudioShare from "./studioShare/StudioShare.ts";
 import * as SkillPacks from "./skillPacks/SkillPacks.ts";
 import * as EmailConnections from "./emailConnections/EmailConnections.ts";
 import * as Career from "./career/Career.ts";
+import * as Library from "./library/Library.ts";
 import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
 import * as TerminalManager from "./terminal/Manager.ts";
 import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts";
@@ -553,6 +554,7 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(SkillPacks.SkillPacks)({}),
   Layer.mock(EmailConnections.EmailConnections)({}),
   Layer.mock(Career.Career)({}),
+  Layer.mock(Library.Library)({}),
   Layer.mock(DatabaseStorage.DatabaseStorage)({}),
   Layer.mock(TerminalManager.TerminalManager)({}),
   Layer.mock(ThreadLaunchService.ThreadLaunchService)({}),

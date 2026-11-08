@@ -100,6 +100,10 @@ export const RPC_REQUIRED_SCOPES = {
   // The user's own job applications and profile status, as read by gs-jobs' files.
   [WS_METHODS.careerStatus]: AuthOrchestrationReadScope,
   [WS_METHODS.careerAnswer]: AuthOrchestrationOperateScope,
+  [WS_METHODS.libraryList]: AuthOrchestrationReadScope,
+  [WS_METHODS.libraryDelete]: AuthOrchestrationOperateScope,
+  [WS_METHODS.libraryRestore]: AuthOrchestrationOperateScope,
+  [WS_METHODS.libraryEmptyTrash]: AuthOrchestrationOperateScope,
   [WS_METHODS.peerLinksList]: AuthAccessReadScope,
   [WS_METHODS.serverUpdateSettings]: AuthSettingsWriteScope,
   [WS_METHODS.serverSearchAcpRegistry]: AuthOrchestrationReadScope,

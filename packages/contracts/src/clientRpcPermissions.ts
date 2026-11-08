@@ -52,6 +52,10 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.projectsCreateFromThread]: AuthOrchestrationOperateScope,
   // Answers to a job application's questions, which gs-jobs uses when it fills the form.
   [WS_METHODS.careerAnswer]: AuthOrchestrationOperateScope,
+  // Deleting moves an agent's output to Recently deleted; emptying removes it for good.
+  [WS_METHODS.libraryDelete]: AuthOrchestrationOperateScope,
+  [WS_METHODS.libraryRestore]: AuthOrchestrationOperateScope,
+  [WS_METHODS.libraryEmptyTrash]: AuthOrchestrationOperateScope,
   [WS_METHODS.sourceControlCloneRepository]: AuthSourceControlWriteScope,
   [WS_METHODS.sourceControlPublishRepository]: AuthSourceControlWriteScope,
   // Signing in replaces the server's GitHub credential, as saving a token in Settings does.

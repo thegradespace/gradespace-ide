@@ -8,6 +8,7 @@ export * from "./studioShare.ts";
 export * from "./skillPacks.ts";
 export * from "./emailConnections.ts";
 export * from "./career.ts";
+export * from "./library.ts";
 export * from "./acpRegistry.ts";
 export * from "./auth.ts";
 export * from "./environment.ts";

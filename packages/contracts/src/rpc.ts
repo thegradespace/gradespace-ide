@@ -100,6 +100,7 @@ import {
 } from "./skillPacks.ts";
 import { EmailConnectionsReport } from "./emailConnections.ts";
 import { CareerAnswersInput, CareerError, CareerReport } from "./career.ts";
+import { LibraryError, LibraryIdsInput, LibraryReport } from "./library.ts";
 import {
   FilesystemGetMetadataInput,
   FilesystemGetMetadataResult,
@@ -541,6 +542,10 @@ export const WS_METHODS = {
   emailConnectionsStatus: "emailConnections.status",
   careerStatus: "career.status",
   careerAnswer: "career.answer",
+  libraryList: "library.list",
+  libraryDelete: "library.delete",
+  libraryRestore: "library.restore",
+  libraryEmptyTrash: "library.emptyTrash",
   peerLinksList: "peerLinks.list",
   peerLinksLink: "peerLinks.link",
   peerLinksUnlink: "peerLinks.unlink",
@@ -921,6 +926,32 @@ const WsCareerStatusRpc = Rpc.make(WS_METHODS.careerStatus, {
   payload: Schema.Struct({}),
   success: CareerReport,
   error: EnvironmentAuthorizationError,
+});
+
+const LibraryRpcError = Schema.Union([LibraryError, EnvironmentAuthorizationError]);
+
+const WsLibraryListRpc = Rpc.make(WS_METHODS.libraryList, {
+  payload: Schema.Struct({}),
+  success: LibraryReport,
+  error: EnvironmentAuthorizationError,
+});
+
+const WsLibraryDeleteRpc = Rpc.make(WS_METHODS.libraryDelete, {
+  payload: LibraryIdsInput,
+  success: LibraryReport,
+  error: LibraryRpcError,
+});
+
+const WsLibraryRestoreRpc = Rpc.make(WS_METHODS.libraryRestore, {
+  payload: LibraryIdsInput,
+  success: LibraryReport,
+  error: LibraryRpcError,
+});
+
+const WsLibraryEmptyTrashRpc = Rpc.make(WS_METHODS.libraryEmptyTrash, {
+  payload: Schema.Struct({}),
+  success: LibraryReport,
+  error: LibraryRpcError,
 });
 
 const WsCareerAnswerRpc = Rpc.make(WS_METHODS.careerAnswer, {
@@ -2148,6 +2179,10 @@ export const WsRpcGroup = RpcGroup.make(
   WsEmailConnectionsStatusRpc,
   WsCareerStatusRpc,
   WsCareerAnswerRpc,
+  WsLibraryListRpc,
+  WsLibraryDeleteRpc,
+  WsLibraryRestoreRpc,
+  WsLibraryEmptyTrashRpc,
   WsServerUpdateSettingsRpc,
   WsPeerLinksListRpc,
   WsPeerLinksLinkRpc,

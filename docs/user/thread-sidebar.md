@@ -101,6 +101,13 @@ own evidence; **Review & send** shows what it wrote and the questions only you c
 agent fills the form and stops at Submit: an application goes in only when you press **Send**
 for it. On LinkedIn and Indeed it prepares the documents and you apply yourself.
 
+**Library** (the books icon in the rail, or the phone's menu) shows everything agents made on
+that machine: Studio sets such as decks, designs, writing options and video cuts, and Career
+applications. Search it, sort by newest or largest, jump to the chat that made an item, or
+**Reuse as a start** to open a new chat built on it. **Delete** moves an item to Recently
+deleted, where it can be restored for 30 days; **Empty now** removes it for good and frees the
+space. Deleting never removes the chat that made it.
+
 To hide the rail, turn off **Settings → Appearance → Workspace rail**; every chat then shows
 in one list again.
 

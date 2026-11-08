@@ -1242,6 +1242,27 @@ export function createServerEnvironmentAtoms<R, E>(
       staleTimeMs: 0,
       idleTtlMs: 0,
     }),
+    libraryList: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:library-list",
+      tag: WS_METHODS.libraryList,
+      staleTimeMs: 0,
+      idleTtlMs: 0,
+    }),
+    deleteLibraryItems: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:delete-library-items",
+      tag: WS_METHODS.libraryDelete,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
+    restoreLibraryItems: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:restore-library-items",
+      tag: WS_METHODS.libraryRestore,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
+    emptyLibraryTrash: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:empty-library-trash",
+      tag: WS_METHODS.libraryEmptyTrash,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
     answerCareerQuestions: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:answer-career-questions",
       tag: WS_METHODS.careerAnswer,

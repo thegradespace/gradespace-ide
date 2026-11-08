@@ -192,6 +192,7 @@ import * as StudioShare from "./studioShare/StudioShare.ts";
 import * as SkillPacks from "./skillPacks/SkillPacks.ts";
 import * as EmailConnections from "./emailConnections/EmailConnections.ts";
 import * as Career from "./career/Career.ts";
+import * as Library from "./library/Library.ts";
 import * as TerminalManager from "./terminal/Manager.ts";
 import { terminalOutputStream, withTerminalOutputWindow } from "./terminal/OutputProtocol.ts";
 import * as ServerBrowser from "./preview/ServerBrowser.ts";
@@ -1369,6 +1370,7 @@ export const layerWsRpc = (
       const skillPacks = yield* SkillPacks.SkillPacks;
       const emailConnections = yield* EmailConnections.EmailConnections;
       const career = yield* Career.Career;
+      const library = yield* Library.Library;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
       if (clientDevice !== undefined) {
         yield* serverSettings.getSettings.pipe(
@@ -2567,6 +2569,10 @@ export const layerWsRpc = (
         [WS_METHODS.emailConnectionsStatus]: () => emailConnections.status,
         [WS_METHODS.careerStatus]: () => career.status,
         [WS_METHODS.careerAnswer]: (input) => career.answer(input),
+        [WS_METHODS.libraryList]: () => library.list,
+        [WS_METHODS.libraryDelete]: (input) => library.remove(input),
+        [WS_METHODS.libraryRestore]: (input) => library.restore(input),
+        [WS_METHODS.libraryEmptyTrash]: () => library.emptyTrash,
         [WS_METHODS.peerLinksList]: (_input) =>
           peerLinks.list.pipe(Effect.map((links) => ({ links }))),
         [WS_METHODS.peerLinksLink]: (input) => peerLinks.link(input),

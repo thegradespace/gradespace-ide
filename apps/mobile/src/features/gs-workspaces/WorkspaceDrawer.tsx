@@ -10,6 +10,8 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { SymbolView, type AppSymbolName } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import { cn } from "../../lib/cn";
+import { useAdaptiveWorkspaceLayout } from "../layout/adaptive-workspace-context";
+import { LibrarySheet } from "./LibrarySheet";
 import { useWorkspacePreferences } from "./workspacePreferences";
 
 const DRAWER_WIDTH_RATIO = 0.78;
@@ -31,6 +33,8 @@ const WORKSPACE_SYMBOLS: Record<WorkspaceId, AppSymbolName> = {
 /** The round ☰ that opens the workspace drawer, the phone's version of the desktop rail. */
 export function WorkspaceMenuButton() {
   const [open, setOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const { startNewTask } = useAdaptiveWorkspaceLayout();
   return (
     <>
       <Pressable
@@ -42,7 +46,15 @@ export function WorkspaceMenuButton() {
       >
         <SymbolView name="line.3.horizontal" size={17} tintColorClassName="accent-icon" />
       </Pressable>
-      {open ? <WorkspaceDrawer onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <WorkspaceDrawer
+          onClose={() => setOpen(false)}
+          onOpenLibrary={() => setLibraryOpen(true)}
+        />
+      ) : null}
+      {libraryOpen ? (
+        <LibrarySheet onClose={() => setLibraryOpen(false)} onStartNewTask={startNewTask} />
+      ) : null}
     </>
   );
 }
@@ -78,7 +90,10 @@ export function WorkspacePill() {
   );
 }
 
-function WorkspaceDrawer(props: { readonly onClose: () => void }) {
+function WorkspaceDrawer(props: {
+  readonly onClose: () => void;
+  readonly onOpenLibrary: () => void;
+}) {
   return (
     <Modal
       visible
@@ -89,13 +104,16 @@ function WorkspaceDrawer(props: { readonly onClose: () => void }) {
     >
       {/* A Modal is its own native hierarchy, so it measures its own safe area. */}
       <SafeAreaProvider>
-        <WorkspaceDrawerPanel onClose={props.onClose} />
+        <WorkspaceDrawerPanel onClose={props.onClose} onOpenLibrary={props.onOpenLibrary} />
       </SafeAreaProvider>
     </Modal>
   );
 }
 
-function WorkspaceDrawerPanel(props: { readonly onClose: () => void }) {
+function WorkspaceDrawerPanel(props: {
+  readonly onClose: () => void;
+  readonly onOpenLibrary: () => void;
+}) {
   const { active, setActive } = useWorkspacePreferences();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -198,19 +216,18 @@ function WorkspaceDrawerPanel(props: { readonly onClose: () => void }) {
         <View className="mx-6 my-2 h-px bg-border" />
         {others.map((workspace) => row(workspace))}
         <View className="mx-6 my-2 h-px bg-border" />
-        <View
-          className="mx-3 flex-row items-center gap-3 px-3 py-3 opacity-50"
-          accessibilityLabel="Library, coming soon"
-          accessibilityState={{ disabled: true }}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Library"
+          accessibilityHint="Everything your agents made"
+          onPress={() => close(props.onOpenLibrary)}
+          className="mx-3 flex-row items-center gap-3 rounded-xl px-3 py-3 active:opacity-70"
         >
-          <SymbolView name="books.vertical" size={18} tintColorClassName="accent-icon-muted" />
-          <Text textRole="body" className="flex-1 font-t3-medium text-foreground-muted">
+          <SymbolView name="books.vertical" size={18} tintColorClassName="accent-icon" />
+          <Text textRole="body" className="flex-1 font-t3-medium text-foreground">
             Library
           </Text>
-          <Text textRole="caption" className="text-foreground-muted">
-            soon
-          </Text>
-        </View>
+        </Pressable>
       </Animated.View>
     </View>
   );

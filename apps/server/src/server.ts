@@ -8,6 +8,7 @@ import * as StudioShare from "./studioShare/StudioShare.ts";
 import * as SkillPacks from "./skillPacks/SkillPacks.ts";
 import * as EmailConnections from "./emailConnections/EmailConnections.ts";
 import * as Career from "./career/Career.ts";
+import * as Library from "./library/Library.ts";
 import * as PullRequestSyncReactor from "./orchestration-v2/PullRequestSyncReactor.ts";
 import * as PullRequestWatchReactor from "./orchestration-v2/PullRequestWatchReactor.ts";
 import * as DelegatedTaskQuestionReactor from "./orchestration-v2/DelegatedTaskQuestionReactor.ts";
@@ -598,6 +599,7 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   SkillPacks.layer,
   EmailConnections.layer,
   Career.layer,
+  Library.layer.pipe(Layer.provide(Library.layerIndex)),
   DatabaseStorage.layer.pipe(
     Layer.provide(ProjectionMaintenance.layer),
     Layer.provide(

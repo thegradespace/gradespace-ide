@@ -183,7 +183,7 @@ export function WorkspaceRail() {
         );
       })}
       <div aria-hidden className="my-1.5 h-px w-6.5 shrink-0 bg-border" />
-      <RailButton label="Library: soon" disabled>
+      <RailButton label="Library" onClick={() => void navigate({ to: "/library" })}>
         <LibraryIcon className="size-[19px]" strokeWidth={1.7} />
       </RailButton>
       <div className="flex-1" />
