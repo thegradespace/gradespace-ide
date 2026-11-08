@@ -3645,6 +3645,7 @@ export default function ChatView(props: ChatViewProps) {
                       >
                         <DraftHeroHeadline
                           draftId={draftId}
+                          threadId={threadId}
                           activeProjectRef={activeProjectRef}
                           activeProjectTitle={activeProject?.title ?? null}
                         />

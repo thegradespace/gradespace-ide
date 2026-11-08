@@ -52,6 +52,12 @@ import { InlineButton } from "../ui/button";
 import { DraftProjectName } from "./DraftProjectName";
 import { DraftHeroProjectHeading } from "./DraftHeroProjectHeading";
 import { TriageDraftHero } from "./TriageDraftHero";
+import {
+  DEFAULT_WORKSPACE_ID,
+  resolveThreadWorkspace,
+  workspaceHeading,
+} from "@t3tools/client-runtime/workspaces";
+import { useThreadWorkspaces } from "~/workspaces/workspaceStore";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import { resolveProjectDefaultProviderModelSelection } from "../../providerInstances";
 import { resolveNewThreadModelSelection } from "@t3tools/shared/usageLimits";
@@ -65,12 +71,14 @@ interface PickerItem {
 
 interface DraftHeroHeadlineProps {
   readonly draftId: DraftId | null;
+  readonly threadId: string;
   readonly activeProjectRef: ScopedProjectRef | null;
   readonly activeProjectTitle: string | null;
 }
 
 export function DraftHeroHeadline({
   draftId,
+  threadId,
   activeProjectRef,
   activeProjectTitle,
 }: DraftHeroHeadlineProps) {
@@ -81,6 +89,12 @@ export function DraftHeroHeadline({
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const projectSortOrder = useClientSettings((settings) => settings.sidebarProjectSortOrder);
+  const threadWorkspaces = useThreadWorkspaces();
+  const railEnabled = useClientSettings((settings) => settings.workspaceRailEnabled);
+  const workspace = railEnabled
+    ? resolveThreadWorkspace({ id: threadId }, threadWorkspaces)
+    : DEFAULT_WORKSPACE_ID;
+  const writeMode = useClientSettings((settings) => settings.writeMode);
   const setLogicalProjectDraftThreadId = useComposerDraftStore(
     (store) => store.setLogicalProjectDraftThreadId,
   );
@@ -415,13 +429,16 @@ export function DraftHeroHeadline({
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
       {hasResolvedProject && !isScratchDraft ? (
-        <DraftHeroProjectHeading projectName={activeProjectDisplayName ?? "Choose a project"}>
+        <DraftHeroProjectHeading
+          heading={workspaceHeading(workspace, { writeMode, withoutProject: false })}
+          projectName={activeProjectDisplayName ?? "Choose a project"}
+        >
           {projectSelector}
         </DraftHeroProjectHeading>
       ) : (
         <h1 className="w-full text-center font-normal text-2xl text-foreground tracking-tight sm:text-3xl">
           {isScratchDraft ? (
-            <>What should we work on?</>
+            <>{workspaceHeading(workspace, { writeMode, withoutProject: true })}?</>
           ) : canChooseProject ? (
             <>{projectSelector} to start</>
           ) : (

@@ -15,6 +15,8 @@ export interface WorkspaceDefinition {
   readonly command: WorkspaceKeybindingCommand;
   /** The sidebar's new-chat label. */
   readonly newChatLabel: string;
+  /** A new chat's heading, before " in <project>?". */
+  readonly heading: string;
   /** Skill a new chat starts with, as a `$skill` mention. */
   readonly skill: string | null;
   readonly opensStudio: boolean;
@@ -23,6 +25,7 @@ export interface WorkspaceDefinition {
 export const WORKSPACES: ReadonlyArray<WorkspaceDefinition> = [
   {
     id: "code",
+    heading: "What should we build",
     label: "Code",
     command: "workspaces.code",
     newChatLabel: "New thread",
@@ -31,6 +34,7 @@ export const WORKSPACES: ReadonlyArray<WorkspaceDefinition> = [
   },
   {
     id: "present",
+    heading: "What should we present",
     label: "Present",
     command: "workspaces.present",
     newChatLabel: "New deck",
@@ -39,6 +43,7 @@ export const WORKSPACES: ReadonlyArray<WorkspaceDefinition> = [
   },
   {
     id: "studio",
+    heading: "What should we design",
     label: "Studio",
     command: "workspaces.studio",
     newChatLabel: "New design",
@@ -47,6 +52,7 @@ export const WORKSPACES: ReadonlyArray<WorkspaceDefinition> = [
   },
   {
     id: "research",
+    heading: "What should we research",
     label: "Research",
     command: "workspaces.research",
     newChatLabel: "New research",
@@ -55,6 +61,7 @@ export const WORKSPACES: ReadonlyArray<WorkspaceDefinition> = [
   },
   {
     id: "write",
+    heading: "What should we write",
     label: "Write",
     command: "workspaces.write",
     newChatLabel: "New draft",
@@ -63,6 +70,7 @@ export const WORKSPACES: ReadonlyArray<WorkspaceDefinition> = [
   },
   {
     id: "mail",
+    heading: "What should we send",
     label: "Mail",
     command: "workspaces.mail",
     newChatLabel: "New email",
@@ -71,6 +79,7 @@ export const WORKSPACES: ReadonlyArray<WorkspaceDefinition> = [
   },
   {
     id: "qa",
+    heading: "What should we test",
     label: "QA",
     command: "workspaces.qa",
     newChatLabel: "New QA run",
@@ -92,6 +101,16 @@ export function isWorkspaceId(value: unknown): value is WorkspaceId {
 
 export function workspaceDefinition(id: WorkspaceId): WorkspaceDefinition {
   return WORKSPACE_BY_ID.get(id) ?? WORKSPACE_BY_ID.get(DEFAULT_WORKSPACE_ID)!;
+}
+
+/** Write's Review mode asks what to review; Code without a project keeps its open question. */
+export function workspaceHeading(
+  id: WorkspaceId,
+  options: { readonly writeMode: ClientSettings["writeMode"]; readonly withoutProject: boolean },
+): string {
+  if (id === "write" && options.writeMode === "review") return "What should we review";
+  if (id === "code" && options.withoutProject) return "What should we work on";
+  return workspaceDefinition(id).heading;
 }
 
 export function workspaceForCommand(command: string | null): WorkspaceId | null {
