@@ -87,7 +87,7 @@ full screen, and **Pick** it.
 
 Mail reads and drafts email through your agent's own email connection: the Gmail plugin
 in Codex (ChatGPT or Codex app → Plugins → Gmail) or the Gmail connector in Claude
-(claude.ai → Settings → Connectors). A new email, and the Mail list on the phone, shows
+(claude.ai → Customize → Connectors). A new email, and the Mail list on the phone, shows
 **Your email** with each agent's status: **How to connect** walks through the steps and
 **Check** looks again without starting a chat. Claude's status shows after you have started
 at least one Claude chat since connecting. The **Start** tiles (triage, draft a reply, find a

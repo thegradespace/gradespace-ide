@@ -16,7 +16,7 @@ export const MAIL_SKILL = "gs-mail";
 export const MAIL_SAFETY_NOTE =
   "Nothing is ever sent without you: replies and invites are saved as drafts for you to approve.";
 
-const CLAUDE_CONNECTORS_URL = "https://claude.ai/settings/connectors";
+const CLAUDE_CONNECTORS_URL = "https://claude.ai/new#customize/connectors";
 
 export interface EmailProviderRow {
   readonly instanceId: ProviderInstanceId;
@@ -89,8 +89,8 @@ export function emailConnectGuide(driver: ProviderDriverKind): EmailConnectGuide
   return {
     title: "Connect Gmail to Claude",
     steps: [
-      "Open claude.ai and go to Settings, then Connectors.",
-      "Find Gmail and select Connect, then sign in to your Google account.",
+      "Open claude.ai and select Customize, then Connectors.",
+      "Under Discover, find Gmail and select +, then sign in to your Google account.",
       "Start one Claude chat here so Claude Code picks up the connector.",
       "Come back here and select Check.",
     ],
