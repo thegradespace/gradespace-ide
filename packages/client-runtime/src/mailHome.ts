@@ -91,7 +91,6 @@ export function emailConnectGuide(driver: ProviderDriverKind): EmailConnectGuide
     steps: [
       "Open claude.ai and select Customize, then Connectors.",
       "Under Discover, find Gmail and select +, then sign in to your Google account.",
-      "Start one Claude chat here so Claude Code picks up the connector.",
       "Come back here and select Check.",
     ],
     link: { label: "Open claude.ai connectors", url: CLAUDE_CONNECTORS_URL },

@@ -16,7 +16,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import { ChildProcessSpawner } from "effect/process";
 
+import { runClaudeCommand } from "../provider/ClaudeProvider.ts";
 import { resolveClaudeHomePath } from "../provider/Drivers/ClaudeHome.ts";
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import * as ServerSettings from "../serverSettings.ts";
@@ -113,6 +115,19 @@ export function claudeEmailFinding(globalConfigJson: string): Finding {
     : finding;
 }
 
+const MCP_LIST_CONNECTED = /^(.+?): .* - ✔ Connected\s*$/u;
+
+/**
+ * `claude mcp list`, which fetches the account's claude.ai connectors live. Only servers it
+ * reports connected count; anything else leaves the answer to `.claude.json`.
+ */
+export function claudeMcpListEmailFinding(output: string): Finding {
+  return found(output.split(/\r?\n/u).flatMap((line) => MCP_LIST_CONNECTED.exec(line)?.[1] ?? []));
+}
+
+// `mcp list` health-checks every server, so a slow one must not hold the Mail screen.
+const MCP_LIST_TIMEOUT = "20 seconds";
+
 export class EmailConnections extends Context.Service<
   EmailConnections,
   {
@@ -125,6 +140,7 @@ const make = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const settingsService = yield* ServerSettings.ServerSettingsService;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
   const readFinding = (file: string, parse: (contents: string) => Finding, missing: Finding) =>
     fs.readFileString(file).pipe(
@@ -183,7 +199,19 @@ const make = Effect.gen(function* () {
       claudeHome === path.resolve(home, ".claude")
         ? path.join(home, ".claude.json")
         : path.join(claudeHome, ".claude.json");
-    return yield* readFinding(globalConfig, claudeEmailFinding, UNKNOWN);
+    const recorded = yield* readFinding(globalConfig, claudeEmailFinding, UNKNOWN);
+    if (recorded.state === "connected") return recorded;
+    // `.claude.json` only lists a claude.ai connector after a chat has used it.
+    const live = yield* runClaudeCommand(settings, ["mcp", "list"], environment, home).pipe(
+      Effect.map((result) =>
+        result.code === 0 ? claudeMcpListEmailFinding(result.stdout) : UNKNOWN,
+      ),
+      Effect.timeoutOption(MCP_LIST_TIMEOUT),
+      Effect.map(Option.getOrElse(() => UNKNOWN)),
+      Effect.orElseSucceed(() => UNKNOWN),
+      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+    );
+    return live.state === "unknown" ? recorded : live;
   });
 
   const status = Effect.gen(function* () {

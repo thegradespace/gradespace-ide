@@ -89,8 +89,7 @@ Mail reads and drafts email through your agent's own email connection: the Gmail
 in Codex (ChatGPT or Codex app → Plugins → Gmail) or the Gmail connector in Claude
 (claude.ai → Customize → Connectors). A new email, and the Mail list on the phone, shows
 **Your email** with each agent's status: **How to connect** walks through the steps and
-**Check** looks again without starting a chat. Claude's status shows after you have started
-at least one Claude chat since connecting. The **Start** tiles (triage, draft a reply, find a
+**Check** looks again without starting a chat. The **Start** tiles (triage, draft a reply, find a
 meeting time, follow-ups) fill in a request and pick a connected agent. Nothing is ever
 sent: replies and invites are saved as drafts for you to approve. Outlook comes later.
 

@@ -68,6 +68,19 @@ describe("claudeEmailFinding", () => {
   });
 });
 
+describe("claudeMcpListEmailFinding", () => {
+  it.each([
+    ["claude.ai Gmail: https://gmailmcp.googleapis.com/mcp/v1 - ✔ Connected", "connected"],
+    [
+      "claude.ai Gmail: https://gmailmcp.googleapis.com/mcp/v1 - ! Needs authentication",
+      "notConnected",
+    ],
+    ["Checking MCP server health…\n\nclaude.ai Docs: https://x - ✔ Connected", "notConnected"],
+  ] as const)("reads %j as %s", (output, state) => {
+    expect(EmailConnections.claudeMcpListEmailFinding(output).state).toBe(state);
+  });
+});
+
 const layer = (settings: Parameters<typeof ServerSettings.layerTest>[0]) =>
   EmailConnections.layer.pipe(
     Layer.provideMerge(ServerSettings.layerTest(settings)),
@@ -96,6 +109,14 @@ it.effect("reports every Codex and Claude instance from its own home", () =>
       JSON.stringify({ claudeAiMcpEverConnected: ["claude.ai Calendar"] }),
     );
 
+    // A connector connected on claude.ai that no chat has used yet: only `claude mcp list` sees it.
+    const fakeClaude = path.join(home, "fake-claude");
+    yield* fs.writeFileString(
+      fakeClaude,
+      "#!/bin/sh\necho 'claude.ai Gmail: https://gmailmcp.googleapis.com/mcp/v1 - ✔ Connected'\n",
+    );
+    yield* fs.chmod(fakeClaude, 0o755);
+
     const report = yield* Effect.gen(function* () {
       const service = yield* EmailConnections.EmailConnections;
       return yield* service.status;
@@ -106,6 +127,10 @@ it.effect("reports every Codex and Claude instance from its own home", () =>
             [ProviderInstanceId.make("codex_work")]: {
               driver: ProviderDriverKind.make("codex"),
               config: { homePath: workCodex },
+            },
+            [ProviderInstanceId.make("claude_work")]: {
+              driver: ProviderDriverKind.make("claudeAgent"),
+              config: { binaryPath: fakeClaude },
             },
           },
         }),
@@ -119,6 +144,7 @@ it.effect("reports every Codex and Claude instance from its own home", () =>
       ["codex", "connected", ["Gmail"]],
       ["codex_work", "connected", ["Outlook"]],
       ["claudeAgent", "notConnected", []],
+      ["claude_work", "connected", ["Gmail"]],
     ]);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
