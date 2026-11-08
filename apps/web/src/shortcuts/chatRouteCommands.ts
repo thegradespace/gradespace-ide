@@ -25,6 +25,8 @@ import { useThreadSelectionStore } from "../threadSelectionStore";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { useUiStateStore } from "../uiStateStore";
 import { type CommandHandler, registerCommands } from "./dispatcher";
+import { readActiveWorkspace } from "../workspaces/workspaceStore";
+import { DEFAULT_WORKSPACE_ID } from "@t3tools/client-runtime/workspaces";
 
 const CHAT_ROUTE_ID = "/_chat";
 
@@ -123,6 +125,18 @@ export function installChatRouteCommands(router: AnyRouter): () => void {
         void scratch.startScratchThread(environmentId);
       },
       "chat.new": (event) => {
+        // Outside Code a new chat starts without a project, as on the phone.
+        if (readActiveWorkspace() !== DEFAULT_WORKSPACE_ID) {
+          const { activeThread, activeDraftThread } = readThreadContext();
+          const environmentId = scratch.scratchEnvironmentId(
+            activeThread?.environmentId ?? activeDraftThread?.environmentId ?? null,
+          );
+          if (environmentId !== null) {
+            claim(event);
+            void scratch.startScratchThread(environmentId);
+            return;
+          }
+        }
         // The boring sidebar's folders already show the context, so it starts in
         // the current project like the legacy sidebar did.
         const { boringSidebarEnabled, legacySidebarEnabled } = getClientSettings();

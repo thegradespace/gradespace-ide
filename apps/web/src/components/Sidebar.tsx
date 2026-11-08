@@ -262,6 +262,8 @@ import {
 } from "./sidebar/SidebarThreadRow";
 import { isUntouchedWorkspaceDraft, SidebarDraftBlock } from "./sidebar/SidebarDraftBlock";
 import { useActiveWorkspace, useThreadWorkspaces } from "../workspaces/workspaceStore";
+import { useScratchProject } from "../hooks/useScratchProject";
+import { DEFAULT_WORKSPACE_ID } from "@t3tools/client-runtime/workspaces";
 import {
   filterThreadsForWorkspace,
   resolveThreadWorkspace,
@@ -1060,6 +1062,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const newThreadContext = useHandleNewThread();
   // Row callbacks capture only the handler; the rest of the context changes with the route.
   const { handleNewThread } = newThreadContext;
+  const scratch = useScratchProject();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const clearSelection = useThreadSelectionStore((s) => s.clearSelection);
   const setSelectionAnchor = useThreadSelectionStore((s) => s.setAnchor);
@@ -3022,6 +3025,20 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const showJumpHints = useThreadJumpHintsVisible(shouldShowJumpHintsNow);
 
   const handleNewThreadClick = (event?: ReactMouseEvent) => {
+    // Outside Code a new chat starts without a project, as on the phone.
+    const scratchEnvironment =
+      workspace === DEFAULT_WORKSPACE_ID
+        ? null
+        : scratch.scratchEnvironmentId(
+            newThreadContext.activeThread?.environmentId ??
+              newThreadContext.activeDraftThread?.environmentId ??
+              null,
+          );
+    if (scratchEnvironment !== null) {
+      if (isMobile) setOpenMobile(false);
+      void scratch.startScratchThread(scratchEnvironment);
+      return;
+    }
     if (
       boringSidebarEnabled ||
       shouldCreateNewThreadInCurrentProject(
