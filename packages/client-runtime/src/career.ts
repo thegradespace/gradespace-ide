@@ -189,3 +189,11 @@ export function documentChecks(application: CareerApplication): ReadonlyArray<Do
     };
   });
 }
+
+const STANDARD_QUESTION =
+  /right to work|work permit|visa|sponsor|notice|start date|security clearance|clearance|driving|licen[cs]e|criminal|convictions|disability|relocat/iu;
+
+/** Questions whose answer is the same for every application start ticked to be remembered. */
+export function rememberByDefault(question: string): boolean {
+  return STANDARD_QUESTION.test(question);
+}

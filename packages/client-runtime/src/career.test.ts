@@ -6,6 +6,7 @@ import {
   careerProfileRows,
   careerPrompt,
   documentChecks,
+  rememberByDefault,
   statementSegments,
 } from "./career.ts";
 
@@ -98,4 +99,11 @@ it("labels each document's count against its limit", () => {
     { name: "Statement", label: "Statement · 520 / 500 words", state: "over" },
     { name: "Box", label: "Box · 900 characters · 2 to fix", state: "issues" },
   ]);
+});
+
+it("remembers standard answers by default but not job-specific ones", () => {
+  expect(rememberByDefault("Permanent UK right to work?")).toBe(true);
+  expect(rememberByDefault("Notice period / start date")).toBe(true);
+  expect(rememberByDefault("Any Power BI or Tableau experience?")).toBe(false);
+  expect(rememberByDefault("Salary expectation (advert £50k-£80k)")).toBe(false);
 });

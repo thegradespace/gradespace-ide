@@ -92,3 +92,60 @@ it.effect("reports the profile's parts and the applications from ~/.gradespace/c
     expect(empty).toEqual({ profile: null, applications: [], previews: [] });
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
+
+describe("applyCareerAnswers", () => {
+  const applications = JSON.stringify({
+    applications: [
+      {
+        ...entry,
+        status: "ready",
+        custom: "kept",
+        needsYou: [
+          { question: "Expected salary", answer: null },
+          { question: "Notice period", answer: null },
+        ],
+      },
+    ],
+  });
+  const now = "2026-11-09T08:00:00.000Z";
+
+  it("answers questions, keeps the skill's fields and remembers what the user asked", () => {
+    const next = Career.applyCareerAnswers(
+      {
+        applications,
+        answers: JSON.stringify([{ question: "Notice period", answer: "old", source: "profile" }]),
+        profile: JSON.stringify({ name: "Ada", standardAnswers: [] }),
+      },
+      {
+        id: "a",
+        answers: [
+          { question: "expected salary ", answer: "£45,000", remember: false },
+          { question: "Notice period", answer: "One month", remember: true },
+          { question: "Blank", answer: "  ", remember: true },
+        ],
+      },
+      now,
+    );
+    const [application] = JSON.parse(next?.applications ?? "{}").applications;
+    expect(application.needsYou).toEqual([]);
+    expect(application.custom).toBe("kept");
+    expect(application.answersUpdatedAt).toBe("2026-11-09");
+    expect(JSON.parse(next?.answers ?? "[]")).toEqual([
+      { question: "Notice period", answer: "One month", source: "you", answeredAt: "2026-11-09" },
+      { question: "expected salary ", answer: "£45,000", source: "you", answeredAt: "2026-11-09" },
+    ]);
+    expect(JSON.parse(next?.profile ?? "{}").standardAnswers).toEqual([
+      { question: "Notice period", answer: "One month" },
+    ]);
+  });
+
+  it("returns null for an application that isn't in the file", () => {
+    expect(
+      Career.applyCareerAnswers(
+        { applications, answers: null, profile: null },
+        { id: "missing", answers: [] },
+        now,
+      ),
+    ).toBeNull();
+  });
+});

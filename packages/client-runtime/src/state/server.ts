@@ -1242,6 +1242,11 @@ export function createServerEnvironmentAtoms<R, E>(
       staleTimeMs: 0,
       idleTtlMs: 0,
     }),
+    answerCareerQuestions: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:answer-career-questions",
+      tag: WS_METHODS.careerAnswer,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
     installSkillPacks: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:install-skill-packs",
       tag: WS_METHODS.skillPacksInstall,

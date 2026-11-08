@@ -6,8 +6,13 @@ import {
   careerPrompt,
   closingLabel,
   documentChecks,
+  rememberByDefault,
   statementSegments,
 } from "@t3tools/client-runtime/career";
+import {
+  isAtomCommandInterrupted,
+  squashAtomCommandFailure,
+} from "@t3tools/client-runtime/state/runtime";
 import { isSkillInstalled } from "@t3tools/client-runtime/workspaces";
 import type {
   CareerApplication,
@@ -17,14 +22,17 @@ import type {
 } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, TextInput, View } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
 import { Button } from "../../components/ui/Button";
+import * as Dialog from "../../components/ui/Dialog";
+import { ThemedSwitch } from "../../components/ui/ThemedSwitch";
 import { Sheet } from "../../components/ui/Sheet";
 import { cn } from "../../lib/cn";
 import { useServerConfigs } from "../../state/entities";
 import { serverEnvironment } from "../../state/server";
+import { useAtomCommand } from "../../state/use-atom-command";
 import { ListPillButton } from "./MailHome";
 import { requestNewTaskSeed } from "./workspacePreferences";
 
@@ -73,10 +81,18 @@ function CareerReportQuery(props: {
   const result = useAtomValue(query);
   const refresh = useAtomRefresh(query);
   if (!AsyncResult.isSuccess(result)) return null;
-  return <CareerHomeBody {...props} report={result.value} onRefresh={refresh} />;
+  return (
+    <CareerHomeBody
+      {...props}
+      environmentId={props.environmentId}
+      report={result.value}
+      onRefresh={refresh}
+    />
+  );
 }
 
 function CareerHomeBody(props: {
+  readonly environmentId: EnvironmentId;
   readonly report: CareerReport;
   readonly providers: ReadonlyArray<ServerProvider>;
   readonly compact: boolean;
@@ -84,7 +100,12 @@ function CareerHomeBody(props: {
   readonly onRefresh: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [reviewing, setReviewing] = useState<CareerApplication | null>(null);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  // By id, so saved answers show as soon as the report refreshes.
+  const reviewing =
+    props.report.applications.find((application) => application.id === reviewingId) ?? null;
+  const setReviewing = (application: CareerApplication | null) =>
+    setReviewingId(application?.id ?? null);
   const today = todayIso();
   const home = careerHome(props.report, today);
   const skillInstalled = isSkillInstalled(JOBS_SKILL, props.providers);
@@ -186,6 +207,8 @@ function CareerHomeBody(props: {
         statement={
           props.report.previews.find((preview) => preview.id === reviewing.id)?.statement ?? null
         }
+        environmentId={props.environmentId}
+        onAnswered={props.onRefresh}
         onClose={() => setReviewing(null)}
         onAction={start}
       />
@@ -313,6 +336,8 @@ function Dot(props: { readonly tone: "good" | "warn" | "bad" }) {
 function ReviewSheet(props: {
   readonly application: CareerApplication;
   readonly statement: string | null;
+  readonly environmentId: EnvironmentId;
+  readonly onAnswered: () => void;
   readonly onClose: () => void;
   readonly onAction: (action: CareerAction) => void;
 }) {
@@ -377,19 +402,13 @@ function ReviewSheet(props: {
           </View>
         ) : null}
         {unanswered.length > 0 ? (
-          <View className="gap-1.5">
-            <Text textRole="headline" className="font-t3-bold text-foreground">
-              Needs you
-            </Text>
-            {unanswered.map((item) => (
-              <Text key={item.question} textRole="footnote" className="text-foreground">
-                • {item.question}
-              </Text>
-            ))}
-            <Text textRole="label" className="text-foreground-muted">
-              The agent asks for these before it submits.
-            </Text>
-          </View>
+          <NeedsYouForm
+            key={application.id}
+            applicationId={application.id}
+            questions={unanswered.map((item) => item.question)}
+            environmentId={props.environmentId}
+            onSaved={props.onAnswered}
+          />
         ) : null}
         <Button
           label="Send application"
@@ -412,5 +431,93 @@ function ReviewSheet(props: {
         </View>
       </ScrollView>
     </Sheet>
+  );
+}
+
+function NeedsYouForm(props: {
+  readonly applicationId: string;
+  readonly questions: ReadonlyArray<string>;
+  readonly environmentId: EnvironmentId;
+  readonly onSaved: () => void;
+}) {
+  const save = useAtomCommand(serverEnvironment.answerCareerQuestions, { reportFailure: false });
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [remember, setRemember] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(props.questions.map((question) => [question, rememberByDefault(question)])),
+  );
+  const [saving, setSaving] = useState(false);
+  const filled = props.questions.filter((question) => (answers[question] ?? "").trim() !== "");
+
+  const onSave = async () => {
+    if (saving || filled.length === 0) return;
+    setSaving(true);
+    const result = await save({
+      environmentId: props.environmentId,
+      input: {
+        id: props.applicationId,
+        answers: filled.map((question) => ({
+          question,
+          answer: (answers[question] ?? "").trim(),
+          remember: remember[question] === true,
+        })),
+      },
+    });
+    setSaving(false);
+    if (result._tag === "Success") {
+      props.onSaved();
+      return;
+    }
+    if (!isAtomCommandInterrupted(result)) {
+      const failure = squashAtomCommandFailure(result);
+      Dialog.alert(
+        "Could not save your answers",
+        failure instanceof Error ? failure.message : "Try again in a moment.",
+      );
+    }
+  };
+
+  return (
+    <View className="gap-2">
+      <Text textRole="headline" className="font-t3-bold text-foreground">
+        Needs you
+      </Text>
+      <Text textRole="label" className="text-foreground-muted">
+        The agent uses these when it fills the form.
+      </Text>
+      {props.questions.map((question) => (
+        <View key={question} className="gap-2 rounded-xl border border-border bg-screen p-3">
+          <Text textRole="footnote" className="text-foreground">
+            {question}
+          </Text>
+          <TextInput
+            accessibilityLabel={question}
+            value={answers[question] ?? ""}
+            onChangeText={(value) => setAnswers((current) => ({ ...current, [question]: value }))}
+            placeholder="Your answer"
+            placeholderTextColorClassName="accent-foreground-muted"
+            className="min-h-10 rounded-lg border border-border px-3 font-sans text-base text-foreground"
+          />
+          <View className="flex-row items-center gap-2">
+            <Text textRole="label" className="min-w-0 flex-1 text-foreground-muted">
+              Use for every application
+            </Text>
+            <ThemedSwitch
+              accessibilityLabel={`Use this answer for every application: ${question}`}
+              value={remember[question] === true}
+              onValueChange={(value) =>
+                setRemember((current) => ({ ...current, [question]: value }))
+              }
+            />
+          </View>
+        </View>
+      ))}
+      <Button
+        label={
+          saving ? "Saving…" : filled.length > 1 ? `Save ${filled.length} answers` : "Save answer"
+        }
+        disabled={saving || filled.length === 0}
+        onPress={() => void onSave()}
+      />
+    </View>
   );
 }

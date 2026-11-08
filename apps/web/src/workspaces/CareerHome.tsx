@@ -7,8 +7,13 @@ import {
   type CareerProfileRow,
   closingLabel,
   documentChecks,
+  rememberByDefault,
   statementSegments,
 } from "@t3tools/client-runtime/career";
+import {
+  isAtomCommandInterrupted,
+  squashAtomCommandFailure,
+} from "@t3tools/client-runtime/state/runtime";
 import type {
   CareerApplication,
   CareerReport,
@@ -20,6 +25,8 @@ import { ShieldCheckIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
+import { Input } from "../components/ui/input";
 import {
   Dialog,
   DialogDescription,
@@ -34,6 +41,7 @@ import { type DraftId, useComposerDraftStore } from "../composerDraftStore";
 import { useClientSettings } from "../hooks/useSettings";
 import { cn } from "../lib/utils";
 import { environmentServerConfigsAtom, serverEnvironment } from "../state/server";
+import { useAtomCommand } from "../state/use-atom-command";
 import { useThreadWorkspaces } from "./workspaceStore";
 import {
   isSkillInstalled,
@@ -105,7 +113,12 @@ function CareerHomeBody(
     onRefresh: () => void;
   },
 ) {
-  const [reviewing, setReviewing] = useState<CareerApplication | null>(null);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  // By id, so saved answers show as soon as the report refreshes.
+  const reviewing =
+    props.report.applications.find((application) => application.id === reviewingId) ?? null;
+  const setReviewing = (application: CareerApplication | null) =>
+    setReviewingId(application?.id ?? null);
   const today = todayIso();
   const home = careerHome(props.report, today);
   const skillInstalled = isSkillInstalled(JOBS_SKILL, props.providers);
@@ -291,6 +304,8 @@ function CareerHomeBody(
         statement={
           props.report.previews.find((preview) => preview.id === reviewing?.id)?.statement ?? null
         }
+        environmentId={props.environmentId}
+        onAnswered={props.onRefresh}
         onClose={() => setReviewing(null)}
         onAction={(action, mode) => run(action, mode)}
       />
@@ -396,6 +411,8 @@ function Dot({ tone }: { tone: "good" | "warn" | "bad" }) {
 function ReviewDialog(props: {
   application: CareerApplication | null;
   statement: string | null;
+  environmentId: EnvironmentId;
+  onAnswered: () => void;
   onClose: () => void;
   onAction: (action: CareerAction, mode: "send" | "prefill") => void;
 }) {
@@ -486,18 +503,13 @@ function ReviewDialog(props: {
                 </div>
               ) : null}
               {unanswered.length > 0 ? (
-                <div className="flex flex-col gap-1.5">
-                  <h3 className="text-sm font-medium text-foreground">Needs you</h3>
-                  {unanswered.map((item) => (
-                    <div
-                      key={item.question}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-                    >
-                      <span className="text-foreground">{item.question}</span>
-                      <span className="text-xs text-muted-foreground">The agent will ask</span>
-                    </div>
-                  ))}
-                </div>
+                <NeedsYouForm
+                  key={application.id}
+                  applicationId={application.id}
+                  questions={unanswered.map((item) => item.question)}
+                  environmentId={props.environmentId}
+                  onSaved={props.onAnswered}
+                />
               ) : null}
             </div>
           </DialogPanel>
@@ -540,5 +552,97 @@ function ReviewDialog(props: {
         </DialogPopup>
       ) : null}
     </Dialog>
+  );
+}
+
+function NeedsYouForm(props: {
+  applicationId: string;
+  questions: ReadonlyArray<string>;
+  environmentId: EnvironmentId;
+  onSaved: () => void;
+}) {
+  const save = useAtomCommand(serverEnvironment.answerCareerQuestions, { reportFailure: false });
+  const allowed = useAtomValue(
+    serverEnvironment.answerCareerQuestions.permissionAtom(props.environmentId),
+  );
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [remember, setRemember] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(props.questions.map((question) => [question, rememberByDefault(question)])),
+  );
+  const [saving, setSaving] = useState(false);
+  const filled = props.questions.filter((question) => (answers[question] ?? "").trim() !== "");
+
+  const onSave = async () => {
+    if (saving || filled.length === 0) return;
+    setSaving(true);
+    const result = await save({
+      environmentId: props.environmentId,
+      input: {
+        id: props.applicationId,
+        answers: filled.map((question) => ({
+          question,
+          answer: (answers[question] ?? "").trim(),
+          remember: remember[question] === true,
+        })),
+      },
+    });
+    setSaving(false);
+    if (result._tag === "Success") {
+      props.onSaved();
+      return;
+    }
+    if (!isAtomCommandInterrupted(result)) {
+      const failure = squashAtomCommandFailure(result);
+      toastManager.add({
+        type: "error",
+        title: "Could not save your answers",
+        description: failure instanceof Error ? failure.message : "Try again in a moment.",
+      });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="text-sm font-medium text-foreground">Needs you</h3>
+        <span className="text-xs text-muted-foreground">
+          The agent uses these when it fills the form
+        </span>
+      </div>
+      {props.questions.map((question) => (
+        <div key={question} className="flex flex-col gap-1.5 rounded-lg border border-border p-2.5">
+          <span className="text-sm text-foreground">{question}</span>
+          <Input
+            aria-label={question}
+            value={answers[question] ?? ""}
+            disabled={!allowed}
+            placeholder="Your answer"
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              setAnswers((current) => ({ ...current, [question]: value }));
+            }}
+          />
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Checkbox
+              checked={remember[question] === true}
+              onCheckedChange={(checked) =>
+                setRemember((current) => ({ ...current, [question]: checked === true }))
+              }
+            />
+            Use for every application
+          </label>
+        </div>
+      ))}
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          size="sm"
+          disabled={!allowed || saving || filled.length === 0}
+          onClick={() => void onSave()}
+        >
+          {saving ? "Saving…" : filled.length > 1 ? `Save ${filled.length} answers` : "Save answer"}
+        </Button>
+      </div>
+    </div>
   );
 }

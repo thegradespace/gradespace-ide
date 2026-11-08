@@ -73,6 +73,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.skillPacksRemove]: "server",
   [WS_METHODS.emailConnectionsStatus]: "server",
   [WS_METHODS.careerStatus]: "server",
+  [WS_METHODS.careerAnswer]: "server",
   [WS_METHODS.peerLinksList]: "peerLinks",
   [WS_METHODS.peerLinksLink]: "peerLinks",
   [WS_METHODS.peerLinksUnlink]: "peerLinks",

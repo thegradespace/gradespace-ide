@@ -99,7 +99,7 @@ import {
   SkillPackUpdateInput,
 } from "./skillPacks.ts";
 import { EmailConnectionsReport } from "./emailConnections.ts";
-import { CareerReport } from "./career.ts";
+import { CareerAnswersInput, CareerError, CareerReport } from "./career.ts";
 import {
   FilesystemGetMetadataInput,
   FilesystemGetMetadataResult,
@@ -540,6 +540,7 @@ export const WS_METHODS = {
   skillPacksRemove: "skillPacks.remove",
   emailConnectionsStatus: "emailConnections.status",
   careerStatus: "career.status",
+  careerAnswer: "career.answer",
   peerLinksList: "peerLinks.list",
   peerLinksLink: "peerLinks.link",
   peerLinksUnlink: "peerLinks.unlink",
@@ -920,6 +921,12 @@ const WsCareerStatusRpc = Rpc.make(WS_METHODS.careerStatus, {
   payload: Schema.Struct({}),
   success: CareerReport,
   error: EnvironmentAuthorizationError,
+});
+
+const WsCareerAnswerRpc = Rpc.make(WS_METHODS.careerAnswer, {
+  payload: CareerAnswersInput,
+  success: CareerReport,
+  error: Schema.Union([CareerError, EnvironmentAuthorizationError]),
 });
 
 const WsPeerLinksListRpc = Rpc.make(WS_METHODS.peerLinksList, {
@@ -2140,6 +2147,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsSkillPacksRemoveRpc,
   WsEmailConnectionsStatusRpc,
   WsCareerStatusRpc,
+  WsCareerAnswerRpc,
   WsServerUpdateSettingsRpc,
   WsPeerLinksListRpc,
   WsPeerLinksLinkRpc,

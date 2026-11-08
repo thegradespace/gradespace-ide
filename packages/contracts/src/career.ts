@@ -83,3 +83,20 @@ export const CareerReport = Schema.Struct({
   previews: Schema.Array(Schema.Struct({ id: Schema.String, statement: Schema.String })),
 });
 export type CareerReport = typeof CareerReport.Type;
+
+export const CareerAnswersInput = Schema.Struct({
+  id: Schema.String,
+  answers: Schema.Array(
+    Schema.Struct({
+      question: Schema.String,
+      answer: Schema.String,
+      /** Also save it to the profile, so later applications fill it in without asking. */
+      remember: Schema.Boolean,
+    }),
+  ),
+});
+export type CareerAnswersInput = typeof CareerAnswersInput.Type;
+
+export class CareerError extends Schema.TaggedError<CareerError>()("CareerError", {
+  reason: Schema.Literals(["unknownApplication", "unreadable", "writeFailed"]),
+}) {}

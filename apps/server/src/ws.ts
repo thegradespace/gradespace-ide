@@ -2566,6 +2566,7 @@ export const layerWsRpc = (
         [WS_METHODS.skillPacksRemove]: ({ names }) => skillPacks.remove(names),
         [WS_METHODS.emailConnectionsStatus]: () => emailConnections.status,
         [WS_METHODS.careerStatus]: () => career.status,
+        [WS_METHODS.careerAnswer]: (input) => career.answer(input),
         [WS_METHODS.peerLinksList]: (_input) =>
           peerLinks.list.pipe(Effect.map((links) => ({ links }))),
         [WS_METHODS.peerLinksLink]: (input) => peerLinks.link(input),
