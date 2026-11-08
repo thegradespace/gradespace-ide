@@ -3024,6 +3024,10 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   );
   const showJumpHints = useThreadJumpHintsVisible(shouldShowJumpHintsNow);
 
+  // Outside Code a new chat needs no project, only a no-project folder.
+  const newChatDisabled =
+    projects.length === 0 &&
+    (workspace === DEFAULT_WORKSPACE_ID || scratch.scratchEnvironmentId(null) === null);
   const handleNewThreadClick = (event?: ReactMouseEvent) => {
     // Outside Code a new chat starts without a project, as on the phone.
     const scratchEnvironment =
@@ -3377,12 +3381,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 }
                 onNewProject={openAddProjectCommandPalette}
                 onNewThread={handleNewThreadClick}
-                newThreadDisabled={
-                  projects.length === 0 &&
-                  // Outside Code a new chat needs no project, only a no-project folder.
-                  (workspace === DEFAULT_WORKSPACE_ID ||
-                    scratch.scratchEnvironmentId(null) === null)
-                }
+                newThreadDisabled={newChatDisabled}
                 newThreadName={workspaceDefinition(workspace).newChatLabel}
                 newThreadShortcutLabel={newThreadShortcutLabel}
                 newThreadInProjectShortcutLabel={newThreadInProjectShortcutLabel}
@@ -3409,7 +3408,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               {workspace !== "code" ? (
                 <WorkspaceNewChatButton
                   workspace={workspace}
-                  disabled={projects.length === 0}
+                  disabled={newChatDisabled}
                   shortcutLabel={newThreadShortcutLabel}
                   onClick={handleNewThreadClick}
                 />
