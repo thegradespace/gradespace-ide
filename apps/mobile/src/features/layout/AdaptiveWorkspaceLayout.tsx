@@ -7,6 +7,7 @@ import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area
 import { AdaptiveWorkspaceContext, useAdaptiveWorkspaceLayout } from "./adaptive-workspace-context";
 import { threadSelectionDeferral } from "./deferred-navigation";
 import { uuidv4 } from "../../lib/uuid";
+import { openWorkspaceScratchProject } from "../gs-workspaces/workspaceScratchProject";
 import type {
   EnvironmentProject,
   EnvironmentThreadShell,
@@ -619,14 +620,25 @@ function AdaptiveWorkspaceLayoutContent(
         : undefined;
     const preferences = appAtomRegistry.get(mobilePreferencesAtom);
     const saved = AsyncResult.isSuccess(preferences) ? preferences.value : undefined;
-    handleSelectThreadRoute(
-      newTaskDestination({
-        projects,
-        requestId: uuidv4(),
-        useLastProject: saved?.useLastProjectForNewThreads,
-        currentProject: environmentId && projectId ? { environmentId, projectId } : undefined,
-        lastProject: saved?.lastThreadProject,
-      }),
+    const requestId = uuidv4();
+    void openWorkspaceScratchProject(environmentId).then((scratch) =>
+      handleSelectThreadRoute(
+        scratch
+          ? {
+              draft: {
+                requestId,
+                environmentId: String(scratch.environmentId),
+                projectId: String(scratch.id),
+              },
+            }
+          : newTaskDestination({
+              projects,
+              requestId,
+              useLastProject: saved?.useLastProjectForNewThreads,
+              currentProject: environmentId && projectId ? { environmentId, projectId } : undefined,
+              lastProject: saved?.lastThreadProject,
+            }),
+      ),
     );
   };
 
