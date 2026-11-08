@@ -93,6 +93,14 @@ in Codex (ChatGPT or Codex app → Plugins → Gmail) or the Gmail connector in 
 meeting time, follow-ups) fill in a request and pick a connected agent. Nothing is ever
 sent: replies and invites are saved as drafts for you to approve. Outlook comes later.
 
+Career finds jobs and prepares applications with the `gs-jobs` skill. The first time, attach
+your CV and the agent builds a master CV, an evidence bank and a career record on your computer
+(in `~/.gradespace/career/`), or it reuses a career skill you already have. **Find more**
+searches the job sites in your profile; **Prepare** writes a tailored CV and statement from your
+own evidence; **Review & send** shows what it wrote and the questions only you can answer. The
+agent fills the form and stops at Submit: an application goes in only when you press **Send**
+for it. On LinkedIn and Indeed it prepares the documents and you apply yourself.
+
 To hide the rail, turn off **Settings → Appearance → Workspace rail**; every chat then shows
 in one list again.
 

@@ -236,6 +236,7 @@ export const make = Effect.gen(function* () {
       studioShare: true,
       skillPacks: true,
       emailConnections: true,
+      career: true,
       otlpEndpointCheck: true,
       projectWorktreeCleanup: true,
       settledWorktreeCleanup: true,

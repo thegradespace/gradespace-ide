@@ -35,6 +35,10 @@
       "types": "./src/workspaces.ts",
       "default": "./src/workspaces.ts"
     },
+    "./career": {
+      "types": "./src/career.ts",
+      "default": "./src/career.ts"
+    },
     "./mailHome": {
       "types": "./src/mailHome.ts",
       "default": "./src/mailHome.ts"

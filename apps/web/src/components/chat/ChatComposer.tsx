@@ -294,6 +294,8 @@ export interface ChatComposerHandle {
   focusAt: (cursor: number) => void;
   addDroppedFiles: (files: File[]) => void;
   addDroppedFolders: (folders: File[]) => void;
+  /** Replaces the message with `text` and sends it, as the Send button would. */
+  sendText: (text: string) => void;
   hasPendingAttachments: () => boolean;
   insertTextAtEnd: (
     text: string,
@@ -2793,6 +2795,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         });
       },
       addDroppedFolders: addComposerFoldersStable,
+      sendText: (text: string) => {
+        promptRef.current = text;
+        // Render the new text first so the send-state checks see it, not the old message.
+        flushSync(() => setComposerDraftPrompt(composerDraftTarget, text));
+        submitComposerStable();
+      },
       hasPendingAttachments: () =>
         countPreparingComposerImages(attachmentTargetKey) > 0 ||
         pendingDraftWork.has(attachmentTargetKey),

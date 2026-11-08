@@ -97,6 +97,8 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.skillPacksRemove]: AuthEnvironmentMaintainScope,
   // Only says whether an email connector is set up, never its account or messages.
   [WS_METHODS.emailConnectionsStatus]: AuthOrchestrationReadScope,
+  // The user's own job applications and profile status, as read by gs-jobs' files.
+  [WS_METHODS.careerStatus]: AuthOrchestrationReadScope,
   [WS_METHODS.peerLinksList]: AuthAccessReadScope,
   [WS_METHODS.serverUpdateSettings]: AuthSettingsWriteScope,
   [WS_METHODS.serverSearchAcpRegistry]: AuthOrchestrationReadScope,

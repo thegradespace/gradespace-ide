@@ -1,4 +1,5 @@
 import {
+  BriefcaseIcon,
   CodeXmlIcon,
   LayoutGridIcon,
   MailIcon,
@@ -19,4 +20,5 @@ export const WORKSPACE_ICONS: Record<WorkspaceId, LucideIcon> = {
   write: PencilIcon,
   mail: MailIcon,
   qa: ShieldCheckIcon,
+  career: BriefcaseIcon,
 };

@@ -87,6 +87,7 @@ import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
 import { MailHome } from "../gs-workspaces/MailHome";
+import { CareerHome } from "../gs-workspaces/CareerHome";
 import { WorkspaceStudioShortcut } from "../gs-workspaces/WorkspaceStudioShortcut";
 import { showsAppEmptyState, workspaceEmptyCopy } from "../gs-workspaces/workspaceEmptyState";
 import { useWorkspacePreferences } from "../gs-workspaces/workspacePreferences";
@@ -726,6 +727,8 @@ export function HomeScreen(props: HomeScreenProps) {
       ?.environmentId ??
     null;
   const showsMailHome = activeWorkspace === "mail" && !hasSearchQuery;
+  const showsCareerHome = activeWorkspace === "career" && !hasSearchQuery;
+  const showsWorkspaceHome = showsMailHome || showsCareerHome;
 
   const v2ListHeader = (
     <>
@@ -733,6 +736,13 @@ export function HomeScreen(props: HomeScreenProps) {
       <WorkspaceStudioShortcut threads={props.threads} />
       {showsMailHome && threadListV2Items.length > 0 ? (
         <MailHome environmentId={mailEnvironmentId} compact onStartNewTask={props.onStartNewTask} />
+      ) : null}
+      {showsCareerHome && threadListV2Items.length > 0 ? (
+        <CareerHome
+          environmentId={mailEnvironmentId}
+          compact
+          onStartNewTask={props.onStartNewTask}
+        />
       ) : null}
       {Platform.OS === "ios" && workspace ? (
         <ThreadListFilters
@@ -762,6 +772,12 @@ export function HomeScreen(props: HomeScreenProps) {
       <View className="w-full items-center px-4 py-4">
         <View className="w-full max-w-[430px]">
           <MailHome environmentId={mailEnvironmentId} onStartNewTask={props.onStartNewTask} />
+        </View>
+      </View>
+    ) : showsCareerHome ? (
+      <View className="w-full items-center px-4 py-4">
+        <View className="w-full max-w-[430px]">
+          <CareerHome environmentId={mailEnvironmentId} onStartNewTask={props.onStartNewTask} />
         </View>
       </View>
     ) : activeWorkspace !== "code" ? (
@@ -800,7 +816,7 @@ export function HomeScreen(props: HomeScreenProps) {
           style={{ paddingBottom: insets.bottom }}
         >
           {v2ListHeader}
-          {showsMailHome ? (
+          {showsWorkspaceHome ? (
             <ScrollView className="flex-1">{v2ListEmpty}</ScrollView>
           ) : (
             <View className="flex-1 items-center justify-center">{v2ListEmpty}</View>

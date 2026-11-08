@@ -25,6 +25,7 @@ const WORKSPACE_SYMBOLS: Record<WorkspaceId, AppSymbolName> = {
   write: "pencil",
   mail: "envelope",
   qa: "checkmark.shield",
+  career: "briefcase",
 };
 
 /** The round ☰ that opens the workspace drawer, the phone's version of the desktop rail. */

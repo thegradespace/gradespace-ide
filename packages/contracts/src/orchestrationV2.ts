@@ -449,6 +449,7 @@ export const ThreadWorkspaceId = Schema.Literals([
   "write",
   "mail",
   "qa",
+  "career",
 ]);
 export type ThreadWorkspaceId = typeof ThreadWorkspaceId.Type;
 

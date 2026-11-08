@@ -96,6 +96,8 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   skillPacks: Schema.optionalKey(Schema.Boolean),
   /** Serves `emailConnections.status`; clients show unknown email status without it. */
   emailConnections: Schema.optionalKey(Schema.Boolean),
+  /** Serves `career.status` and accepts the `career` thread workspace. */
+  career: Schema.optionalKey(Schema.Boolean),
   otlpEndpointCheck: Schema.optionalKey(Schema.Boolean),
   projectWorktreeCleanup: Schema.optionalKey(Schema.Boolean),
   settledWorktreeCleanup: Schema.optionalKey(Schema.Boolean),

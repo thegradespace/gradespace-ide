@@ -86,6 +86,15 @@ export const WORKSPACES: ReadonlyArray<WorkspaceDefinition> = [
     skill: "gs-qa",
     opensStudio: false,
   },
+  {
+    id: "career",
+    heading: "What job should we go for",
+    label: "Career",
+    command: "workspaces.career",
+    newChatLabel: "New application",
+    skill: "gs-jobs",
+    opensStudio: false,
+  },
 ];
 
 /** Write's Review mode starts chats with this skill instead of its own. */

@@ -88,6 +88,7 @@ import IconLink from "@tabler/icons-react-native/IconLink";
 import IconListNumbers from "@tabler/icons-react-native/IconListNumbers";
 import IconMenu2 from "@tabler/icons-react-native/IconMenu2";
 import IconMail from "@tabler/icons-react-native/IconMail";
+import IconBriefcase from "@tabler/icons-react-native/IconBriefcase";
 import IconShieldCheck from "@tabler/icons-react-native/IconShieldCheck";
 import IconBooks from "@tabler/icons-react-native/IconBooks";
 import IconMessageCircleQuestion from "@tabler/icons-react-native/IconMessageCircleQuestion";
@@ -226,6 +227,7 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   "list.number": IconListNumbers,
   "line.3.horizontal": IconMenu2,
   envelope: IconMail,
+  briefcase: IconBriefcase,
   "checkmark.shield": IconShieldCheck,
   "books.vertical": IconBooks,
   "line.3.horizontal.decrease": IconFilter,

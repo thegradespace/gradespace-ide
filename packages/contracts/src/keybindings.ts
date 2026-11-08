@@ -42,6 +42,7 @@ export const WORKSPACE_KEYBINDING_COMMANDS = [
   "workspaces.write",
   "workspaces.mail",
   "workspaces.qa",
+  "workspaces.career",
 ] as const;
 export type WorkspaceKeybindingCommand = (typeof WORKSPACE_KEYBINDING_COMMANDS)[number];
 

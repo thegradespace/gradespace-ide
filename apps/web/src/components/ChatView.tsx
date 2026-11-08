@@ -167,6 +167,7 @@ import { createChatCanvasStore, resolveChatCanvasModel } from "./chat/canvasStor
 import { usePreviewSession } from "./preview/usePreviewSession";
 import { getConfiguredPreviewUrls } from "./preview/previewEmptyStateLogic";
 import { MailHome } from "../workspaces/MailHome";
+import { CareerHome } from "../workspaces/CareerHome";
 
 import {
   previewMiniPlayerSourceKey,
@@ -3923,6 +3924,13 @@ export default function ChatView(props: ChatViewProps) {
                             composerDraftTarget={composerDraftTarget}
                             activeProviderInstanceId={activeProviderInstanceId}
                             onStarted={() => composerRef.current?.focusAtEnd()}
+                          />
+                          <CareerHome
+                            threadId={threadId}
+                            environmentId={environmentId}
+                            composerDraftTarget={composerDraftTarget}
+                            onPrefill={() => composerRef.current?.focusAtEnd()}
+                            onSend={(text) => composerRef.current?.sendText(text)}
                           />
                         </div>
                       ) : null}

@@ -191,6 +191,7 @@ import * as StateBackups from "./backup/StateBackups.ts";
 import * as StudioShare from "./studioShare/StudioShare.ts";
 import * as SkillPacks from "./skillPacks/SkillPacks.ts";
 import * as EmailConnections from "./emailConnections/EmailConnections.ts";
+import * as Career from "./career/Career.ts";
 import * as TerminalManager from "./terminal/Manager.ts";
 import { terminalOutputStream, withTerminalOutputWindow } from "./terminal/OutputProtocol.ts";
 import * as ServerBrowser from "./preview/ServerBrowser.ts";
@@ -1367,6 +1368,7 @@ export const layerWsRpc = (
       const studioShare = yield* StudioShare.StudioShare;
       const skillPacks = yield* SkillPacks.SkillPacks;
       const emailConnections = yield* EmailConnections.EmailConnections;
+      const career = yield* Career.Career;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
       if (clientDevice !== undefined) {
         yield* serverSettings.getSettings.pipe(
@@ -2563,6 +2565,7 @@ export const layerWsRpc = (
         [WS_METHODS.skillPacksUpdate]: ({ names }) => skillPacks.update(names),
         [WS_METHODS.skillPacksRemove]: ({ names }) => skillPacks.remove(names),
         [WS_METHODS.emailConnectionsStatus]: () => emailConnections.status,
+        [WS_METHODS.careerStatus]: () => career.status,
         [WS_METHODS.peerLinksList]: (_input) =>
           peerLinks.list.pipe(Effect.map((links) => ({ links }))),
         [WS_METHODS.peerLinksLink]: (input) => peerLinks.link(input),
