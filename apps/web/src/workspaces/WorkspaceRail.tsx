@@ -166,7 +166,7 @@ export function WorkspaceRail() {
       ref={commandsRef}
       aria-label="Workspaces"
       data-workspace-rail=""
-      className="fixed inset-y-0 left-0 z-20 hidden w-(--workspace-rail-width) flex-col items-center gap-1.5 border-r border-sidebar-border bg-background pt-(--workspace-topbar-height) pb-3.5 md:flex"
+      className="fixed inset-y-0 left-0 z-20 hidden w-(--workspace-rail-width) flex-col items-center gap-1.5 bg-background pt-(--workspace-topbar-height) pb-3.5 after:absolute after:top-(--workspace-topbar-height) after:right-0 after:bottom-0 after:w-px after:bg-sidebar-border md:flex"
     >
       {WORKSPACES.map((workspace) => {
         const Icon = WORKSPACE_ICONS[workspace.id];

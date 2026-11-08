@@ -41,15 +41,20 @@ export function emailProviderRows(
   providers: ReadonlyArray<EmailProviderCandidate>,
   report: EmailConnectionsReport | null,
 ): ReadonlyArray<EmailProviderRow> {
+  const seen = new Map<string, number>();
   return providers.flatMap((provider) => {
     const driverLabel = EMAIL_DRIVER_LABELS[provider.driver];
     if (driverLabel === undefined || !provider.enabled) return [];
     const status = report?.providers.find((entry) => entry.instanceId === provider.instanceId);
+    const name = provider.displayName ?? driverLabel;
+    // Two instances may share a name, such as a subscription and an API-key Claude.
+    const count = (seen.get(name) ?? 0) + 1;
+    seen.set(name, count);
     return [
       {
         instanceId: provider.instanceId,
         driver: provider.driver,
-        label: provider.displayName ?? driverLabel,
+        label: count === 1 ? name : `${name} ${count}`,
         state: status?.state ?? "unknown",
         connectors: status?.connectors ?? [],
       },

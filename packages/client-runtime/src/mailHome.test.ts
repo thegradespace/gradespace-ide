@@ -21,6 +21,7 @@ describe("emailProviderRows", () => {
     provider("codex", "codex"),
     provider("claudeAgent", "claudeAgent"),
     provider("claude_work", "claudeAgent", true, "Claude (work)"),
+    provider("claude_api", "claudeAgent", true, "Claude"),
     provider("cursor", "cursor"),
     provider("codex_off", "codex", false),
   ];
@@ -46,11 +47,13 @@ describe("emailProviderRows", () => {
       ["codex", "Codex", "connected"],
       ["claudeAgent", "Claude", "notConnected"],
       ["claude_work", "Claude (work)", "unknown"],
+      ["claude_api", "Claude 2", "unknown"],
     ]);
   });
 
   it("reports unknown for every row when the server has no report", () => {
     expect(emailProviderRows(providers, null).map((row) => row.state)).toEqual([
+      "unknown",
       "unknown",
       "unknown",
       "unknown",
