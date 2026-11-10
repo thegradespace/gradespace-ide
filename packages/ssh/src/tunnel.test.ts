@@ -138,6 +138,18 @@ describe("ssh tunnel scripts", () => {
         );
         const runner = NodePath.join(root, "run-t3.sh");
         NodeFS.writeFileSync(runner, SshTunnel.buildRemoteT3RunnerScript(ARCHIVE));
+        const unconfigured = NodeChildProcess.spawnSync("sh", [runner, "--version"], {
+          encoding: "utf8",
+          env: { HOME: NodePath.join(root, "home"), PATH: `${bin}:${process.env.PATH ?? ""}` },
+        });
+        assert.include(unconfigured.stderr, "publishes no CLI builds");
+        NodeFS.writeFileSync(
+          runner,
+          SshTunnel.buildRemoteT3RunnerScript({
+            ...ARCHIVE,
+            releaseBaseUrl: "https://releases.example.com/t3",
+          }),
+        );
         const result = NodeChildProcess.spawnSync("sh", [runner, "--version"], {
           encoding: "utf8",
           env: { HOME: NodePath.join(root, "home"), PATH: `${bin}:${process.env.PATH ?? ""}` },
