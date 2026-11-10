@@ -1892,7 +1892,7 @@ export default function ChatView(props: ChatViewProps) {
           ? {}
           : { modelSelection: sendContext.selectedModelSelection }),
         runtimeMode,
-        interactionMode: sendContext?.interactionMode ?? interactionMode,
+        interactionMode: DEFAULT_INTERACTION_MODE,
         dispatchMode: resolveComposerDispatchMode({
           running: phase === "running",
           alternateModifier: false,

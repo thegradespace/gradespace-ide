@@ -35,7 +35,7 @@ function header(title: string) {
         activeProject={null}
         parentThreadLink={null}
         onOpenThread={() => {}}
-        rightPanelOpen={false}
+        titleBarControls="thread"
         onNewThreadInProject={() => {}}
       />
       <div tabIndex={0}>Outside rename</div>

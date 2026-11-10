@@ -19,6 +19,15 @@ class InvalidRestoreMarkerError extends Schema.TaggedError<InvalidRestoreMarkerE
   }
 }
 
+class BackupIntegrityError extends Schema.TaggedError<BackupIntegrityError>()(
+  "BackupIntegrityError",
+  { cause: Schema.Defect() },
+) {
+  override get message() {
+    return "The backup failed its integrity check.";
+  }
+}
+
 /** Any `statev2-*.sqlite` in the backups folder can be restored; a name never carries a path. */
 export const RESTORABLE_BACKUP_PATTERN = /^statev2-[\w.-]+\.sqlite$/;
 
@@ -43,7 +52,10 @@ const swapDatabase = Effect.fn("applyPendingRestore.swap")(function* (
   backupPath: string,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  yield* Effect.try(() => assertIntact(backupPath));
+  yield* Effect.try({
+    try: () => assertIntact(backupPath),
+    catch: (cause) => new BackupIntegrityError({ cause }),
+  });
   const stagedPath = `${dbPath}.restoring`;
   yield* Effect.gen(function* () {
     yield* fs.copyFile(backupPath, stagedPath);

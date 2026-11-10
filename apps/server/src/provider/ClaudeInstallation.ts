@@ -5,7 +5,7 @@ import { resolveCommandPath, resolveSpawnCommand } from "@t3tools/shared/shell";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
@@ -189,7 +189,7 @@ export const makeClaudeInstallation = Effect.fn("makeClaudeInstallation")(functi
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const crypto = yield* Crypto.Crypto;
+  const random = yield* SecureRandom.SecureRandom;
   const http = yield* HttpClient.HttpClient;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const serviceScope = yield* Effect.scope;
@@ -435,7 +435,7 @@ export const makeClaudeInstallation = Effect.fn("makeClaudeInstallation")(functi
         // Windows cannot replace a running exe but can rename it; startup removes retired copies.
         const retired =
           platform === "win32" && (yield* fs.exists(executablePath))
-            ? path.join(binDirectory, `.retired-${yield* crypto.randomUUIDv4()}.exe`)
+            ? path.join(binDirectory, `.retired-${yield* random.uuidV4()}.exe`)
             : null;
         if (retired) yield* fs.rename(executablePath, retired);
         // Defender or process rundown may hold claude.exe briefly after --version exits.
@@ -513,7 +513,7 @@ export const makeClaudeInstallation = Effect.fn("makeClaudeInstallation")(functi
             "start",
             `Anthropic does not publish Claude Code for ${platform}-${arch}. Set a custom binary path or use another environment.`,
           );
-        const operationId = yield* crypto.randomUUIDv4();
+        const operationId = yield* random.uuidV4();
         const next: ProviderInstallState = {
           driver: DRIVER,
           operationId,

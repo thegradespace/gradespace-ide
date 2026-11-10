@@ -1,9 +1,11 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 import * as HostProcess from "@t3tools/shared/HostProcess";
-import * as Crypto from "effect/Crypto";
+import * as Digest from "effect/crypto/Digest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Hex from "effect/encoding/Hex";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -26,10 +28,10 @@ const makeHarness = Effect.fn("test.makeClaudeInstallation")(function* (
   } = {},
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const crypto = yield* Crypto.Crypto;
+  const digest = yield* Digest.Digest;
   const baseDir =
     input.baseDir ?? (yield* fs.makeTempDirectoryScoped({ prefix: "t3-claude-install-test-" }));
-  const sha256 = Hex.encode(yield* crypto.digest("SHA-256", binary).pipe(Effect.orDie));
+  const sha256 = Hex.encode(yield* digest.digest(Digest.sha256, binary).pipe(Effect.orDie));
   const manifest = JSON.stringify({
     version: VERSION,
     platforms: {
@@ -138,7 +140,7 @@ it.effect("installs the verified release into the managed directory and removes 
       canRemove: false,
     });
     expect(yield* h.fs.exists(restarted.installation.managedDirectory)).toBe(false);
-  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );
 
 it.effect.each([
@@ -159,7 +161,7 @@ it.effect.each([
       .readDirectory(h.installation.managedDirectory)
       .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []));
     expect(entries.filter((name) => name.startsWith(".install-"))).toEqual([]);
-  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );
 
 it.effect("cancels an in-flight download and cleans the staging directory", () =>
@@ -180,7 +182,7 @@ it.effect("cancels an in-flight download and cleans the staging directory", () =
       ),
     ).toEqual([]);
     expect(yield* h.fs.exists(h.executablePath)).toBe(false);
-  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );
 
 it.effect("prefers claude on PATH, then the managed binary, and keeps custom paths", () =>
@@ -202,5 +204,5 @@ it.effect("prefers claude on PATH, then the managed binary, and keeps custom pat
     expect(yield* resolve("claude", localDirectory)).toBe("claude");
     expect(yield* resolve("claude", "")).toBe(`${baseDir}/tools/claude/bin/claude`);
     expect(yield* resolve("/opt/claude", "")).toBe("/opt/claude");
-  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );

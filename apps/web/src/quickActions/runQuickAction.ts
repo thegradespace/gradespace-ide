@@ -3,7 +3,11 @@ import type { AnyRouter } from "@tanstack/react-router";
 
 import { useComposerDraftStore } from "../composerDraftStore";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
-import { type NewThreadHandler, resolveDefaultProjectRef } from "../hooks/useHandleNewThread";
+import {
+  type NewThreadHandler,
+  readLastUsedProjectKey,
+  resolveDefaultProjectRef,
+} from "../hooks/useHandleNewThread";
 import { resolveThreadActionProjectRef } from "../lib/chatThreadActions";
 import { readProjects, readThreadShell } from "../state/entities";
 import { resolveThreadRouteTarget } from "../threadRoutes";
@@ -30,6 +34,7 @@ function readCurrentProjectRef(router: AnyRouter): ScopedProjectRef | null {
     defaultProjectRef: resolveDefaultProjectRef(
       readProjects(),
       useUiStateStore.getState().projectOrder,
+      readLastUsedProjectKey(),
     ),
     handleNewThread: () => Promise.resolve(null),
   });

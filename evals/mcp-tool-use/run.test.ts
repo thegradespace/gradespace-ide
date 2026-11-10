@@ -820,7 +820,7 @@ it.effect("saves a new secret file for each request and tells the shell simulato
   Effect.gen(function* () {
     const base = buildBase(template, { model: "claude-sonnet-5-5", keepUserInstructions: false });
     const sample = makeSample(childCase, base);
-    sample.tools.push({ name: "mcp__t3-code__request_secret" });
+    sample.tools.push({ name: "mcp__gradespace__request_secret" });
     const config = {
       apiKey: "",
       model: "claude-sonnet-5-5",
@@ -832,7 +832,7 @@ it.effect("saves a new secret file for each request and tells the shell simulato
       answerToolCall(sample, config, {
         type: "tool_use",
         id,
-        name: "mcp__t3-code__request_secret",
+        name: "mcp__gradespace__request_secret",
         input: { label: "Token", delivery },
       }).pipe(Effect.map((result) => JSON.parse(String(result.content))));
     const first = yield* request("a", "file");
@@ -857,11 +857,11 @@ it.effect("saves a new secret file for each request and tells the shell simulato
       },
       base,
     );
-    declined.tools.push({ name: "mcp__t3-code__request_secret" });
+    declined.tools.push({ name: "mcp__gradespace__request_secret" });
     yield* answerToolCall(declined, config, {
       type: "tool_use",
       id: "d",
-      name: "mcp__t3-code__request_secret",
+      name: "mcp__gradespace__request_secret",
       input: { delivery: "file" },
     });
     assert.deepEqual(declined.secretFiles, []);
@@ -886,11 +886,11 @@ it.effect("saves a pasted value with no card where request_secret takes one", ()
       },
       base,
     );
-    sample.tools.push({ name: "mcp__t3-code__request_secret" });
+    sample.tools.push({ name: "mcp__gradespace__request_secret" });
     const result = yield* answerToolCall(sample, config, {
       type: "tool_use",
       id: "a",
-      name: "mcp__t3-code__request_secret",
+      name: "mcp__gradespace__request_secret",
       input: { label: "Pixel PIN", value: "482916" },
     }).pipe(Effect.map((block) => JSON.parse(String(block.content))));
     if (!savesPastedSecrets) {
