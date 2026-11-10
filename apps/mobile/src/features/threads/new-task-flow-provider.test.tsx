@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
   writeSettings: vi.fn(),
   writeText: vi.fn(),
 }));
+vi.mock("../gs-workspaces/workspacePreferences", () => ({ seedNewTaskDraft: () => {} }));
 vi.mock("../../state/atom-registry", () => ({
   appAtomRegistry: {
     get: (atom: Atom.Atom<unknown>) => mocks.registry().get(atom),
