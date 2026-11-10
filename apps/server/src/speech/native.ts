@@ -1,5 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off globalTimers:off - native inference and IPC cleanup need killable Promise boundaries outside the Effect runtime.
 import * as NodeChildProcess from "node:child_process";
+import * as NodeModule from "node:module";
 import * as NodeSea from "node:sea";
 import type { SpeechStreamText } from "@t3tools/contracts";
 import { createSpeechAudio } from "./audio.ts";
@@ -199,6 +200,15 @@ type Reply = {
   readonly revision?: number;
   readonly preview?: SpeechStreamText | null;
 };
+
+/** Whether the optional transcribe-cpp engine is installed; Gradespace IDE builds leave it out. */
+export function isNativeSpeechEngineInstalled(): boolean {
+  try {
+    return NodeModule.findPackageJSON("transcribe-cpp", import.meta.url) !== undefined;
+  } catch {
+    return false;
+  }
+}
 
 // transcribe-cpp has an import-only export. Load its disk entry with require so
 // Node SEA can reach it, including its native dependencies.

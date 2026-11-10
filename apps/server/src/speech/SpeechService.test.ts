@@ -50,6 +50,7 @@ const loadNative = vi.hoisted(() =>
   ),
 );
 const readyModels = vi.hoisted(() => new Set(["test-model", "fallback-model"]));
+const nativeEngineInstalled = vi.hoisted(() => ({ value: true }));
 const modelDefinitions = vi.hoisted(() => [
   {
     id: "test-model",
@@ -85,6 +86,7 @@ const modelDefinitions = vi.hoisted(() => [
 vi.mock("./native.ts", () => ({
   loadNativeSpeechModel: loadNative,
   listNativeSpeechGpuDevices: vi.fn(async () => [{ id: '["vulkan","gpu-1"]', name: "Test GPU" }]),
+  isNativeSpeechEngineInstalled: () => nativeEngineInstalled.value,
 }));
 vi.mock("./model.ts", () => ({
   DEFAULT_SPEECH_MODEL_ID: "test-model",
@@ -666,6 +668,20 @@ it.effect("reports unsupported hosts without wrapping a synthetic cause", () =>
       _tag: "SpeechUnsupportedPlatformError",
       platform: "win32",
       architecture: "arm64",
+    });
+
+    // A build without the transcribe-cpp engine reports on-device transcription as unavailable.
+    nativeEngineInstalled.value = false;
+    const status = yield* Effect.gen(function* () {
+      const speech = yield* SpeechService.SpeechService;
+      return yield* speech.status;
+    }).pipe(
+      Effect.provide(layer),
+      Effect.ensuring(Effect.sync(() => (nativeEngineInstalled.value = true))),
+    );
+    expect(status).toEqual({
+      supported: false,
+      reason: "on-device voice transcription is not included in this build",
     });
   }),
 );

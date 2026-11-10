@@ -31,7 +31,11 @@ import {
   SPEECH_MODELS,
   type SpeechModel,
 } from "./model.ts";
-import { listNativeSpeechGpuDevices, loadNativeSpeechModel } from "./native.ts";
+import {
+  isNativeSpeechEngineInstalled,
+  listNativeSpeechGpuDevices,
+  loadNativeSpeechModel,
+} from "./native.ts";
 import { nativeSpeechLanguage } from "./nativeLanguage.ts";
 import { SILERO_VAD } from "./silero.ts";
 import { isSpeechPlatformSupported } from "./platform.ts";
@@ -173,9 +177,11 @@ const make = Effect.gen(function* () {
   const clock = yield* Clock.Clock;
   const now = () => clock.currentTimeMillisUnsafe();
   const libc = platform === "linux" ? yield* HostProcess.LinuxLibc : undefined;
-  const unsupportedReason = isSpeechPlatformSupported(platform, architecture, libc)
-    ? null
-    : `voice transcription is not available on ${platform}-${architecture}`;
+  const unsupportedReason = !isSpeechPlatformSupported(platform, architecture, libc)
+    ? `voice transcription is not available on ${platform}-${architecture}`
+    : !isNativeSpeechEngineInstalled()
+      ? "on-device voice transcription is not included in this build"
+      : null;
 
   let model: LoadedModel | undefined;
   let loadedModelId: string | undefined;

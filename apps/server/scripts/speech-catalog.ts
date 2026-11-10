@@ -43,6 +43,9 @@ const RECOMMENDED = new Set([
 // Handy labels these weights MIT; Moonshine lists them under its Community License at https://huggingface.co/moonshine-ai/moonshine-models.
 const COMMUNITY_LICENSED_MOONSHINE = /^moonshine-(?:(?:base|tiny)-(?:ar|ja|ko|uk|vi|zh)|base-es)$/;
 
+/** The transcribe-cpp engine the bundled catalog targets; Gradespace IDE does not install it yet. */
+export const SPEECH_ENGINE_VERSION = "0.4.1";
+
 export function generateSpeechCatalog(
   data: CatalogData,
   sourceVersion: string,

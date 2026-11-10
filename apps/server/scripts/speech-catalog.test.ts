@@ -5,13 +5,17 @@ import { catalog } from "@handy-computer/models";
 import { expect, it } from "vite-plus/test";
 
 import manifest from "../package.json" with { type: "json" };
-import { generateSpeechCatalog, renderSpeechCatalog } from "./speech-catalog.ts";
+import {
+  generateSpeechCatalog,
+  renderSpeechCatalog,
+  SPEECH_ENGINE_VERSION,
+} from "./speech-catalog.ts";
 
 const generate = (models = catalog.models) =>
   generateSpeechCatalog(
     { ...catalog.data, models },
     manifest.devDependencies["@handy-computer/models"],
-    manifest.dependencies["transcribe-cpp"],
+    SPEECH_ENGINE_VERSION,
   );
 
 it("reproduces the bundled registry byte for byte without upstream requests", async () => {
@@ -19,7 +23,7 @@ it("reproduces the bundled registry byte for byte without upstream requests", as
     await renderSpeechCatalog(
       catalog.data,
       manifest.devDependencies["@handy-computer/models"],
-      manifest.dependencies["transcribe-cpp"],
+      SPEECH_ENGINE_VERSION,
     ),
   );
   for (const model of generate().models) {

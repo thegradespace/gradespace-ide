@@ -8,7 +8,7 @@ import { catalog } from "@handy-computer/models";
 import * as Schema from "effect/Schema";
 
 import manifest from "../package.json" with { type: "json" };
-import { renderSpeechCatalog } from "./speech-catalog.ts";
+import { renderSpeechCatalog, SPEECH_ENGINE_VERSION } from "./speech-catalog.ts";
 
 const require = NodeModule.createRequire(import.meta.url);
 const source = require.resolve("@handy-computer/models/catalog.json");
@@ -22,7 +22,7 @@ const target = new URL("../src/speech/catalog.json", import.meta.url);
 const expected = await renderSpeechCatalog(
   catalog.data,
   sourceManifest.version,
-  manifest.dependencies["transcribe-cpp"],
+  SPEECH_ENGINE_VERSION,
 );
 if (process.argv.includes("--check")) {
   if (NodeFS.readFileSync(target, "utf8") !== expected) {
