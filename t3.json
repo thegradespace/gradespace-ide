@@ -1,6 +1,6 @@
 {
   "$schema": "https://thegradespace.com/schema/gs.json",
-  "iconPath": "assets/dev/blueprint-web-apple-touch-180.png",
+  "iconPath": "assets/prod/gradespace-web-apple-touch-180.png",
   "scripts": [
     {
       "name": "Setup Worktree",
