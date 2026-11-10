@@ -51,11 +51,10 @@ export const installCli = Effect.fn("cli.install.install")(function* () {
   const runtime = yield* standaloneRuntime;
   const windows = platform === "win32";
   if (Option.isNone(runtime)) {
-    const script = windows
-      ? "irm https://t3.codes/install.ps1 | iex"
-      : "curl -fsSL https://t3.codes/install.sh | sh";
+    // Gradespace IDE publishes no standalone installer; the desktop app installs the command.
     return yield* new CliInstallError({
-      reason: `Only the standalone t3 can install itself. Use \`${script}\`, or Settings in the desktop app.`,
+      reason:
+        "Only a standalone runtime can install itself. Install the gs command from Settings in the desktop app.",
     });
   }
   const { executable, versionsDir, runtimeDir } = runtime.value;
