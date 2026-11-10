@@ -27,6 +27,7 @@ import { WebView } from "react-native-webview";
 
 import { LoadingScreen } from "../../components/LoadingScreen";
 import { MediaVideoPlayer } from "../../components/MediaVideoPlayer";
+import { AppBar } from "../../components/ui/AppBar";
 import { AppText as Text } from "../../components/ui/AppText";
 import { Button } from "../../components/ui/Button";
 import * as Dialog from "../../components/ui/Dialog";
@@ -36,7 +37,6 @@ import { ListSection } from "../../components/ui/ListSection";
 import { ScreenScrollView } from "../../components/ui/ScreenScrollView";
 import { cn } from "../../lib/cn";
 import { scopedThreadKey } from "../../lib/scopedEntities";
-import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { projectEnvironment } from "../../state/projects";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -103,7 +103,7 @@ export function ThreadStudioRouteScreen(props: ThreadStudioRouteProps) {
   const sets = studioSetPaths(listing?.entries ?? []);
   return (
     <>
-      <NativeStackScreenOptions options={{ title: "Studio" }} />
+      <AppBar title="Studio" onBack={() => navigation.goBack()} />
       {listing === null && entries.error === null ? (
         <LoadingScreen message="Loading Studio designs" />
       ) : sets.length === 0 ? (
@@ -181,15 +181,20 @@ export function ThreadStudioSetRouteScreen(props: ThreadStudioSetRouteProps) {
 
   if (manifest === null || contents === null || cwd === null) {
     return error !== null || (contents !== null && manifest === null) ? (
-      <View className="flex-1 items-center justify-center bg-sheet px-6">
-        <NativeStackScreenOptions options={{ title: "Studio" }} />
-        <EmptyState
-          title="Set unavailable"
-          detail={error ?? `${setPath}/${STUDIO_MANIFEST_NAME} is not a valid Studio file.`}
-        />
+      <View className="flex-1 bg-sheet">
+        <AppBar title="Studio" onBack={() => navigation.goBack()} />
+        <View className="flex-1 items-center justify-center px-6">
+          <EmptyState
+            title="Set unavailable"
+            detail={error ?? `${setPath}/${STUDIO_MANIFEST_NAME} is not a valid Studio file.`}
+          />
+        </View>
       </View>
     ) : (
-      <LoadingScreen message="Loading designs" />
+      <View className="flex-1 bg-sheet">
+        <AppBar title="Studio" onBack={() => navigation.goBack()} />
+        <LoadingScreen message="Loading designs" />
+      </View>
     );
   }
 
@@ -226,7 +231,7 @@ export function ThreadStudioSetRouteScreen(props: ThreadStudioSetRouteProps) {
 
   return (
     <View className="flex-1 bg-sheet">
-      <NativeStackScreenOptions options={{ title: manifest.title }} />
+      <AppBar title={manifest.title} onBack={() => navigation.goBack()} />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

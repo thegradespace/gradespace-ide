@@ -3,7 +3,7 @@ import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell
 import { workspaceDefinition } from "@t3tools/client-runtime/workspaces";
 import { View } from "react-native";
 
-import { ListFilterMenu } from "../workspace/ListFilterMenu";
+import { ListFilterMenu } from "../layout/workspace/ListFilterMenu";
 import { useWorkspacePreferences } from "./workspacePreferences";
 
 const STUDIO_MENU_LIMIT = 8;

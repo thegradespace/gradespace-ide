@@ -17,7 +17,7 @@ import { Button } from "../../components/ui/Button";
 import { Sheet } from "../../components/ui/Sheet";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { cn } from "../../lib/cn";
-import { ListFilterMenu } from "../workspace/ListFilterMenu";
+import { ListFilterMenu } from "../layout/workspace/ListFilterMenu";
 import { updateWorkspaceSeedSettings, useWorkspacePreferences } from "./workspacePreferences";
 
 export const MANUSCRIPT_MIME_TYPES = [

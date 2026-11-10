@@ -1,4 +1,3 @@
-import type { NativeStackNavigationOptions } from "@react-navigation/native-stack";
 import { createContext, use, useEffect, useState, type ReactNode } from "react";
 import { Animated, Platform, Pressable, View } from "react-native";
 
@@ -6,14 +5,8 @@ import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
-import {
-  brandTitleOffset,
-  CompactBrandTitle,
-  getCompactBrandHeaderOptions,
-} from "../../components/CompactBrandTitle";
 import { useDeadlinePassed } from "../../lib/clock";
 import { useWorkspaceState } from "../../state/workspace";
-import { WithWorkspaceMenu, WorkspacePill } from "../gs-workspaces/WorkspaceDrawer";
 import {
   workspaceConnectionStatusPresentation,
   type WorkspaceConnectionStatusPresentation,
@@ -159,32 +152,4 @@ export function WorkspaceConnectionTitle(props: {
       </Pressable>
     </StatusFadeIn>
   );
-}
-
-export function getConnectionAwareBrandHeaderOptions(opts: {
-  readonly headerWidth: number;
-  readonly trailingItemCount?: number;
-  readonly onOpenEnvironments: () => void;
-  readonly fallbackTitleStyle?: NativeStackNavigationOptions["headerTitleStyle"];
-  /** The thread list's ☰ and active-workspace pill. */
-  readonly workspaceMenu?: boolean;
-}): NativeStackNavigationOptions {
-  const maxWidth = Math.max(0, opts.headerWidth - 64 - 44 * (opts.trailingItemCount ?? 1));
-
-  return {
-    ...getCompactBrandHeaderOptions(opts.fallbackTitleStyle),
-    headerTitle: () => {
-      const title = (
-        <WorkspaceConnectionTitle
-          brand={
-            <CompactBrandTitle trailing={opts.workspaceMenu ? <WorkspacePill /> : undefined} />
-          }
-          maxWidth={opts.workspaceMenu ? maxWidth - 44 : maxWidth}
-          onPress={opts.onOpenEnvironments}
-          statusOffset={brandTitleOffset()}
-        />
-      );
-      return opts.workspaceMenu ? <WithWorkspaceMenu>{title}</WithWorkspaceMenu> : title;
-    },
-  };
 }

@@ -21,6 +21,7 @@ describe("shouldHandleAppLink", () => {
     "gradespace://threads/env-1/thread-1",
     "gradespace://pair?pairingUrl=x",
     "gradespace-dev://settings/usage?tab=limits",
+    "gradespace://threads/env/thread?prompt=Fix%20expo-development-client%20and%20gradespace://expo-sharing",
   ])("handles path-bearing URL %s", (url) => {
     expect(shouldHandleAppLink(url, true)).toBe(true);
   });

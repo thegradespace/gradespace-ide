@@ -1,11 +1,15 @@
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import * as Clock from "effect/Clock";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
+import * as Scope from "effect/Scope";
 import * as TestClock from "effect/testing/TestClock";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientError from "effect/http/HttpClientError";
@@ -16,7 +20,10 @@ import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 
+import type { ManagedPolicyDocument } from "@t3tools/contracts";
+
 import * as ServerConfig from "../config.ts";
+import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { getTelemetryIdentity } from "./Identify.ts";
 import * as AnalyticsService from "./AnalyticsService.ts";
@@ -107,6 +114,43 @@ const recordTwentyEvents = Effect.gen(function* () {
   }
 });
 
+interface AnalyticsTestOptions {
+  readonly policy?: ManagedPolicyDocument;
+  readonly settings?: { readonly shareUsageData: boolean; readonly offlineMode: boolean };
+  readonly posthog?: Record<string, string>;
+}
+
+const analyticsLayerWith = (client: HttpClient.HttpClient, options: AnalyticsTestOptions = {}) =>
+  AnalyticsService.layer.pipe(
+    Layer.provideMerge(
+      ServerConfig.ServerConfig.layerTest(process.cwd(), { prefix: "t3-telemetry-retry-" }),
+    ),
+    Layer.provide(
+      ConfigProvider.layer(
+        ConfigProvider.fromUnknown({
+          T3CODE_TELEMETRY_ENABLED: true,
+          ...(options.posthog ?? {
+            T3CODE_POSTHOG_KEY: "phc_test_key",
+            T3CODE_POSTHOG_HOST: "http://localhost",
+          }),
+        }),
+      ),
+    ),
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.succeed(HostProcess.Platform, "win32"),
+        Layer.succeed(HostProcess.Architecture, "x64"),
+        Layer.succeed(HttpClient.HttpClient, client),
+        ManagedPolicy.layerTest(options.policy),
+      ),
+    ),
+    Layer.provide(
+      options.settings === undefined
+        ? Layer.empty
+        : ServerSettings.ServerSettingsService.layerTest(options.settings),
+    ),
+  );
+
 /**
  * Runs `record` (20 events by default), then lets `minutes` of background
  * flushes run against a client that answers every send with `respond`.
@@ -120,11 +164,7 @@ const sendFor = (
     never,
     AnalyticsService.AnalyticsService | Effect.Services<typeof getTelemetryIdentity>
   > = recordTwentyEvents,
-  settings?: { readonly shareUsageData: boolean; readonly offlineMode: boolean },
-  posthog: Record<string, string> = {
-    T3CODE_POSTHOG_KEY: "phc_test_key",
-    T3CODE_POSTHOG_HOST: "http://localhost",
-  },
+  options: AnalyticsTestOptions = {},
 ) =>
   Effect.gen(function* () {
     const batches: Array<ReadonlyArray<SentEvent>> = [];
@@ -139,31 +179,7 @@ const sendFor = (
         return yield* respond(request);
       }),
     );
-    const runtimeLayer = AnalyticsService.layer.pipe(
-      Layer.provideMerge(
-        ServerConfig.ServerConfig.layerTest(process.cwd(), { prefix: "t3-telemetry-retry-" }),
-      ),
-      Layer.provide(
-        ConfigProvider.layer(
-          ConfigProvider.fromUnknown({
-            T3CODE_TELEMETRY_ENABLED: true,
-            ...posthog,
-          }),
-        ),
-      ),
-      Layer.provide(
-        Layer.mergeAll(
-          Layer.succeed(HostProcess.Platform, "win32"),
-          Layer.succeed(HostProcess.Architecture, "x64"),
-          Layer.succeed(HttpClient.HttpClient, client),
-        ),
-      ),
-      Layer.provide(
-        settings === undefined
-          ? Layer.empty
-          : ServerSettings.ServerSettingsService.layerTest(settings),
-      ),
-    );
+    const runtimeLayer = analyticsLayerWith(client, options);
 
     yield* Effect.gen(function* () {
       yield* record;
@@ -174,7 +190,33 @@ const sendFor = (
     return batches;
   });
 
-it.layer(NodeServices.layer)("AnalyticsService test", (it) => {
+it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("AnalyticsService test", (it) => {
+  it.effect("waits for desktop shell consent and honors a late telemetry opt-out", () =>
+    Effect.gen(function* () {
+      const env: NodeJS.ProcessEnv = { T3CODE_DESKTOP_SHELL_DISCOVERY_PENDING: "1" };
+      const batches = yield* sendFor(
+        0,
+        respondWithStatus(204),
+        Effect.gen(function* () {
+          const analytics = yield* AnalyticsService.AnalyticsService;
+          yield* analytics.record("test.before-discovery");
+          yield* analytics.flush;
+          env.T3CODE_TELEMETRY_ENABLED = "false";
+          delete env.T3CODE_DESKTOP_SHELL_DISCOVERY_PENDING;
+          yield* analytics.record("test.opted-out");
+          yield* analytics.flush;
+          env.T3CODE_TELEMETRY_ENABLED = "true";
+          yield* analytics.record("test.allowed");
+          yield* analytics.flush;
+        }),
+      ).pipe(Effect.provideService(HostProcess.Environment, env));
+      assert.deepEqual(
+        batches.flat().map((event) => event.event),
+        ["test.allowed"],
+      );
+    }),
+  );
+
   it.effect("client owner reports cannot use up the server's owner cap", () =>
     Effect.gen(function* () {
       const batches = yield* sendFor(
@@ -209,7 +251,7 @@ it.layer(NodeServices.layer)("AnalyticsService test", (it) => {
         { shareUsageData: true, offlineMode: true, sent: 0 },
       ];
       for (const { sent, ...settings } of cases) {
-        const batches = yield* sendFor(1, respondWithStatus(204), recordTwentyEvents, settings);
+        const batches = yield* sendFor(1, respondWithStatus(204), recordTwentyEvents, { settings });
         assert.equal(batches.flat().length, sent, JSON.stringify(settings));
       }
     }),
@@ -225,13 +267,10 @@ it.layer(NodeServices.layer)("AnalyticsService test", (it) => {
         { T3CODE_POSTHOG_KEY: "", T3CODE_POSTHOG_HOST: "http://localhost" },
       ];
       for (const posthog of cases) {
-        const batches = yield* sendFor(
-          1,
-          respondWithStatus(204),
-          recordTwentyEvents,
-          optedIn,
+        const batches = yield* sendFor(1, respondWithStatus(204), recordTwentyEvents, {
+          settings: optedIn,
           posthog,
-        );
+        });
         assert.equal(batches.flat().length, 0, JSON.stringify(posthog));
       }
     }),
@@ -260,10 +299,41 @@ it.layer(NodeServices.layer)("AnalyticsService test", (it) => {
     }),
   );
 
+  it.effect(
+    "sends nothing when a managed policy turns telemetry off, despite the environment",
+    () =>
+      Effect.gen(function* () {
+        const policy = { schemaVersion: 1, organization: "Example Corp" } as const;
+        const allowed = yield* sendFor(1, respondWithStatus(204), recordTwentyEvents, {
+          policy: { ...policy, limits: { telemetry: true } },
+        });
+        assert.equal(allowed.length, 1);
+        const denied = yield* sendFor(1, respondWithStatus(204), recordTwentyEvents, {
+          policy: { ...policy, limits: { telemetry: false } },
+        });
+        assert.deepEqual(denied, []);
+      }),
+  );
+
   it.effect("drops a batch the endpoint rejects without sending it again", () =>
     Effect.gen(function* () {
       const batches = yield* sendFor(10, respondWithStatus(400));
       assert.equal(batches.length, 1);
+    }),
+  );
+
+  it.effect("shutdown stops waiting for a telemetry endpoint that never answers", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make();
+      const context = yield* Layer.buildWithScope(
+        analyticsLayerWith(HttpClient.make(() => Effect.never)),
+        scope,
+      );
+      yield* recordTwentyEvents.pipe(Effect.provide(context));
+
+      const shutdown = yield* Scope.close(scope, Exit.void).pipe(Effect.forkChild);
+      yield* TestClock.adjust("1 second");
+      yield* Fiber.join(shutdown);
     }),
   );
 
@@ -306,6 +376,7 @@ it.layer(NodeServices.layer)("AnalyticsService test", (it) => {
           Layer.mergeAll(
             Layer.succeed(HostProcess.Platform, "linux"),
             Layer.succeed(HostProcess.Architecture, "arm64"),
+            ManagedPolicy.layerTest(),
           ),
         ),
         Layer.provideMerge(NodeHttpServer.layerTest),
@@ -396,6 +467,7 @@ it.layer(NodeServices.layer)("AnalyticsService test", (it) => {
           Layer.mergeAll(
             Layer.succeed(HostProcess.Platform, "linux"),
             Layer.succeed(HostProcess.Architecture, "arm64"),
+            ManagedPolicy.layerTest(),
           ),
         ),
         Layer.provideMerge(NodeHttpServer.layerTest),

@@ -2,6 +2,7 @@ import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import * as Random from "effect/Random";
 
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 import { makeComponentLogger } from "./DesktopObservability.ts";
@@ -166,7 +167,8 @@ export const install = Effect.gen(function* () {
       }
       if (Option.getOrUndefined(existing) !== content) {
         yield* fs.makeDirectory(path.dirname(file), { recursive: true });
-        const staging = `${file}.${process.pid}.tmp`;
+        // Unique per call: backend startup and the first-launch command install can race here.
+        const staging = `${file}.${process.pid}.${yield* Random.nextIntBetween(0, 0xffffff)}.tmp`;
         yield* fs.writeFileString(staging, content, { mode: 0o755 });
         yield* fs.rename(staging, file);
         yield* logInfo("installed launcher", { file });

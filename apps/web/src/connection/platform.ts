@@ -321,7 +321,7 @@ export function readAnalyticsDeviceId(): string {
 }
 
 const analyticsDevice = {
-  id: Effect.try(readAnalyticsDeviceId).pipe(Effect.option),
+  id: Effect.sync(Option.liftThrowable(readAnalyticsDeviceId)),
 };
 
 const layerCapabilities = Layer.effectContext(

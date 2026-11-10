@@ -6,7 +6,8 @@ import { compareSemverVersions } from "./semver.ts";
 export const CLI_RELEASE_CHECKSUMS_FILE = "SHA256SUMS";
 export const CLI_RELEASE_BASE_URL_ENV = "T3CODE_RELEASE_BASE_URL";
 
-// Keep archive keys aligned with the Linux matrix, Windows ARM64 build, and cli_archive rows in release.yml.
+// Keep archive keys aligned with the Linux matrix, Windows ARM64 build, and cli_archive rows in release.yml,
+// and with the SSH runner's host check in packages/ssh/src/tunnel.ts.
 // Node single-executables do not support darwin-x64 and segfault at startup.
 const CLI_ARCHIVE_PLATFORM_KEYS = [
   "darwin-arm64",
@@ -46,6 +47,23 @@ export function cliReleaseDownloadBaseUrl(
 ): string | undefined {
   const trimmed = baseUrl?.trim();
   return trimmed ? `${trimmed.replace(/\/+$/, "")}/v${version}` : undefined;
+}
+
+/** `segments` added to `baseUrl`'s path, keeping its query, such as a signed mirror URL's token. */
+function releaseAssetUrl(baseUrl: string, ...segments: ReadonlyArray<string>): string {
+  const url = new URL(baseUrl);
+  url.pathname = [url.pathname.replace(/\/+$/, ""), ...segments.map(encodeURIComponent)].join("/");
+  return url.toString();
+}
+
+/** A file of release `version`, from `baseUrl` laid out as GitHub's release downloads. Undefined without a mirror. */
+export function cliReleaseAssetUrl(
+  version: string,
+  fileName: string,
+  baseUrl: string | undefined,
+): string | undefined {
+  const trimmed = baseUrl?.trim();
+  return trimmed ? releaseAssetUrl(trimmed, `v${version}`, fileName) : undefined;
 }
 
 export function parseChecksums(text: string): ReadonlyMap<string, string> {

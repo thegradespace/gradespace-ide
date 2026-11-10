@@ -26,3 +26,5 @@ export const APP_DISPLAY_NAME =
   formatAppDisplayName({ baseName: APP_BASE_NAME, stageLabel: APP_STAGE_LABEL });
 export const APP_VERSION = import.meta.env.APP_VERSION || "0.0.0";
 export const DESKTOP_DOWNLOAD_URL = "https://thegradespace.com/ide";
+// No public store listing yet, so the Welcome page leaves out its phone QR code.
+export const MOBILE_APP_URL = null as string | null;
