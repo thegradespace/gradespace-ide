@@ -22,13 +22,13 @@ import { createRuntimeCommand } from "./runtime.ts";
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
-/** The environment cannot be reached through T3 Connect with this account. */
+/** The environment cannot be reached through Gradespace Connect with this account. */
 export class ConnectMcpApprovalUnavailableError extends Schema.TaggedError<ConnectMcpApprovalUnavailableError>()(
   "ConnectMcpApprovalUnavailableError",
   { cause: Schema.Defect() },
 ) {
   override get message(): string {
-    return "Could not reach that environment through T3 Connect with this account.";
+    return "Could not reach that environment through Gradespace Connect with this account.";
   }
 }
 

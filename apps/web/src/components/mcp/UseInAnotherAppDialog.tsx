@@ -77,7 +77,7 @@ export function UseInAnotherAppDialogHost() {
 
 function UseInAnotherAppDialog({ requested }: { readonly requested: EnvironmentId | null }) {
   const { environment, label } = useAccessEnvironment(requested);
-  const title = `Use T3 Code in another app (MCP) · ${label ?? "T3 Code"}`;
+  const title = `Use GS in another app (MCP) · ${label ?? "GS"}`;
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : close())}>
       <WizardPopup>
@@ -91,7 +91,7 @@ function UseInAnotherAppDialog({ requested }: { readonly requested: EnvironmentI
                 title={
                   environment === null
                     ? "Connect to an environment first."
-                    : "T3 Connect is not available in this build."
+                    : "Gradespace Connect is not available in this build."
                 }
               />
             </WizardPanel>
@@ -287,7 +287,7 @@ function useGate(environment: EnvironmentPresentation) {
   });
   const runReachabilityCheck = async () => {
     setCheck("running");
-    // A saved machine's address comes from T3 Connect's list, which can be stale.
+    // A saved machine's address comes from Gradespace Connect's list, which can be stale.
     if (!thisMachine) void refreshDiscovery();
     const prior = readCachedCloudLinkState({ environmentId });
     const result = await runCheck({ target: { environmentId } });
@@ -317,11 +317,11 @@ function useGate(environment: EnvironmentPresentation) {
   useEffect(() => {
     if (canCheck) queueMicrotask(checkOnce);
   }, [canCheck]);
-  // T3 Connect lists machines only once something asks, and a saved machine's gate reads that list.
+  // Gradespace Connect lists machines only once something asks, and a saved machine's gate reads that list.
   const discoverIfUnasked = useEffectEvent(() => {
     if (!thisMachine && !discovery.listed && !discovery.refreshing) void refreshDiscovery();
   });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- asks T3 Connect for its machine list once the wizard opens signed in
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- asks Gradespace Connect for its machine list once the wizard opens signed in
   useEffect(() => {
     if (isSignedIn) discoverIfUnasked();
   }, [isSignedIn]);
@@ -374,16 +374,16 @@ function GateScreen({
       return (
         <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner size="sm" tone="muted" />
-          Checking T3 Connect…
+          Checking Gradespace Connect…
         </p>
       );
     case "sign-in":
       return (
         <GateMessage
-          title="Sign in to T3 Connect"
+          title="Sign in to Gradespace Connect"
           lines={[
             `Apps like Poke and Claude run in the cloud. They need a public address to reach ${name}.`,
-            `T3 Connect gives ${name} that address. Each app still needs your approval.`,
+            `Gradespace Connect gives ${name} that address. Each app still needs your approval.`,
           ]}
         >
           {/* Clerk's sign-in is its own modal, so this dialog closes first. */}
@@ -393,7 +393,7 @@ function GateScreen({
               openAuthPrompt();
             }}
           >
-            Sign in to T3 Connect
+            Sign in to Gradespace Connect
           </Button>
         </GateMessage>
       );
@@ -404,25 +404,25 @@ function GateScreen({
         <GateMessage
           title={
             gate.relay === "offline"
-              ? `${name}'s T3 Connect is offline`
-              : `Can't check T3 Connect on ${name}`
+              ? `${name}'s Gradespace Connect is offline`
+              : `Can't check Gradespace Connect on ${name}`
           }
         >
           {retry(refreshList)}
         </GateMessage>
       );
     case "update":
-      return <GateMessage title={`Update T3 Code on ${name}`} />;
+      return <GateMessage title={`Update Gradespace IDE on ${name}`} />;
     case "no-relay-read":
       return (
         <GateMessage
-          title={`Can't check T3 Connect on ${name}`}
+          title={`Can't check Gradespace Connect on ${name}`}
           lines={[`This device needs the View relay permission on ${name}.`]}
         />
       );
     case "error":
       return (
-        <GateMessage title={`Can't check T3 Connect on ${name}`} lines={[gate.message]}>
+        <GateMessage title={`Can't check Gradespace Connect on ${name}`} lines={[gate.message]}>
           {checkAgain}
         </GateMessage>
       );
@@ -433,7 +433,9 @@ function GateScreen({
         return (
           <GateMessage
             title={
-              reachability ? `${name}'s T3 Connect is offline` : `Can't check T3 Connect on ${name}`
+              reachability
+                ? `${name}'s Gradespace Connect is offline`
+                : `Can't check Gradespace Connect on ${name}`
             }
             lines={reachability ? [reachability.reason, `Fix: ${reachability.fix}`] : []}
           >
@@ -443,7 +445,7 @@ function GateScreen({
       }
       return (
         <GateMessage
-          title={`Turn on T3 Connect for ${name}`}
+          title={`Turn on Gradespace Connect for ${name}`}
           lines={[
             `${name} gets a public https address, with no router setup.`,
             "Only apps you approve can use it. You can turn it off in Settings.",
@@ -460,7 +462,7 @@ function GateScreen({
               {tunnelLimit !== null ? (
                 <>
                   <p className="text-sm text-destructive-foreground">
-                    Your T3 Connect account is out of tunnels.
+                    Your Gradespace Connect account is out of tunnels.
                   </p>
                   <ManageAccessButton environment={environment} label="Manage tunnels" />
                 </>
@@ -471,7 +473,7 @@ function GateScreen({
           ) : (
             <div className="space-y-2 text-sm">
               <CommandBlock command="t3 connect link" />
-              <p>Restart T3 Code on {name}.</p>
+              <p>Restart Gradespace IDE on {name}.</p>
               {checkAgain}
             </div>
           )}
@@ -567,7 +569,7 @@ function ConnectStep({
     access === null ? (
       <p className="text-sm text-muted-foreground">
         When {app?.name ?? "the app"} opens the sign-in page, choose what it may do and approve with
-        your T3 Connect account.
+        your Gradespace Connect account.
       </p>
     ) : (
       <ApprovalCode
@@ -822,7 +824,7 @@ function LinkedLine({
   return <p className="text-xs text-muted-foreground">Linked: {named.join(", ")}</p>;
 }
 
-/** Opens Sharing & access on this environment, where its clients and T3 Connect tunnels live. */
+/** Opens Sharing & access on this environment, where its clients and Gradespace Connect tunnels live. */
 function ManageAccessButton({
   environment,
   label = "Manage access",

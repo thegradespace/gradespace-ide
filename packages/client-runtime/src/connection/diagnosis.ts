@@ -100,7 +100,7 @@ function headline(host: string, located: Located, failure: ConnectionAttemptErro
     case "offline":
       return "This device is offline";
     case "session_pending":
-      return "This device is still loading its T3 Connect sign-in";
+      return "This device is still loading its Gradespace Connect sign-in";
     case "outdated":
       return `${host} runs an older GS`;
     case "clock_skew":

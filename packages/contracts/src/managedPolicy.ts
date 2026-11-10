@@ -143,7 +143,7 @@ export type ManagedPolicySummary = typeof ManagedPolicySummary.Type;
 
 /** The message every surface shows when the policy stops an update. */
 export function managedUpdatesMessage(organization: string): string {
-  return `${organization} manages T3 Code updates.`;
+  return `${organization} manages Gradespace IDE updates.`;
 }
 
 /** The message when the policy allows only stable releases. */
@@ -206,7 +206,7 @@ export function clampManagedRuntimeMode(
 
 const CAPABILITY_LABELS = {
   remoteClients: "connecting from other devices",
-  connect: "T3 Connect",
+  connect: "Gradespace Connect",
   webhookTasks: "webhook tasks",
   browserCookieImport: "importing browser cookies",
 } as const;
