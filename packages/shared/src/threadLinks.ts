@@ -10,10 +10,12 @@ const LEGACY_HOSTED_APP_URL = "https://app.t3.codes";
 const HOSTED_PREFIX = `${LEGACY_HOSTED_APP_URL}/threads/`;
 const HOSTED_SEGMENT = "[A-Za-z0-9_%-]+";
 const HOSTED_LINK = `${HOSTED_PREFIX.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}${HOSTED_SEGMENT}/${HOSTED_SEGMENT}`;
+// The in-app link Gradespace copies, written bare, as the hosted one is.
+const BARE_V2_LINK = `t3-thread:\\/\\/v2\\/${HOSTED_SEGMENT}\\/${HOSTED_SEGMENT}`;
 // Code comes first in the alternation so a link written inside a code span or fence is skipped.
 // A labeled link's destination may be angle-bracketed, as CommonMark allows: [label](<href>).
 const THREAD_LINK_OUTSIDE_CODE = new RegExp(
-  String.raw`(?<fence>(\`{3,}|~{3,})[\s\S]*?(?:\2|$))|(?<span>(\`+)[^\n]*?\4)|\[(?<label>[^\]\n]*)\]\((?:<(?<angleHref>t3-thread:\/\/v[12]\/[^\s<>]+|${HOSTED_LINK})>|(?<href>t3-thread:\/\/v[12]\/[^\s>)]+|${HOSTED_LINK}))\)|<(?<autolink>t3-thread:\/\/v[12]\/[^\s<>]+|${HOSTED_LINK})>|(?<bare>${HOSTED_LINK})(?![\w%/?#-])`,
+  String.raw`(?<fence>(\`{3,}|~{3,})[\s\S]*?(?:\2|$))|(?<span>(\`+)[^\n]*?\4)|\[(?<label>[^\]\n]*)\]\((?:<(?<angleHref>t3-thread:\/\/v[12]\/[^\s<>]+|${HOSTED_LINK})>|(?<href>t3-thread:\/\/v[12]\/[^\s>)]+|${HOSTED_LINK}))\)|<(?<autolink>t3-thread:\/\/v[12]\/[^\s<>]+|${HOSTED_LINK})>|(?<bare>${HOSTED_LINK}|${BARE_V2_LINK})(?![\w%/?#-])`,
   "g",
 );
 

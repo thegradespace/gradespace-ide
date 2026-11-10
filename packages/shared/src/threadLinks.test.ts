@@ -266,5 +266,9 @@ describe("hosted thread links", () => {
     expect(threadLinkRefs("Open https://app.t3.codes/threads/there/t%3A1", local)).toEqual([
       ref("there", "t:1"),
     ]);
+    // The bare in-app link Gradespace copies is titled the same way.
+    expect(relabelThreadLinks("See t3-thread://v2/there/t1.", local, title)).toBe(
+      "See [There](t3-thread://v2/there/t1).",
+    );
   });
 });
