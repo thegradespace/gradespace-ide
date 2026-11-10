@@ -622,47 +622,42 @@ it.live("an app approval code approves only an app sign-in, at its own level", (
   ),
 );
 
-it.live(
-  "sends an app sign-in on the linked tunnel to the hosted app, and a link to its own page",
-  () =>
-    Effect.gen(function* () {
-      const handoff = (tunnelHostname: string, peerLink = false) =>
-        withRoutes(
-          (handler) =>
-            Effect.gen(function* () {
-              const registered = yield* handler(
-                at("/oauth/mcp/register", {
-                  method: "POST",
-                  headers: { "content-type": "application/json" },
-                  body: encodeJson({
-                    client_name: "Agent",
-                    redirect_uris: [REDIRECT],
-                    token_endpoint_auth_method: "none",
-                    ...(peerLink ? { software_id: MCP_PEER_LINK_SOFTWARE_ID } : {}),
-                  }),
+it.live("keeps an app sign-in on its own page when no hosted app is configured", () =>
+  Effect.gen(function* () {
+    const handoff = (tunnelHostname: string, peerLink = false) =>
+      withRoutes(
+        (handler) =>
+          Effect.gen(function* () {
+            const registered = yield* handler(
+              at("/oauth/mcp/register", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: encodeJson({
+                  client_name: "Agent",
+                  redirect_uris: [REDIRECT],
+                  token_endpoint_auth_method: "none",
+                  ...(peerLink ? { software_id: MCP_PEER_LINK_SOFTWARE_ID } : {}),
                 }),
-              ).pipe(Effect.flatMap(json<{ client_id: string }>));
-              const query = new URLSearchParams(
-                authorizeParams(registered.client_id, "http://localhost:51234/callback"),
-              );
-              const response = yield* handler(at(`/oauth/mcp/authorize?${query}`));
-              return { location: response.headers.get("location")!, query: query.toString() };
-            }),
-          { ...notLinked, linked: true, cloudUserId: "user_1", tunnelHostname },
-        );
+              }),
+            ).pipe(Effect.flatMap(json<{ client_id: string }>));
+            const query = new URLSearchParams(
+              authorizeParams(registered.client_id, "http://localhost:51234/callback"),
+            );
+            const response = yield* handler(at(`/oauth/mcp/authorize?${query}`));
+            return { location: response.headers.get("location")!, query: query.toString() };
+          }),
+        { ...notLinked, linked: true, cloudUserId: "user_1", tunnelHostname },
+      );
 
-      const onTunnel = yield* handoff("box.example.ts.net");
-      const hosted = new URL(onTunnel.location);
-      expect(`${hosted.origin}${hosted.pathname}`).toBe("https://app.t3.codes/approve-agent");
-      expect(hosted.searchParams.get("environment")).toEqual(expect.any(String));
-      hosted.searchParams.delete("environment");
-      expect(hosted.searchParams.toString()).toBe(onTunnel.query);
+    // Gradespace IDE has no default hosted app, so even the linked tunnel approves locally.
+    const onTunnel = yield* handoff("box.example.ts.net");
+    expect(onTunnel.location).toBe(`/connect-agent?${onTunnel.query}`);
 
-      const elsewhere = yield* handoff("other.t3coderelay.com");
-      expect(elsewhere.location).toBe(`/connect-agent?${elsewhere.query}`);
-      const peerLink = yield* handoff("box.example.ts.net", true);
-      expect(peerLink.location).toBe(`/connect-agent?${peerLink.query}`);
-    }),
+    const elsewhere = yield* handoff("other.t3coderelay.com");
+    expect(elsewhere.location).toBe(`/connect-agent?${elsewhere.query}`);
+    const peerLink = yield* handoff("box.example.ts.net", true);
+    expect(peerLink.location).toBe(`/connect-agent?${peerLink.query}`);
+  }),
 );
 
 it.live("one-click approves only access the browser session holds the scopes for", () =>

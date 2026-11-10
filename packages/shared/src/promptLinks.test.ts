@@ -119,7 +119,7 @@ describe("link round trips", () => {
     expect(path).toBe("/env-1/mcp%3A1");
     const deepLink = promptLinkDeepLink(path!);
     expect(deepLink).toBe("t3code://threads/env-1/mcp%3A1");
-    expect(promptLinkAppPath(deepLink)).toBe(path);
+    expect(promptLinkAppPath(deepLink, hosted)).toBe(path);
   });
 
   it("maps app scheme and hosted links to in-app paths, and nothing else", () => {
