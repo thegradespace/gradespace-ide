@@ -160,13 +160,13 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
     }),
   );
 
-  it.effect("refuses to download without a configured release source", () =>
+  it.effect("downloads from Gradespace releases without a configured release source", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-pinned-no-source-" });
+      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-pinned-default-source-" });
       const requests: string[] = [];
-      const error = yield* ensurePinnedRuntimeInstalled({
+      yield* ensurePinnedRuntimeInstalled({
         baseDir,
         version,
         fs,
@@ -175,11 +175,12 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
         arch: "x64",
         httpClient: releaseHttpClient(`${"0".repeat(64)}  ${archiveName}\n`, requests),
         runner: extractingRunner(fs, path, []),
-        validate: () => Effect.die("must not validate without a release source"),
-      }).pipe(Effect.flip);
-      assert.instanceOf(error, PinnedRuntimeInstallError);
-      assert.include(error.step, "T3CODE_RELEASE_BASE_URL");
-      assert.deepEqual(requests, []);
+        validate: () => Effect.void,
+      }).pipe(Effect.ignore);
+      assert.strictEqual(
+        requests[0],
+        `https://github.com/johnkoko/gradespace-ide-releases/releases/download/v${version}/SHA256SUMS`,
+      );
     }),
   );
 

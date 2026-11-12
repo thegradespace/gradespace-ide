@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { cliArchiveTarCommand, cliReleaseDownloadBaseUrl, parseChecksums } from "./cliRelease.ts";
+import {
+  cliArchiveTarCommand,
+  cliReleaseAssetUrl,
+  cliReleaseDownloadBaseUrl,
+  parseChecksums,
+} from "./cliRelease.ts";
 
 describe("cliRelease", () => {
   it("parses sha256sum output including binary-mode markers", () => {
@@ -30,6 +35,18 @@ describe("cliRelease", () => {
     expect(cliReleaseDownloadBaseUrl("1.2.3", "  ")).toBeUndefined();
     expect(cliReleaseDownloadBaseUrl("1.2.3", "https://mirror.example/releases/")).toBe(
       "https://mirror.example/releases/v1.2.3",
+    );
+  });
+
+  it("fetches server runtimes from Gradespace releases unless a mirror is configured", () => {
+    expect(cliReleaseAssetUrl("1.2.3", "SHA256SUMS", undefined)).toBe(
+      "https://github.com/johnkoko/gradespace-ide-releases/releases/download/v1.2.3/SHA256SUMS",
+    );
+    expect(cliReleaseAssetUrl("1.2.3", "SHA256SUMS", "  ")).toBe(
+      "https://github.com/johnkoko/gradespace-ide-releases/releases/download/v1.2.3/SHA256SUMS",
+    );
+    expect(cliReleaseAssetUrl("1.2.3", "SHA256SUMS", "https://mirror.example/t3/?sig=x")).toBe(
+      "https://mirror.example/t3/v1.2.3/SHA256SUMS?sig=x",
     );
   });
 });

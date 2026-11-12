@@ -110,8 +110,9 @@ On the host, install the version shown in the notice from
 [thegradespace.com/ide](https://thegradespace.com/ide), then run
 `gs service restart` if a background service is installed. For a server you
 started by hand, stop it and start it again afterwards with your usual options
-such as `--host` or `--tailscale-serve`. `gs update` does not install anything:
-Gradespace IDE publishes no CLI builds.
+such as `--host` or `--tailscale-serve`. `gs update` does not install anything.
+A Linux x64 background service can update itself from the client instead,
+because each Gradespace IDE release includes its server runtime.
 
 ## If an update fails
 

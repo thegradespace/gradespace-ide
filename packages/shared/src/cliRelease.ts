@@ -40,7 +40,7 @@ export function cliArchiveFileName(version: string, platformKey: CliArchivePlatf
   return `t3-${version}-${platformKey}.${platformKey.startsWith("win32") ? "zip" : "tar.gz"}`;
 }
 
-/** Gradespace publishes no CLI builds, so there is no default source: undefined unless a mirror is configured. */
+/** The SSH runner's release source: undefined unless a mirror is configured. */
 export function cliReleaseDownloadBaseUrl(
   version: string,
   baseUrl: string | undefined,
@@ -56,14 +56,21 @@ function releaseAssetUrl(baseUrl: string, ...segments: ReadonlyArray<string>): s
   return url.toString();
 }
 
-/** A file of release `version`, from `baseUrl` laid out as GitHub's release downloads. Undefined without a mirror. */
+/** Gradespace releases carry the Linux x64 server runtime only; other machines find no archive there. */
+const GRADESPACE_RUNTIME_RELEASE_BASE_URL =
+  "https://github.com/johnkoko/gradespace-ide-releases/releases/download";
+
+/** A file of release `version`, from `baseUrl` (default Gradespace releases) laid out as GitHub's release downloads. */
 export function cliReleaseAssetUrl(
   version: string,
   fileName: string,
   baseUrl: string | undefined,
-): string | undefined {
-  const trimmed = baseUrl?.trim();
-  return trimmed ? releaseAssetUrl(trimmed, `v${version}`, fileName) : undefined;
+): string {
+  return releaseAssetUrl(
+    baseUrl?.trim() || GRADESPACE_RUNTIME_RELEASE_BASE_URL,
+    `v${version}`,
+    fileName,
+  );
 }
 
 export function parseChecksums(text: string): ReadonlyMap<string, string> {

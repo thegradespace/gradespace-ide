@@ -194,7 +194,7 @@ const installFromArchive = Effect.fn("cloud.pinned_runtime.install_archive")(fun
   const { fileName, expected } = yield* publishedArchive(input, platformKey);
   const archive = yield* fetchReleaseAsset(
     httpClient,
-    yield* requireReleaseAssetUrl(input, fileName),
+    cliReleaseAssetUrl(input.version, fileName, input.releaseBaseUrl),
     "downloading the t3 release archive",
     input.onProgress,
   );
@@ -243,17 +243,6 @@ const installFromArchive = Effect.fn("cloud.pinned_runtime.install_archive")(fun
   yield* fs.remove(archivePath, { force: true }).pipe(Effect.ignore);
 });
 
-const requireReleaseAssetUrl = (input: PinnedRuntimeInstallInput, fileName: string) => {
-  const url = cliReleaseAssetUrl(input.version, fileName, input.releaseBaseUrl);
-  return url === undefined
-    ? Effect.fail(
-        new PinnedRuntimeInstallError({
-          step: "locating a t3 release archive, since Gradespace IDE publishes no CLI builds and T3CODE_RELEASE_BASE_URL is not set",
-        }),
-      )
-    : Effect.succeed(url);
-};
-
 /** The release's archive for this machine and its checksum; fails when the release lists none. */
 const publishedArchive = Effect.fn("cloud.pinned_runtime.published_archive")(function* (
   input: PinnedRuntimeInstallInput,
@@ -264,7 +253,7 @@ const publishedArchive = Effect.fn("cloud.pinned_runtime.published_archive")(fun
     new TextDecoder().decode(
       yield* fetchReleaseAsset(
         input.httpClient,
-        yield* requireReleaseAssetUrl(input, CLI_RELEASE_CHECKSUMS_FILE),
+        cliReleaseAssetUrl(input.version, CLI_RELEASE_CHECKSUMS_FILE, input.releaseBaseUrl),
         "downloading the t3 release checksums",
       ),
     ),

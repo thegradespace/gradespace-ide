@@ -21,9 +21,11 @@ Uninstalling the service leaves your projects, threads, and settings intact.
 Running `t3 service install` again repairs a service that `t3 service status`
 reports as broken.
 
-Gradespace IDE publishes no CLI builds, so there is no `gs update`: update the
-desktop app from [thegradespace.com/ide](https://thegradespace.com/ide), then
-run `gs service restart` to switch the service to it. Restarting interrupts
+On a Linux x64 server, update the service from a connected desktop or phone:
+when it offers a server update, accept it. On other machines there is no
+`gs update`: update the desktop app from
+[thegradespace.com/ide](https://thegradespace.com/ide), then run
+`gs service restart` to switch the service to it. Restarting interrupts
 running agent turns, terminals, and remote clients. A server you started by hand
 is left running; stop and start it again to pick up the new version. To match a
 remote client's version, follow [Updating](./updating.md).

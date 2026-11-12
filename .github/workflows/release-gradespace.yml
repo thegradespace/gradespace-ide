@@ -155,14 +155,72 @@ jobs:
           gh release upload "$TAG" --repo "$RELEASE_REPO" --clobber \
             release/Gradespace-IDE-*-x64.exe release/Gradespace-IDE-*-x64.exe.blockmap release/latest.yml
 
+  # The server runtime an always-on Linux machine installs and updates itself from.
+  build-linux-cli:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - uses: ./.github/actions/setup-ci-deps
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install patchelf
+        run: sudo apt-get install -y --no-install-recommends patchelf
+
+      - name: Align package versions to the release version
+        run: node scripts/update-release-package-versions.ts "${{ needs.prepare.outputs.version }}"
+
+      - name: Build the CLI archive
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          vp run --filter t3 build
+          node apps/server/scripts/cli.ts build-exe --verbose
+          cargo build --locked --release --manifest-path native/resource-monitor/Cargo.toml
+          mkdir -p "$RUNNER_TEMP/rm/linux-x64"
+          cp native/resource-monitor/target/release/t3-resource-monitor "$RUNNER_TEMP/rm/linux-x64/"
+          node scripts/build-cli-archive.ts --platform linux --arch x64 --version "$VERSION" \
+            --resource-monitor-dir "$RUNNER_TEMP/rm" --output-dir cli-release
+          cd cli-release
+          sha256sum t3-*.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Smoke-test the CLI
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/smoke"
+          tar -xzf "cli-release/t3-$VERSION-linux-x64.tar.gz" -C "$RUNNER_TEMP/smoke"
+          reported="$("$RUNNER_TEMP/smoke/t3-$VERSION-linux-x64/t3" --version)"
+          echo "$reported"
+          [[ "$reported" == *"$VERSION"* ]]
+
+      - name: Upload to the draft release
+        if: needs.prepare.outputs.can_publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAG: v${{ needs.prepare.outputs.version }}
+        run: gh release upload "$TAG" --repo "$RELEASE_REPO" --clobber cli-release/t3-*.tar.gz cli-release/SHA256SUMS
+
   publish:
-    needs: [prepare, build, build-windows]
+    needs: [prepare, build, build-windows, build-linux-cli]
     # Windows is optional, so a skipped Windows job must not block publishing.
     if: >-
       !cancelled() &&
       needs.prepare.outputs.can_publish == 'true' &&
       needs.build.result == 'success' &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
+      needs.build-linux-cli.result == 'success' &&
       (github.event_name != 'workflow_dispatch' || inputs.publish)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
