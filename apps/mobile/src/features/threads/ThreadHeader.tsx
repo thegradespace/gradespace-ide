@@ -48,6 +48,14 @@ export function ThreadHeader(props: {
       onPress: props.gitControls.onOpenStudio,
     });
   }
+  if (props.gitControls.onOpenBrowser) {
+    actions.push({
+      accessibilityLabel: "Open browser",
+      icon: "globe",
+      separateBackground: false,
+      onPress: props.gitControls.onOpenBrowser,
+    });
+  }
   const menus = [gitMenu, terminalMenu].filter((menu): menu is AppBarMenu => menu !== null);
 
   return (

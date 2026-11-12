@@ -12,8 +12,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ControlPill } from "../../components/ui/ControlPill";
 import { useAppForeground } from "../../lib/appState";
 
-import { useThreadServerBrowserTabs } from "../../state/preview";
+import { previewEnvironment, useThreadServerBrowserTabs } from "../../state/preview";
 import { usePreparedConnection } from "../../state/session";
+import { useAtomCommand } from "../../state/use-atom-command";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { BrowserTabMenu } from "./BrowserTabMenu";
 import { browserTabTitle, browserTabUrl, latestBrowserTab } from "./browserTabs";
@@ -75,10 +76,22 @@ function BrowserPreviewScreen({
     setPictureInPicture(NO_PICTURE_IN_PICTURE);
     setSelectedTabId(tabId);
   }
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- closes the focused route through the navigator once the thread has no browser tabs left
+  const [hadTab, setHadTab] = useState(false);
+  if (tabs.length > 0 && !hadTab) setHadTab(true);
+  const openTab = useAtomCommand(previewEnvironment.open, "browser tab open");
+  const openRequested = useRef(false);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- opens a server tab when the browser is entered with none, and leaves through the navigator once the last tab closes
   useEffect(() => {
-    if (focused && loaded && tabs.length === 0) onClose();
-  }, [focused, loaded, tabs.length, onClose]);
+    if (!focused || !loaded || tabs.length > 0) return;
+    if (hadTab) return onClose();
+    if (openRequested.current) return;
+    openRequested.current = true;
+    void openTab({ environmentId, input: { threadId, runtime: "server" } }).then((result) => {
+      if (result._tag !== "Failure") return;
+      Dialog.alert("Could not open a browser tab");
+      onClose();
+    });
+  }, [focused, loaded, tabs.length, hadTab, onClose, openTab, environmentId, threadId]);
   const onPictureInPicture = (state: PreviewPictureInPictureState, detail?: string) => {
     setPictureInPicture({ supported: state.supported, active: state.active });
     if (detail) Dialog.alert("Picture in picture is unavailable", detail);

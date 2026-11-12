@@ -178,6 +178,9 @@ export function HardwareKeyboardCommandProvider({
       if (command === "terminal" && !/\/terminal(?:\/|$)/.test(pathname)) {
         navigation.navigate("ThreadTerminal", thread);
       }
+      if (command === "browser" && !/\/browser(?:\/|$)/.test(pathname)) {
+        navigation.navigate("ThreadBrowserPreview", thread);
+      }
       if (command === "review" && !/\/review(?:\/|$)/.test(pathname)) {
         navigation.navigate("ThreadReview", thread);
       }

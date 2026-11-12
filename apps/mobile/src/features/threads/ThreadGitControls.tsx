@@ -88,6 +88,7 @@ export type ThreadGitMenuProps = {
   readonly onOpenGitInspector?: () => void;
   /** Set for Present and Studio chats, which open their designs like the desktop panel. */
   readonly onOpenStudio?: () => void;
+  readonly onOpenBrowser?: () => void;
   readonly onMergeBack?: () => void;
   readonly onPull: () => Promise<void>;
   readonly onRunAction: (input: GitActionRequestInput) => Promise<GitRunStackedActionResult | null>;
