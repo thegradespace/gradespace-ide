@@ -48,6 +48,7 @@ import {
   useThreadShell,
   useVisibleThreadShells,
 } from "../../state/entities";
+import { useCanOpenServerBrowser } from "../../state/preview";
 import { useThreadSearch } from "../../state/queries";
 import { requestThreadMessageJump } from "../threads/threadMessageJump";
 import { threadEnvironment } from "../../state/threads";
@@ -229,6 +230,7 @@ export function CommandPalette(props: {
   const threads = useVisibleThreadShells();
   const activeThreadRef = parseActiveThreadPath(props.pathname);
   const activeThread = useThreadShell(activeThreadRef);
+  const canOpenBrowser = useCanOpenServerBrowser(activeThreadRef?.environmentId ?? null);
   const visitThread = useAtomCommand(threadEnvironment.visit, { reportFailure: false });
   const environments = useWorkspaceEnvironments();
   const { savedConnectionsById } = useSavedRemoteConnections();
@@ -393,13 +395,15 @@ export function CommandPalette(props: {
         ["copyThreadReference", "Copy PR link or thread", ["reference", "clipboard"]],
       ] as const;
       actions.push(
-        ...threadActions.map(([command, title, searchTerms]) => ({
-          key: command,
-          kind: "action" as const,
-          title,
-          searchTerms,
-          run: () => runCommand(command),
-        })),
+        ...threadActions
+          .filter(([command]) => command !== "browser" || canOpenBrowser)
+          .map(([command, title, searchTerms]) => ({
+            key: command,
+            kind: "action" as const,
+            title,
+            searchTerms,
+            run: () => runCommand(command),
+          })),
       );
     }
     const openProjects = projects.filter((project) => project.archivedAt == null);
@@ -465,6 +469,7 @@ export function CommandPalette(props: {
     selectTab,
     activeThread,
     activeThreadRef,
+    canOpenBrowser,
     environments.length,
     canTriage,
     navigation,

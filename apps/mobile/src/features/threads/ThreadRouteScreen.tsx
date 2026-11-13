@@ -4,7 +4,6 @@ import {
   useWorkspacePreferences,
 } from "../gs-workspaces/workspacePreferences";
 import * as Dialog from "../../components/ui/Dialog";
-import { useAtomValue } from "@effect/atom-react";
 import { Keyboard } from "react-native";
 import { useRememberThreadProject } from "./useRememberThreadProject";
 import { useOpenPullRequest } from "../../native/useOpenPullRequest";
@@ -52,7 +51,7 @@ import { restoredNewTaskDraftKey } from "../../state/new-task-draft-key";
 import { clearPendingThreadCreationOutcome } from "../../state/pending-thread-creation";
 import { recoverFailedThreadDraft } from "../../state/recover-failed-thread-draft";
 import { useEnvironmentQuery } from "../../state/query";
-import { previewEnvironment } from "../../state/preview";
+import { useCanOpenServerBrowser } from "../../state/preview";
 import { dismissGitActionResult, useGitActionProgress } from "../../state/use-vcs-action-state";
 import { vcsEnvironment } from "../../state/vcs";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -377,9 +376,7 @@ function ThreadRouteContent(
     selectedThread?.environmentId ?? null,
     AuthTerminalOperateScope,
   );
-  const canOpenPreview = useAtomValue(
-    previewEnvironment.open.permissionAtom(selectedThread?.environmentId ?? null),
-  );
+  const canOpenBrowser = useCanOpenServerBrowser(selectedThread?.environmentId ?? null);
   const selectedThreadDetailState = props.selectedThreadDetailState;
   const selectedThreadDetail = Option.getOrNull(selectedThreadDetailState.data);
   const { selectedThreadCwd } = useSelectedThreadWorktree();
@@ -500,9 +497,6 @@ function ThreadRouteContent(
   const routeConnectionState =
     routeEnvironmentRuntime?.connectionState ?? (environmentId ? "available" : connectionState);
   const routeConnectionError = routeEnvironmentRuntime?.connectionError ?? null;
-  const canOpenBrowser =
-    canOpenPreview &&
-    routeEnvironmentRuntime?.serverConfig?.environment.capabilities.serverBrowser === true;
   const selectedThreadWithDraftSettings = selectedThread
     ? {
         ...selectedThread,

@@ -18,8 +18,16 @@ import { connectionAtomRuntime } from "../connection/runtime";
 import { appAtomRegistry } from "./atom-registry";
 import { useEnvironmentQuery } from "./query";
 import { environmentSession, usePreparedConnection } from "./session";
+import { useRemoteEnvironmentRuntime } from "./use-remote-environment-registry";
 
 export const previewEnvironment = createPreviewEnvironmentAtoms(connectionAtomRuntime);
+
+/** Whether this client may open a server browser tab on the environment, and it has one. */
+export function useCanOpenServerBrowser(environmentId: EnvironmentId | null) {
+  const permitted = useAtomValue(previewEnvironment.open.permissionAtom(environmentId));
+  const runtime = useRemoteEnvironmentRuntime(environmentId);
+  return permitted && runtime?.serverConfig?.environment.capabilities.serverBrowser === true;
+}
 
 interface ThreadPreviewTabs {
   readonly serverEpoch: string | null;

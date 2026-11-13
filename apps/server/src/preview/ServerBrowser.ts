@@ -130,6 +130,8 @@ const UNATTACHED_FILL_VIEWPORT = { width: 1280, height: 800 } as const;
 const NAVIGATION_TIMEOUT_MS = 15_000;
 const VIEWER_NAVIGATION_OPTIONS = { waitUntil: "commit", timeout: NAVIGATION_TIMEOUT_MS } as const;
 const ACTION_TIMELINE_LIMIT = 50;
+/** A capture Chromium never answers would hold the capture lock and the viewer's attach forever. */
+const VIEWER_STILL_TIMEOUT = "2 seconds";
 
 export class ServerBrowserTabNotFoundError extends Schema.TaggedError<ServerBrowserTabNotFoundError>()(
   "ServerBrowserTabNotFoundError",
@@ -2640,7 +2642,13 @@ const make = Effect.gen(function* () {
     pushFileChooser(tab);
     const pushStill = async () => {
       const data = await withCaptureLock(tab, () =>
-        ServerBrowserPage.captureViewport(session, { format: "jpeg", quality }),
+        runPromise(
+          Effect.promise(() =>
+            ServerBrowserPage.captureViewport(session, { format: "jpeg", quality }).catch(
+              () => null,
+            ),
+          ).pipe(Effect.timeoutOption(VIEWER_STILL_TIMEOUT), Effect.map(Option.getOrNull)),
+        ),
       ).catch(() => null);
       if (data) viewer.push({ _tag: "frame", data: Buffer.from(data, "base64"), ack: Effect.void });
     };

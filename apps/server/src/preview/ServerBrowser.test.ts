@@ -110,7 +110,8 @@ function makeSession(
       if (method === "Page.getLayoutMetrics") return { cssVisualViewport: { pageX: 0, pageY: 0 } };
       if (method === "Page.captureScreenshot") {
         // A snapshot sizes its screenshot from the PNG header; viewers get JPEG frames as-is.
-        return { data: (input as { format: string }).format === "png" ? PNG_HEADER : "ZnJhbWU=" };
+        if ((input as { format: string }).format === "png") return { data: PNG_HEADER };
+        return stillAnswer?.() ?? { data: "ZnJhbWU=" };
       }
       // Snapshots shrink their screenshot in the page; the header stands in for the result.
       if (method === "Runtime.callFunctionOn") return { result: { value: PNG_HEADER } };
@@ -310,6 +311,8 @@ let desktopRendersNext = false;
 let desktopPageUrl = "about:blank";
 /** Replaces the answer to the desktop page's size reads. */
 let desktopSizeAnswer: (() => Promise<Record<string, unknown>>) | null = null;
+/** Replaces the answer to a viewer's JPEG still. */
+let stillAnswer: (() => Promise<Record<string, unknown>>) | null = null;
 const desktopDetaches = new NodeEvents.EventEmitter();
 let desktopDetachReady = Promise.withResolvers<void>();
 let desktopReleased = Promise.withResolvers<void>();
@@ -490,6 +493,7 @@ beforeEach(() => {
   desktopAttachWaiting = Promise.withResolvers<void>();
   desktopPageUrl = "about:blank";
   desktopSizeAnswer = null;
+  stillAnswer = null;
   desktopDetachReady = Promise.withResolvers<void>();
   desktopReleased = Promise.withResolvers<void>();
   releasedDesktopTabs.length = 0;
@@ -2024,6 +2028,26 @@ it.effect(
         ]);
       }),
     ).pipe(Effect.provide(layer)),
+);
+
+it.effect("a viewer attaches when the page never answers its first still", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const { browser, tabId } = yield* ready;
+      const asked = Promise.withResolvers<void>();
+      stillAnswer = () => {
+        asked.resolve();
+        return new Promise(() => {});
+      };
+      const attaching = yield* Effect.forkScoped(browser.attachViewer(viewerInput(tabId, true)));
+      yield* Effect.promise(() => asked.promise);
+      yield* TestClock.adjust("2 seconds");
+      const viewer = yield* Fiber.join(attaching);
+      const outputs = yield* Queue.takeAll(viewer.output);
+      expect(outputs).toContainEqual(expect.objectContaining({ _tag: "control" }));
+      expect(outputs.some((output) => output._tag === "frame")).toBe(false);
+    }),
+  ).pipe(Effect.provide(layer)),
 );
 
 it.effect("a stalled desktop viewer still gets its size, control and reconnect", () =>
