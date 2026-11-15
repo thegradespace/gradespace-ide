@@ -397,6 +397,7 @@ export function commandLabel(command: KeybindingCommand): string {
   if (command === "studio.zoomFit") return "Studio: Zoom to Fit";
   const workspace = WORKSPACES.find((candidate) => candidate.command === command);
   if (workspace) return `Workspace: ${workspace.label}`;
+  if (command === "preview.find") return "Preview: Find on Page";
   const raw = String(command);
   if (raw.startsWith("script.") && raw.endsWith(".run")) {
     return `Run Script: ${titleCaseCommandSegment(raw.slice("script.".length, -".run".length))}`;

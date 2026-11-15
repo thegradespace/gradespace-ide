@@ -39,6 +39,10 @@ jobs:
       - name: Format and lint
         run: vp run fmt:check && vp run lint
 
+      - name: Gradespace wording
+        if: ${{ !cancelled() }}
+        run: vp run check:gs-wording
+
       - name: Type check
         if: ${{ !cancelled() }}
         run: vp run typecheck

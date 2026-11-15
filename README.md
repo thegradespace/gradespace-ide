@@ -44,12 +44,17 @@ vp run dev
 
 Docs live in [docs/](./docs). Some pages still describe T3 Code's install methods and services.
 
+- [Install and first run](./docs/user/install.md)
 - [Permission modes](./docs/user/permission-modes.md)
 - [Keyboard shortcuts](./docs/user/keybindings.md)
 - [Project settings](./docs/user/project-settings.md)
 - [Appearance preferences](./docs/user/appearance.md)
 - [Remote access from a phone or another machine](./docs/user/remote-access.md)
 - [Source control integrations](./docs/user/source-control.md)
+- [Connect outside agents over MCP](./docs/user/outside-agents.md)
+- [FAQ](./docs/user/faq.md)
+
+[All docs](./docs/README.md) has the full list.
 
 Building from source? Start at [docs/internals/overview.md](./docs/internals/overview.md).
 

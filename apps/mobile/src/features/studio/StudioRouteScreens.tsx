@@ -22,6 +22,7 @@ import {
   ThreadId,
 } from "@t3tools/contracts";
 import { useRef, useState } from "react";
+// oxlint-disable-next-line no-restricted-imports -- A paged horizontal carousel of a few options; LegendList is for long virtualized lists.
 import { FlatList, Image, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { WebView } from "react-native-webview";
 

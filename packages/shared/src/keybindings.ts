@@ -89,6 +89,7 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+=", command: "studio.zoomIn", when: "studioFocus" },
   { key: "mod+-", command: "studio.zoomOut", when: "studioFocus" },
   { key: "mod+0", command: "studio.zoomFit", when: "studioFocus" },
+  { key: "mod+f", command: "preview.find", when: "previewFocus" },
   { key: "mod+k", command: "commandPalette.toggle", when: "!terminalFocus" },
   { key: "mod+i", command: "quickActions.open", when: "!terminalFocus" },
   { key: "mod+p", command: "filePicker.toggle", when: "!terminalFocus" },

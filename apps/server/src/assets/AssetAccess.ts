@@ -15,7 +15,7 @@ import {
   AssetWorkspaceRootNormalizationError,
   SOURCE_CONTROL_MEDIA_ASSET,
   ThreadId,
-  ToolActivityNativeAppReference,
+  NativeAppIconReference,
   TurnItemId,
 } from "@t3tools/contracts";
 import {
@@ -58,6 +58,7 @@ import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
 import * as ProjectFaviconResolver from "../project/ProjectFaviconResolver.ts";
 import { isWithinRoot } from "../workspace/KnownWorkspaces.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
+import { toWslDrivePath } from "../workspace/wslDrivePath.ts";
 import * as NativeAppIconResolver from "./NativeAppIconResolver.ts";
 import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 import { extractIcnsPng } from "./icns.ts";
@@ -94,6 +95,18 @@ const PREVIEW_ASSET_EXTENSIONS = new Set([
   ".png",
   ".svg",
   ".webp",
+  ".m4v",
+  ".mp4",
+  ".ogv",
+  ".webm",
+  ".aac",
+  ".flac",
+  ".m4a",
+  ".mp3",
+  ".oga",
+  ".ogg",
+  ".opus",
+  ".wav",
   ".css",
   ".js",
   ".mjs",
@@ -153,7 +166,7 @@ const AssetClaimsSchema = Schema.Union([
   Schema.Struct({
     version: Schema.Literal(1),
     kind: Schema.Literal("native-app-icon"),
-    app: ToolActivityNativeAppReference,
+    app: NativeAppIconReference,
     expiresAt: Schema.Number,
   }),
   Schema.Struct({
@@ -557,7 +570,10 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
 
   switch (input.resource._tag) {
     case "media-file": {
-      let requestedPath = expandHomePath(input.resource.path, yield* HostProcess.HomeDirectory);
+      let requestedPath = expandHomePath(
+        yield* toWslDrivePath(input.resource.path),
+        yield* HostProcess.HomeDirectory,
+      );
       if (!path.isAbsolute(requestedPath)) {
         if (!input.workspaceRoot) {
           return yield* new AssetWorkspaceContextNotFoundError({ resource: input.resource });
@@ -612,9 +628,10 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
     }
     case "draft-workspace-file": {
       const draftWorkspaceRoot = input.workspaceRoot ?? input.resource.cwd;
-      const hostPath = input.resource.path.startsWith("~/")
-        ? expandHomePath(input.resource.path, yield* HostProcess.HomeDirectory)
-        : input.resource.path;
+      const hostPath =
+        input.resource.path.startsWith("~/") || input.resource.path.startsWith("~\\")
+          ? expandHomePath(input.resource.path, yield* HostProcess.HomeDirectory)
+          : yield* toWslDrivePath(input.resource.path);
       if (path.isAbsolute(hostPath)) {
         const finalized = yield* finalizeAbsoluteMediaFileAsset({
           requestedPath: hostPath,

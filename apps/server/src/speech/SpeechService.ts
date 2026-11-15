@@ -142,6 +142,8 @@ export class SpeechService extends Context.Service<
     readonly selectModel: (modelId: string) => Effect.Effect<SpeechModels, SpeechError>;
     readonly cancelDownload: (modelId: string) => Effect.Effect<SpeechModels, SpeechError>;
     readonly removeModel: (modelId: string) => Effect.Effect<SpeechModels, SpeechError>;
+    /** Uses catalog model files already on this machine, from a file or folder path. */
+    readonly linkModels: (source: string) => Effect.Effect<SpeechModels, SpeechError>;
     readonly prepareModel: Effect.Effect<void, SpeechError>;
     readonly transcribe: (
       pcmBytes: Uint8Array,
@@ -473,6 +475,7 @@ const make = Effect.gen(function* () {
       size: definition.size,
       supportsStreaming: definition.supportsStreaming,
       supportsBufferedStreaming: true,
+      supportsModelLinking: true,
       supportsTranslation: definition.supportsTranslation,
       languages: definition.languages,
       supportsLanguageDetection: definition.supportsLanguageDetection,
@@ -495,8 +498,8 @@ const make = Effect.gen(function* () {
     const models = yield* Effect.forEach(
       SPEECH_MODELS,
       (definition) =>
-        store.isReady(definition).pipe(
-          Effect.map((ready): EnvironmentSpeechModel => {
+        Effect.all([store.isReady(definition), store.linkedFrom(definition)]).pipe(
+          Effect.map(([ready, linkedFrom]): EnvironmentSpeechModel => {
             const operation = downloading?.modelId === definition.id ? downloading : undefined;
             return {
               id: definition.id,
@@ -520,6 +523,7 @@ const make = Effect.gen(function* () {
                   ? "installed"
                   : "downloadable",
               ...(operation ? { downloaded: operation.downloaded } : {}),
+              ...(ready && linkedFrom ? { linkedFrom } : {}),
             };
           }),
         ),
@@ -957,6 +961,21 @@ const make = Effect.gen(function* () {
         ),
       ),
     ),
+    linkModels: Effect.fn("SpeechService.linkModels")(function* (source) {
+      yield* requireSupported;
+      const settings = yield* readSettings("model linking");
+      const linked = yield* exclusive(
+        "model linking",
+        store
+          .link(SPEECH_MODELS, source)
+          .pipe(Effect.mapError((cause) => speechError("model linking", cause))),
+      );
+      const first = linked[0];
+      if (first === undefined) return yield* new SpeechModelNotFoundError({ modelId: source });
+      if (!(yield* store.isReady(selectedModel(settings))))
+        yield* writeSettings("model linking", { speechModelId: first });
+      return yield* modelsEffect;
+    }),
     updateAcceleration: Effect.fn("SpeechService.updateAcceleration")((acceleration) =>
       writeSettings("acceleration update", { speechAcceleration: acceleration }).pipe(
         Effect.andThen(freshStatus("acceleration update")),

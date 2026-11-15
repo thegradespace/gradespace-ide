@@ -153,6 +153,7 @@ interface ClaudeInstallationService {
   ) => Effect.Effect<ProviderInstallState, ClaudeInstallationError>;
   readonly state: Effect.Effect<ProviderInstallState>;
   readonly changes: Stream.Stream<ProviderInstallState>;
+  readonly checkForUpdate: Effect.Effect<void>;
   readonly remove: (
     protectedBinaryPaths?: ReadonlyArray<string>,
   ) => Effect.Effect<void, ClaudeInstallationError>;
@@ -686,6 +687,8 @@ export const makeClaudeInstallation = Effect.fn("makeClaudeInstallation")(functi
     cancel,
     state: SubscriptionRef.get(state),
     changes: SubscriptionRef.changes(state),
+    // Claude is kept current by its maintenance update, not by a release lookup here.
+    checkForUpdate: Effect.void,
     remove,
   });
 });

@@ -40,6 +40,7 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.skillPacksInstall]: AuthEnvironmentMaintainScope,
   [WS_METHODS.skillPacksUpdate]: AuthEnvironmentMaintainScope,
   [WS_METHODS.skillPacksRemove]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.serverCheckSecretSource]: AuthSettingsWriteScope,
   // Listing models spends the stored API key, so only those who can choose a model may.
   [WS_METHODS.serverListTextGeneratorModels]: AuthSettingsWriteScope,
   [WS_METHODS.serverRefreshProviders]: AuthOrchestrationReadScope,
