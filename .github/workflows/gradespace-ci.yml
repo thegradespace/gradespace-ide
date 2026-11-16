@@ -17,23 +17,17 @@ concurrency:
   group: gradespace-ci-${{ github.ref }}
   cancel-in-progress: true
 
+# One serial job took 36-39 minutes, and apps/server (19 min) and apps/web (10 min) were most of
+# it. They run in their own jobs now; the server tests are split three ways. Browser tests hit
+# their timeout when sharing a runner, so apps/web keeps a runner to itself.
 jobs:
-  checks:
+  static:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-ci-deps
-
-      - name: Install libsecret for the native helper test
-        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
-
-      - name: Install Chromium for the web browser tests
-        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
-
-      - name: Prepare Electron for the desktop tests
-        run: vp run --filter @t3tools/desktop ensure:electron
 
       # Each check runs even if an earlier one fails, so one run reports everything.
       - name: Format and lint
@@ -43,7 +37,76 @@ jobs:
         if: ${{ !cancelled() }}
         run: vp run typecheck
 
-      - name: Unit tests
-        if: ${{ !cancelled() }}
-        # One package at a time: browser tests hit their timeout when sharing the runner.
-        run: vp run -r --concurrency-limit 1 test
+  server-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-pnpm-store: "false"
+
+      - name: Install libsecret for the native helper test
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+
+      - name: Server tests, shard ${{ matrix.shard }} of 3
+        run: vp run --filter t3 --ignore-depends-on test --shard=${{ matrix.shard }}/3
+
+  web-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-pnpm-store: "false"
+
+      - name: Install Chromium for the web browser tests
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+
+      - name: Web tests
+        run: vp run --filter @t3tools/web --ignore-depends-on test
+
+  package-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-pnpm-store: "false"
+
+      - name: Install libsecret for the native helper test
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+
+      - name: Prepare Electron for the desktop tests
+        run: vp run --filter @t3tools/desktop ensure:electron
+
+      # Everything except apps/server and apps/web, which have their own jobs. Positive filters:
+      # vp ignores a filter made only of exclusions. A new top-level folder with tests needs a line.
+      - name: Package, desktop and mobile tests
+        run: >-
+          vp run --concurrency-limit 1 --ignore-depends-on
+          --filter './packages/*' --filter './infra/*' --filter ./apps/desktop
+          --filter ./apps/mobile --filter ./oxlint-plugin-t3code --filter ./scripts
+          --filter ./evals test
+
+  # The one name a branch rule needs to require.
+  checks:
+    if: ${{ always() }}
+    needs: [static, server-tests, web-tests, package-tests]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: All jobs passed
+        run: |
+          test "${{ needs.static.result }}" = success \
+            && test "${{ needs.server-tests.result }}" = success \
+            && test "${{ needs.web-tests.result }}" = success \
+            && test "${{ needs.package-tests.result }}" = success
