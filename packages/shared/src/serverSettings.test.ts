@@ -22,6 +22,7 @@ import {
   modelPreferencesMigrationPatch,
   resolveModelPreferences,
   isModelSelectionProviderEnabled,
+  isPersistedOfflineMode,
   parsePersistedServerObservabilitySettings,
   resolveReviewGuideModelSelection,
   resolveSourceControlWriterModelSelection,
@@ -308,6 +309,15 @@ describe("serverSettings helpers", () => {
         }),
       ).otlpTracesUrl,
     ).toBe("http://localhost:4318/v1/traces");
+  });
+
+  it("reads offline mode from persisted settings and treats anything unreadable as online", () => {
+    expect(
+      isPersistedOfflineMode(JSON.stringify({ offlineMode: true, responseStreamingMode: "token" })),
+    ).toBe(true);
+    expect(isPersistedOfflineMode(JSON.stringify({ offlineMode: false }))).toBe(false);
+    expect(isPersistedOfflineMode("{}")).toBe(false);
+    expect(isPersistedOfflineMode("{")).toBe(false);
   });
 
   it("falls back cleanly when persisted settings are invalid", () => {

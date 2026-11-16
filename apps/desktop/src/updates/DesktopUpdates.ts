@@ -8,6 +8,7 @@ import {
   type DesktopUpdateState,
 } from "@t3tools/contracts";
 import { errorTag } from "@t3tools/shared/observability";
+import { isPersistedOfflineMode } from "@t3tools/shared/serverSettings";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -528,6 +529,13 @@ export const make = Effect.gen(function* () {
     });
   });
 
+  // Offline mode lives in the local server's settings file; only checks nobody asked for honour it.
+  const AUTOMATIC_CHECK_REASONS = new Set(["startup", "poll", "startup-recovery"]);
+  const offlineModeOn = fileSystem.readFileString(environment.serverSettingsPath).pipe(
+    Effect.map(isPersistedOfflineMode),
+    Effect.orElseSucceed(() => false),
+  );
+
   const checkForUpdates = Effect.fn("desktop.updates.checkForUpdates")(function* (
     reason: string,
     actionReservation: "acquire" | "held" = "acquire",
@@ -536,6 +544,10 @@ export const make = Effect.gen(function* () {
     yield* Effect.annotateCurrentSpan({ reason });
     if (yield* Ref.get(desktopState.quitting)) return false;
     if (!(yield* Ref.get(updaterConfiguredRef))) return false;
+    if (AUTOMATIC_CHECK_REASONS.has(reason) && (yield* offlineModeOn)) {
+      yield* logUpdaterInfo("skipping automatic update check in offline mode", { reason });
+      return false;
+    }
 
     const state = yield* Ref.get(updateStateRef);
     // A configured updater is disabled only by a channel the managed policy blocks.

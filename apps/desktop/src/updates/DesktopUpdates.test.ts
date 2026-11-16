@@ -42,6 +42,23 @@ describe("DesktopUpdates", () => {
     }),
   );
 
+  it.effect("skips automatic checks in offline mode but still checks when asked", () => {
+    const harness = makeHarness({ serverSettings: JSON.stringify({ offlineMode: true }) });
+
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        yield* updates.configure;
+
+        assert.isFalse((yield* updates.check("poll")).checked);
+        assert.equal(harness.checkCount(), 0);
+
+        assert.isTrue((yield* updates.check("menu")).checked);
+        assert.equal(harness.checkCount(), 1);
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
   it.effect("keeps the disabled reason available after configuration and channel changes", () => {
     const harness = makeHarness({ env: { T3CODE_DISABLE_AUTO_UPDATE: "true" } });
     const reason = "Automatic updates are disabled by the T3CODE_DISABLE_AUTO_UPDATE setting.";
