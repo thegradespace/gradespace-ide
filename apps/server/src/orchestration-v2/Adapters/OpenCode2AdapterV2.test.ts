@@ -4926,7 +4926,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
     Effect.gen(function* () {
       const mcpSessions = yield* McpProviderSessions.McpProviderSessions;
       yield* Effect.addFinalizer(() => mcpSessions.clear(threadId));
-      const server = "t3-code-thread_opencode2-adapter";
+      const server = "gradespace-thread_opencode2-adapter";
       const pages = [
         { html: "<p>orbits</p>", title: "Orbits", height: 480 },
         { html: "<p>scale</p>", title: "Scale", height: 1490 },
@@ -4960,7 +4960,11 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
                   input: { html: pages[0]!.html, width: 728 },
                 },
                 { tool: `${server}.html_render`, status: "completed", input: pages[0] },
-                { tool: "t3-code-thread_other.html_render", status: "completed", input: pages[1] },
+                {
+                  tool: "gradespace-thread_other.html_render",
+                  status: "completed",
+                  input: pages[1],
+                },
                 { tool: `${server}.html_render`, status: "completed", input: pages[1] },
               ],
               truncated: false,
@@ -5003,7 +5007,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
       const metadata = {
         toolCalls: [
           {
-            tool: "t3-code-thread_opencode2-adapter.html_render",
+            tool: "gradespace-thread_opencode2-adapter.html_render",
             status: "completed",
             input: page,
           },

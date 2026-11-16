@@ -235,7 +235,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("service commands
       hint: "service install",
       args: [],
     },
-    { label: "a newer service", status: newerServiceStatus, hint: "update", args: ["999.0.0"] },
+    { label: "a newer service", status: newerServiceStatus, hint: "service install", args: [] },
     {
       label: "a stopped service",
       status: { ...status, problems: ["service-stopped"] as const },

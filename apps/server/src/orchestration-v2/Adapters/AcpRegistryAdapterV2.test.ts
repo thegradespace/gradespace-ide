@@ -1368,7 +1368,7 @@ describe("AcpRegistryAdapterV2", () => {
       const http = (authorization: string) => [
         {
           type: "http",
-          name: "t3-code",
+          name: "gradespace",
           url: endpoint,
           headers: [
             { name: "Authorization", value: authorization },

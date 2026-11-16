@@ -341,7 +341,7 @@ describe("ssh tunnel scripts", () => {
           assert.include(result.stderr, "download attempt");
           // A bare curl error does not tell the user that t3 itself could not be downloaded.
           assert.include(result.stderr, ARCHIVE.archiveVersion);
-          assert.include(result.stderr, "https://github.com/pingdotgg/t3code/releases/download");
+          assert.include(result.stderr, "https://releases.example.com/t3");
         } else {
           assert.notInclude(result.stderr, "download attempt");
           assert.include(result.stderr, "has no t3 release archive.");
@@ -398,7 +398,13 @@ describe("ssh tunnel scripts", () => {
         { mode: 0o755 },
       );
       const runner = NodePath.join(root, "run-t3.sh");
-      NodeFS.writeFileSync(runner, SshTunnel.buildRemoteT3RunnerScript(ARCHIVE));
+      NodeFS.writeFileSync(
+        runner,
+        SshTunnel.buildRemoteT3RunnerScript({
+          ...ARCHIVE,
+          releaseBaseUrl: "https://releases.example.com/t3",
+        }),
+      );
       const result = NodeChildProcess.spawnSync(NodePath.join(bin, "sh"), [runner, "--version"], {
         encoding: "utf8",
         env: { HOME: NodePath.join(root, "home"), PATH: bin },
@@ -1415,7 +1421,10 @@ server.listen(Number(flag("--port") ?? 0), "127.0.0.1", () => {
 describe("SSH launch during desktop update", () => {
   it.effect("archive launcher reuses the replacement without host Node", () =>
     Effect.gen(function* () {
-      const script = yield* captureLauncherFor({ archiveVersion: "1.2.3" });
+      const script = yield* captureLauncherFor({
+        archiveVersion: "1.2.3",
+        releaseBaseUrl: "https://releases.example.com/t3",
+      });
       const result = runLauncher(script, {
         archive: true,
         marker: { startedAt: 0, expiresAt: 60_000 },
@@ -1537,7 +1546,10 @@ describe("SSH launch during desktop update", () => {
     (archive) =>
       Effect.gen(function* () {
         const script = yield* archive
-          ? captureLauncherFor({ archiveVersion: "1.2.3" })
+          ? captureLauncherFor({
+              archiveVersion: "1.2.3",
+              releaseBaseUrl: "https://releases.example.com/t3",
+            })
           : captureLauncher;
         const result = runLauncher(script, { archive, serviceServing: true, readyAt: 5_000 });
         assert.deepEqual(result.output, { remotePort: 4888, serverKind: "external" });

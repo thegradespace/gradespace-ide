@@ -1533,8 +1533,6 @@ it.effect("a first still that never returns does not stall the tab's later captu
   Effect.scoped(
     Effect.gen(function* () {
       const { browser, broker, tabId } = yield* ready;
-      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-      yield* Effect.addFinalizer(() => Effect.sync(() => vi.useRealTimers()));
       const capturing = Promise.withResolvers<void>();
       const stuck = Promise.withResolvers<void>();
       heldStill = () => {
@@ -1548,7 +1546,7 @@ it.effect("a first still that never returns does not stall the tab's later captu
       const snapshotting = yield* broker
         .invoke<PreviewAutomationSnapshot>({ scope, tabId, operation: "snapshot", input: {} })
         .pipe(Effect.forkScoped);
-      yield* Effect.promise(() => vi.advanceTimersByTimeAsync(2_000));
+      yield* TestClock.adjust("2 seconds");
       const snapshot = yield* Fiber.join(snapshotting);
       expect(snapshot.accessibilityTree).toContain("delete");
       const second = yield* browser.attachViewer(viewerInput(tabId, false));
