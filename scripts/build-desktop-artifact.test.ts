@@ -1458,7 +1458,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       const path = yield* Path.Path;
       const workflow = yield* fs.readFileString(
         yield* path.fromFileUrl(
-          new URL("../.github/workflows/desktop-macos-preview-publish.yml", import.meta.url),
+          new URL("../.github/t3-workflows/desktop-macos-preview-publish.yml", import.meta.url),
         ),
       );
       const { jobs } = yield* Schema.decodeEffect(
