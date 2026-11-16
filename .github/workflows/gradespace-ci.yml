@@ -17,22 +17,19 @@ concurrency:
   group: gradespace-ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Tests run apart from the checks and from each other, so a browser crash on one
+# runner fails one job, and re-running it does not repeat the rest.
 jobs:
   checks:
+    name: Checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-ci-deps
 
-      - name: Install libsecret for the native helper test
-        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
-
-      - name: Install Chromium for the web browser tests
-        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
-
-      - name: Prepare Electron for the desktop tests
+      - name: Prepare Electron
         run: vp run --filter @t3tools/desktop ensure:electron
 
       # Each check runs even if an earlier one fails, so one run reports everything.
@@ -47,7 +44,64 @@ jobs:
         if: ${{ !cancelled() }}
         run: vp run typecheck
 
-      - name: Unit tests
-        if: ${{ !cancelled() }}
-        # One package at a time: browser tests hit their timeout when sharing the runner.
-        run: vp run -r --concurrency-limit 1 test
+  test_packages:
+    name: Test packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-ci-deps
+
+      - name: Install libsecret for the native helper test
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+
+      - name: Prepare Electron for the desktop tests
+        run: vp run --filter @t3tools/desktop ensure:electron
+
+      - name: Install Chromium
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+
+      - name: Test
+        run: >-
+          vp run --concurrency-limit 1
+          --filter '!t3' --filter '!@t3tools/monorepo' --filter '!@t3tools/web' test
+
+  test_server:
+    name: Test server ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-ci-deps
+
+      - name: Install Chromium for the preview tests
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+
+      - name: Test
+        run: vp run --filter t3 test --shard ${{ matrix.shard }}/${{ strategy.job-total }}
+
+  # Browser tests time out when they share a runner with other suites.
+  test_web:
+    name: Test web ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-ci-deps
+
+      - name: Install Chromium for the web browser tests
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+
+      - name: Test
+        run: vp run --filter @t3tools/web test --shard ${{ matrix.shard }}/${{ strategy.job-total }}
