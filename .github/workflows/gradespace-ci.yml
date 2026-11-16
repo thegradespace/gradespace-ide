@@ -54,6 +54,10 @@ jobs:
       - name: Install libsecret for the native helper test
         run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
 
+      # The server's browser tests launch it too, and any shard can get them.
+      - name: Install Chromium for the server browser tests
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+
       - name: Server tests, shard ${{ matrix.shard }} of 3
         run: vp run --filter t3 --ignore-depends-on test --shard=${{ matrix.shard }}/3
 
