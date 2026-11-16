@@ -17,20 +17,17 @@ concurrency:
   group: gradespace-ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Tests run apart from the checks and from each other, so a browser crash on one
-# runner fails one job, and re-running it does not repeat the rest.
+# One serial job took 36-39 minutes, and apps/server (19 min) and apps/web (10 min) were most of
+# it. They run in their own jobs now; the server tests are split three ways. Browser tests hit
+# their timeout when sharing a runner, so apps/web keeps a runner to itself.
 jobs:
-  checks:
-    name: Checks
+  static:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-ci-deps
-
-      - name: Prepare Electron
-        run: vp run --filter @t3tools/desktop ensure:electron
 
       # Each check runs even if an earlier one fails, so one run reports everything.
       - name: Format and lint
@@ -44,33 +41,9 @@ jobs:
         if: ${{ !cancelled() }}
         run: vp run typecheck
 
-  test_packages:
-    name: Test packages
+  server-tests:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: ./.github/actions/setup-ci-deps
-
-      - name: Install libsecret for the native helper test
-        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
-
-      - name: Prepare Electron for the desktop tests
-        run: vp run --filter @t3tools/desktop ensure:electron
-
-      - name: Install Chromium
-        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
-
-      - name: Test
-        run: >-
-          vp run --concurrency-limit 1
-          --filter '!t3' --filter '!@t3tools/monorepo' --filter '!@t3tools/web' test
-
-  test_server:
-    name: Test server ${{ matrix.shard }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -79,29 +52,69 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-pnpm-store: "false"
 
-      - name: Install Chromium for the preview tests
+      - name: Install libsecret for the native helper test
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+
+      # The server's browser tests launch it too, and any shard can get them.
+      - name: Install Chromium for the server browser tests
         run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
 
-      - name: Test
-        run: vp run --filter t3 test --shard ${{ matrix.shard }}/${{ strategy.job-total }}
+      - name: Server tests, shard ${{ matrix.shard }} of 3
+        run: vp run --filter t3 --ignore-depends-on test --shard=${{ matrix.shard }}/3
 
-  # Browser tests time out when they share a runner with other suites.
-  test_web:
-    name: Test web ${{ matrix.shard }}
+  web-tests:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-pnpm-store: "false"
 
       - name: Install Chromium for the web browser tests
         run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
 
-      - name: Test
-        run: vp run --filter @t3tools/web test --shard ${{ matrix.shard }}/${{ strategy.job-total }}
+      - name: Web tests
+        run: vp run --filter @t3tools/web --ignore-depends-on test
+
+  package-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-pnpm-store: "false"
+
+      - name: Install libsecret for the native helper test
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+
+      - name: Prepare Electron for the desktop tests
+        run: vp run --filter @t3tools/desktop ensure:electron
+
+      # Everything except apps/server and apps/web, which have their own jobs. Positive filters:
+      # vp ignores a filter made only of exclusions. A new top-level folder with tests needs a line.
+      - name: Package, desktop and mobile tests
+        run: >-
+          vp run --concurrency-limit 1 --ignore-depends-on
+          --filter './packages/*' --filter './infra/*' --filter ./apps/desktop
+          --filter ./apps/mobile --filter ./apps/marketing --filter ./oxlint-plugin-t3code --filter ./scripts
+          --filter ./evals test
+
+  # The one name a branch rule needs to require.
+  checks:
+    if: ${{ always() }}
+    needs: [static, server-tests, web-tests, package-tests]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: All jobs passed
+        run: |
+          test "${{ needs.static.result }}" = success \
+            && test "${{ needs.server-tests.result }}" = success \
+            && test "${{ needs.web-tests.result }}" = success \
+            && test "${{ needs.package-tests.result }}" = success

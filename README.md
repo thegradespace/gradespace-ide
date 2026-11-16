@@ -9,7 +9,7 @@ Gradespace IDE started as a fork of [T3 Code](https://github.com/pingdotgg/t3cod
 What Gradespace IDE adds or changes:
 
 - Gradespace name, logos and icons, and the `gs` command
-- Mac app signed by Gradespace, with updates from [gradespace-ide-releases](https://github.com/johnkoko/gradespace-ide-releases)
+- Mac app signed by Gradespace and a Windows installer, with updates from [gradespace-ide-releases](https://github.com/johnkoko/gradespace-ide-releases)
 - Settings for panel position, terminal position and the collapsed sidebar style
 - API-key spend on the Limits tab
 - Usage data is off unless you turn it on, plus an offline mode
@@ -18,9 +18,9 @@ T3's hosted services, such as T3 Connect and the T3 Code mobile apps, are not pa
 
 ## Install
 
-### Mac app
+### Mac and Windows app
 
-Download it from [thegradespace.com/ide](https://thegradespace.com/ide). The app updates itself when a new version is published.
+Download it from [thegradespace.com/ide](https://thegradespace.com/ide), or take the Mac `.dmg` or Windows `.exe` from the [latest release](https://github.com/johnkoko/gradespace-ide-releases/releases/latest). The app updates itself when a new version is published.
 
 ### From source
 

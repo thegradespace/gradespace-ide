@@ -81,6 +81,9 @@ export interface ResolvedPeerLink {
   readonly token: string;
 }
 
+// Only a display name in the other machine's Connections; nothing reads it back, so it can change.
+export const LINKED_SESSION_LABEL_PREFIX = "Gradespace IDE · ";
+
 export const LINKED_ENVIRONMENTS_OFF =
   "Linked environments is off on this machine. Turn it on in Settings → Labs.";
 
@@ -525,7 +528,7 @@ const make = Effect.gen(function* () {
         message: `${peer.label} runs a GS version that cannot keep a linked agent's limits. Update it, then link again.`,
       });
     }
-    const issued = yield* signIn(primary, input, `T3 Code · ${self.label}`);
+    const issued = yield* signIn(primary, input, `${LINKED_SESSION_LABEL_PREFIX}${self.label}`);
     const now = yield* DateTime.now;
     const linked: PeerLink = {
       environmentId: peer.environmentId,

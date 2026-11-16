@@ -2216,7 +2216,7 @@ export function MaintenanceSettingsPanel() {
           serverScoped
           settingKeys={["offlineMode"]}
           {...searchableSetting("offline-mode")}
-          description="Stop background downloads: provider version checks, model catalog updates, model prices and analytics. Prices use the last saved copy, and new models may not appear."
+          description="Stop background downloads: provider version checks, model catalog and prices, analytics and the desktop app's automatic update checks. Prices use the last saved copy and new models may not appear."
           resetAction={
             settings.offlineMode !== DEFAULT_UNIFIED_SETTINGS.offlineMode ? (
               <SettingResetButton

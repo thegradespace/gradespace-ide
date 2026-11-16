@@ -1,12 +1,12 @@
-# Running T3 Code in the background
+# Running Gradespace IDE in the background
 
-On Linux, macOS, and Windows, T3 Code can run as a service for your user so you
+On Linux, macOS, and Windows, Gradespace IDE can run as a service for your user so you
 do not need to keep a terminal open.
 
 ## Manage the service
 
-Install the `t3` CLI first ([Install T3 Code](./install.md#command-line)), then
-run these commands on the machine that will host T3 Code:
+Install the `t3` CLI first ([Install Gradespace IDE](./install.md#command-line)), then
+run these commands on the machine that will host Gradespace IDE:
 
 | Task                                  | Command                |
 | ------------------------------------- | ---------------------- |
@@ -76,7 +76,7 @@ If the file contains credentials, restrict access to that file with `chmod 600`
 
 ## Platform support
 
-Linux needs systemd user services. Setup enables lingering so T3 Code starts at
+Linux needs systemd user services. Setup enables lingering so Gradespace IDE starts at
 boot and keeps running after logout. If this needs administrator permission,
 setup prints a recovery command before changing the service.
 
@@ -133,7 +133,7 @@ ssh -t your-server 'sudo loginctl enable-linger "$(id -un)"'
 ```
 
 Then retry service setup as your normal user. Run only the `loginctl` command
-with sudo; running T3 Code as root creates a separate installation and Connect
+with sudo; running Gradespace IDE as root creates a separate installation and Connect
 identity. Without administrator access, run `t3 serve` in a terminal and keep
 that session open.
 
@@ -141,7 +141,7 @@ that session open.
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `linger-unavailable`                    | Run `loginctl show-user "$(id -un)" --property=Linger` and check that systemd-logind is available.                             |
 | `user-manager-unavailable`              | Run `systemctl --user status` in a login session for the service user; check your distribution's systemd user-session support. |
-| `service-disabled` or `service-stopped` | Read the log and, on Linux, `systemctl --user status t3code.service`, then use the repair command printed by T3 Code.          |
+| `service-disabled` or `service-stopped` | Read the log and, on Linux, `systemctl --user status t3code.service`, then use the repair command printed by Gradespace IDE.   |
 | `restart-pending`                       | A newer version is installed but the service still runs the previous one. Run `t3 service restart`.                            |
 
 On macOS, check **System Settings → General → Login Items** if the service no
@@ -155,15 +155,15 @@ For failures after signing in to T3 Connect, see
 
 ## Reclaim database space
 
-T3 Code removes internal history older than a day on its own while it runs;
+Gradespace IDE removes internal history older than a day on its own while it runs;
 your conversations are kept. Databases created before this shrank automatically
 still hold the freed space on disk until a one-time offline repair returns it
 and turns on automatic shrinking. Settings > Maintenance (web and desktop) or
 Settings > Maintenance (mobile) suggests the repair when at least 1 GiB can be
 reclaimed.
 
-When the desktop app or the background service runs T3 Code on that machine,
-select **Reclaim** in Settings on web or desktop. T3 Code checks for free disk
+When the desktop app or the background service runs Gradespace IDE on that machine,
+select **Reclaim** in Settings on web or desktop. Gradespace IDE checks for free disk
 space, then stops, repairs the database, and starts again. It is offline while
 the repair runs, and running agents stop. If the repair fails, Settings shows
 why.
