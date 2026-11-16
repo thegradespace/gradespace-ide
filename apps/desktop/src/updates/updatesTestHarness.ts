@@ -36,6 +36,7 @@ export interface UpdatesHarnessOptions {
   readonly env?: Record<string, string | undefined>;
   readonly platform?: NodeJS.Platform;
   readonly packageType?: string | undefined;
+  readonly serverSettings?: string | undefined;
   readonly installRecord?: string | undefined;
   readonly policy?: DesktopUpdatePolicy.UpdatePolicy;
   readonly appVersion?: string;
@@ -247,6 +248,9 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
         ? (installRecords.get(path) ?? previousInstallRecord)
         : undefined;
       if (installRecord !== undefined) return Effect.succeed(installRecord);
+      if (path.endsWith("/settings.json") && options.serverSettings !== undefined) {
+        return Effect.succeed(options.serverSettings);
+      }
       return path === "/missing/resources/package-type" && options.packageType !== undefined
         ? Effect.succeed(options.packageType)
         : Effect.fail(

@@ -47,6 +47,15 @@ const decodeServerObservabilitySettingsJson = Schema.decodeUnknownOption(
   ServerObservabilitySettingsJson,
 );
 
+const ServerOfflineModeJson = fromLenientJson(
+  Schema.Struct({ offlineMode: Schema.optionalKey(Schema.Boolean) }),
+);
+const decodeServerOfflineModeJson = Schema.decodeUnknownOption(ServerOfflineModeJson);
+
+export function isPersistedOfflineMode(raw: string): boolean {
+  return Option.getOrUndefined(decodeServerOfflineModeJson(raw))?.offlineMode === true;
+}
+
 export function isModelSelectionProviderEnabled(
   settings: ServerSettings,
   selection: ModelSelection,
