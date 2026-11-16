@@ -1059,11 +1059,11 @@ it.effect("fails preview calls with T3's errors when browser access is off or a 
     } as const;
     const answer = (id: string, tool: string) => {
       const sample = makeSample(browserCase(id), base);
-      sample.tools.push({ name: `mcp__t3-code__${tool}` });
+      sample.tools.push({ name: `mcp__gradespace__${tool}` });
       return answerToolCall(sample, config, {
         type: "tool_use",
         id: tool,
-        name: `mcp__t3-code__${tool}`,
+        name: `mcp__gradespace__${tool}`,
         input: {},
       });
     };
@@ -1076,7 +1076,10 @@ it.effect("fails preview calls with T3's errors when browser access is off or a 
         is_error: true,
         content: off,
       });
-    assert.notInclude(t3SystemAppend("claude-sonnet-5-5", true, false), "## T3 Code browser");
+    assert.notInclude(
+      t3SystemAppend("claude-sonnet-5-5", true, false),
+      "## Gradespace IDE browser",
+    );
     const unsupported = "br-guard-preview-open-unsupported";
     assert.deepInclude(yield* answer(unsupported, "preview_open"), {
       is_error: true,
@@ -1087,13 +1090,13 @@ it.effect("fails preview calls with T3's errors when browser access is off or a 
     assert.include(String(status.content), '"available":false');
     // A sequence mock answers each call with its next result, then repeats the last.
     const flow = makeSample(browserCase("br-flow-qa-missing-cli"), base);
-    flow.tools.push({ name: "mcp__t3-code__preview_snapshot" });
+    flow.tools.push({ name: "mcp__gradespace__preview_snapshot" });
     const titles: Array<string> = [];
     for (let i = 0; i < 4; i++) {
       const result = yield* answerToolCall(flow, config, {
         type: "tool_use",
         id: `snapshot-${i}`,
-        name: "mcp__t3-code__preview_snapshot",
+        name: "mcp__gradespace__preview_snapshot",
         input: {},
       });
       titles.push(String(/"title":"([^"]+)"/.exec(String(result.content))?.[1]));

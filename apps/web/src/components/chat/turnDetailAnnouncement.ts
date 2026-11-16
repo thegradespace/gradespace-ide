@@ -164,7 +164,7 @@ export interface TurnDetailMemory {
 }
 
 /** The heading every agent message has in the timeline. */
-const MESSAGE_AUTHOR = "GS";
+const MESSAGE_AUTHOR = "Gradespace";
 
 /**
  * Decides which of the turn's messages and steps a screen reader hears next.
