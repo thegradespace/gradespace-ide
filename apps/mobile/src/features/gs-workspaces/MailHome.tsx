@@ -278,16 +278,6 @@ function EmailCard(props: {
           </View>
         );
       })}
-      <View
-        accessible
-        accessibilityLabel="Outlook, coming later"
-        className="min-h-10 flex-row items-center gap-3 opacity-60"
-      >
-        <View className="size-2.5 rounded-full border border-border" />
-        <Text textRole="footnote" className="text-foreground-muted">
-          Outlook · coming later
-        </Text>
-      </View>
     </View>
   );
 }

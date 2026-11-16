@@ -94,7 +94,7 @@ in Codex (ChatGPT or Codex app → Plugins → Gmail) or the Gmail connector in 
 **Your email** with each agent's status: **How to connect** walks through the steps and
 **Check** looks again without starting a chat. The **Start** tiles (triage, draft a reply, find a
 meeting time, follow-ups) fill in a request and pick a connected agent. Nothing is ever
-sent: replies and invites are saved as drafts for you to approve. Outlook comes later.
+sent: replies and invites are saved as drafts for you to approve.
 
 Career finds jobs and prepares applications with the `gs-jobs` skill. The first time, attach
 your CV and the agent builds a master CV, an evidence bank and a career record on your computer

@@ -187,10 +187,6 @@ function MailHomeBody(
                 Set up Codex or Claude on this environment to use Mail.
               </li>
             ) : null}
-            <li className="flex min-h-8 items-center gap-2 text-sm text-muted-foreground">
-              <StatusDot state={null} />
-              <span>Outlook · coming later</span>
-            </li>
           </ul>
         </div>
         {/* First on phones, where the space under a centered composer is short. */}
@@ -265,7 +261,7 @@ function MailHomeBody(
   );
 }
 
-function StatusDot({ state }: { state: EmailProviderRow["state"] | null }) {
+function StatusDot({ state }: { state: EmailProviderRow["state"] }) {
   return (
     <span
       aria-hidden
@@ -275,9 +271,7 @@ function StatusDot({ state }: { state: EmailProviderRow["state"] | null }) {
           ? "bg-success"
           : state === "notConnected"
             ? "bg-destructive"
-            : state === "unknown"
-              ? "bg-muted-foreground/60"
-              : "bg-muted-foreground/25",
+            : "bg-muted-foreground/60",
       )}
     />
   );
