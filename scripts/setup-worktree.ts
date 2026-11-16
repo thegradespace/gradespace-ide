@@ -3,7 +3,11 @@ import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 
-const ENV_FILES = [".env", NodePath.join("infra", "relay", ".env")];
+const LINKED_FILES = [
+  ".env",
+  NodePath.join("infra", "relay", ".env"),
+  NodePath.join(".gradespace", "brief.md"),
+];
 
 const worktree = NodePath.dirname(import.meta.dirname);
 
@@ -99,8 +103,9 @@ if (
   );
 }
 
-// Worktrees link main-checkout env files; replace only symlinks so real files always survive.
-for (const file of ENV_FILES) {
+// Worktrees link the main checkout's untracked env files and project brief; replace only
+// symlinks so real files always survive.
+for (const file of LINKED_FILES) {
   const source = NodePath.join(projectRoot, file);
   const sourceStat = NodeFS.lstatSync(source, { throwIfNoEntry: false });
   if (!sourceStat) continue;
@@ -112,5 +117,6 @@ for (const file of ENV_FILES) {
   const existing = NodeFS.lstatSync(target, { throwIfNoEntry: false });
   if (existing && !existing.isSymbolicLink()) continue;
   if (existing) NodeFS.rmSync(target);
+  NodeFS.mkdirSync(NodePath.dirname(target), { recursive: true });
   NodeFS.symlinkSync(source, target);
 }
