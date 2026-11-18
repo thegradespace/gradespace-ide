@@ -96,6 +96,15 @@ const PullRequestActivityVisibility = Schema.Struct({
 export type PullRequestActivityVisibility = typeof PullRequestActivityVisibility.Type;
 
 const isThreadListFilters = Schema.is(ThreadListFilters);
+/** How the thread list tells devices apart when threads come from more than one. */
+export const ThreadListDeviceLayout = Schema.Literals([
+  "sections",
+  "filter",
+  "color",
+  "device-project",
+]);
+export type ThreadListDeviceLayout = typeof ThreadListDeviceLayout.Type;
+const isThreadListDeviceLayout = Schema.is(ThreadListDeviceLayout);
 const isPresentationStyleChoice = Schema.is(PresentationStyleChoice);
 const isReviewerStyleId = Schema.is(ReviewerStyleId);
 const isWriteWorkspaceMode = Schema.is(WriteWorkspaceMode);
@@ -153,6 +162,9 @@ export interface Preferences {
   readonly threadListSnoozedShelfExpanded?: boolean;
   readonly threadListWorkingShelfExpanded?: boolean;
   readonly threadListFilters?: ThreadListFilters;
+  readonly threadListDeviceLayout?: ThreadListDeviceLayout;
+  /** Device sections folded in the thread list, by environment id. */
+  readonly threadListCollapsedDevices?: ReadonlyArray<string>;
   readonly pullRequestListFilters?: PullRequestListPreferences;
   readonly workspaceSelections?: WorkspaceSelections;
   /** Gradespace workspace the thread list shows; per device, like web's rail. */
@@ -244,6 +256,8 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     threadListSnoozedShelfExpanded?: boolean;
     threadListWorkingShelfExpanded?: boolean;
     threadListFilters?: ThreadListFilters;
+    threadListDeviceLayout?: ThreadListDeviceLayout;
+    threadListCollapsedDevices?: ReadonlyArray<string>;
     pullRequestListFilters?: PullRequestListPreferences;
     workspaceSelections?: WorkspaceSelections;
     activeWorkspace?: string;
@@ -399,6 +413,14 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (isThreadListFilters(parsed.threadListFilters)) {
     preferences.threadListFilters = parsed.threadListFilters;
+  }
+  if (isThreadListDeviceLayout(parsed.threadListDeviceLayout)) {
+    preferences.threadListDeviceLayout = parsed.threadListDeviceLayout;
+  }
+  if (Array.isArray(parsed.threadListCollapsedDevices)) {
+    preferences.threadListCollapsedDevices = parsed.threadListCollapsedDevices.filter(
+      (id): id is string => typeof id === "string",
+    );
   }
   if (isPullRequestListPreferences(parsed.pullRequestListFilters)) {
     preferences.pullRequestListFilters = parsed.pullRequestListFilters;

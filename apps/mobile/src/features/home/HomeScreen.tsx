@@ -81,10 +81,8 @@ import { useThreadRowProviderInstanceResolver } from "../threads/thread-provider
 import { useOpenThreadPullRequests } from "../threads/use-open-thread-pull-requests";
 import type { ThreadPrPresentation } from "../../state/thread-pr-presentation";
 import {
-  threadListV2ListItemsAreEqual,
   THREAD_LIST_V2_SETTLED_INITIAL_COUNT,
   THREAD_LIST_V2_SETTLED_PAGE_COUNT,
-  type ThreadListV2ListItem,
 } from "../threads/threadListV2";
 import { useThreadListV2ShelfPreferences } from "../threads/use-thread-list-v2-shelf-preferences";
 import type { HomeListFilterMenuEnvironment } from "./home-list-filter-menu";
@@ -97,6 +95,17 @@ import {
 import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useFabScroll } from "./FabScrollContext";
+import {
+  groupThreadListByDevice,
+  homeThreadListItemsAreEqual,
+  type HomeThreadListItem,
+} from "./deviceGrouping";
+import {
+  ThreadListDeviceChips,
+  ThreadListDeviceHeader,
+  ThreadListProjectHeader,
+} from "./ThreadListDeviceItems";
+import { threadListDeviceColor, useThreadListDeviceLayout } from "./use-thread-list-device-layout";
 import { holdLaunchSplashForHomeRows, settleLaunchSplashHomeRows } from "./home-launch-splash";
 import { useWorkspaceTabs } from "../layout/workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
@@ -285,7 +294,7 @@ export function HomeScreen(props: HomeScreenProps) {
     });
   });
   const swipeRowActivation = createSwipeRowActivation();
-  const activateVisibleRows = (rows: ReadonlyArray<ThreadListV2ListItem>) => {
+  const activateVisibleRows = (rows: ReadonlyArray<HomeThreadListItem>) => {
     const state = listRef.current?.getState();
     if (state === undefined || !(state.end >= 0)) return;
     swipeRowActivation.activate(
@@ -437,6 +446,26 @@ export function HomeScreen(props: HomeScreenProps) {
     settledShelfExpanded,
     selectedThreadKey,
   });
+  const deviceLayout = useThreadListDeviceLayout();
+  const deviceIds = Object.keys(props.savedConnectionsById);
+  const multipleDevices = deviceIds.length > 1;
+  // Section headers already name the device, so rows under them drop the label.
+  const showRowDevice =
+    multipleDevices &&
+    deviceLayout.layout !== "sections" &&
+    deviceLayout.layout !== "device-project";
+  const listItems = useMemo(
+    () =>
+      groupThreadListByDevice(threadListV2Items, {
+        layout: deviceLayout.layout,
+        collapsedDevices: deviceLayout.collapsedDevices,
+        projectKeyOf: (row) =>
+          row.type === "v2-thread"
+            ? scopedProjectKey(row.item.thread.environmentId, row.item.thread.projectId)
+            : scopedProjectKey(row.pendingTask.environmentId, row.pendingTask.projectId),
+      }),
+    [threadListV2Items, deviceLayout.layout, deviceLayout.collapsedDevices],
+  );
   // Called as `props.onSelectThread(...)`, the compiler would cache this handler on the whole
   // props object, which is new on every render of Home's parent.
   const { onSelectThread } = props;
@@ -452,13 +481,35 @@ export function HomeScreen(props: HomeScreenProps) {
     }
     onSelectThread(thread);
   };
-  useThreadJumpShortcuts(threadListV2Items, selectThread);
+  useThreadJumpShortcuts(listItems, selectThread);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- reads the list's visible range after commit to enable swipe gestures on those rows
   useEffect(() => {
-    if (swipeEnabled) activateVisibleRows(threadListV2Items);
-  }, [activateVisibleRows, swipeEnabled, threadListV2Items]);
+    if (swipeEnabled) activateVisibleRows(listItems);
+  }, [activateVisibleRows, swipeEnabled, listItems]);
 
-  const renderV2Item = ({ item }: { readonly item: ThreadListV2ListItem }) => {
+  const renderV2Item = ({ item }: { readonly item: HomeThreadListItem }) => {
+    if (item.type === "v2-device-header") {
+      return (
+        <ThreadListDeviceHeader
+          environmentId={item.environmentId}
+          label={props.savedConnectionsById[item.environmentId]?.environmentLabel ?? "Device"}
+          machine={machineByEnvironmentId.get(item.environmentId)}
+          count={item.count}
+          collapsed={item.collapsed}
+          pane={sidebarSurface ? "sidebar" : "screen"}
+          onToggle={deviceLayout.toggleDevice}
+        />
+      );
+    }
+    if (item.type === "v2-project-header") {
+      return (
+        <ThreadListProjectHeader
+          title={projectByKey.get(item.projectKey)?.title ?? "Other"}
+          count={item.count}
+          pane={sidebarSurface ? "sidebar" : "screen"}
+        />
+      );
+    }
     if (item.type === "v2-pending") {
       const pendingScopeKey = scopedProjectKey(
         item.pendingTask.environmentId,
@@ -476,7 +527,7 @@ export function HomeScreen(props: HomeScreenProps) {
           }
           project={projectByKey.get(pendingScopeKey) ?? null}
           environmentLabel={
-            Object.keys(props.savedConnectionsById).length > 1
+            showRowDevice
               ? (props.savedConnectionsById[item.pendingTask.environmentId]?.environmentLabel ??
                 null)
               : null
@@ -545,11 +596,16 @@ export function HomeScreen(props: HomeScreenProps) {
         providerInstance={resolveProviderInstance(thread)}
         providers={providersByEnvironmentId.get(thread.environmentId)}
         environmentLabel={
-          Object.keys(props.savedConnectionsById).length > 1
+          showRowDevice
             ? (props.savedConnectionsById[thread.environmentId]?.environmentLabel ?? null)
             : null
         }
         environmentMachine={machineByEnvironmentId.get(thread.environmentId)}
+        deviceColor={
+          multipleDevices && deviceLayout.layout === "color"
+            ? threadListDeviceColor(deviceIds, thread.environmentId)
+            : undefined
+        }
         searchMatch={
           // Only rows listed for their messages show one and open at it.
           contentOnlyThreadKeys.has(
@@ -595,7 +651,7 @@ export function HomeScreen(props: HomeScreenProps) {
       />
     );
   };
-  const v2KeyExtractor = (item: ThreadListV2ListItem) => item.key;
+  const v2KeyExtractor = (item: HomeThreadListItem) => item.key;
 
   // extraData changes invalidate every visible row; put the minute clock on items to limit updates.
   const v2ExtraData = {
@@ -608,6 +664,7 @@ export function HomeScreen(props: HomeScreenProps) {
     selectedThreadKey,
     threadSearchMatchByKey,
     workingShelfEnabled,
+    deviceLayout: deviceLayout.layout,
   };
 
   const activeWorkspaceEmpty = workspaceEmptyCopy(activeWorkspace);
@@ -704,6 +761,14 @@ export function HomeScreen(props: HomeScreenProps) {
           environmentId={mailEnvironmentId}
           compact
           onStartNewTask={props.onStartNewTask}
+        />
+      ) : null}
+      {multipleDevices && deviceLayout.layout === "filter" && props.environments.length > 1 ? (
+        <ThreadListDeviceChips
+          gutter={sidebarSurface ? 8 : 0}
+          devices={props.environments}
+          selectedEnvironmentId={props.selectedEnvironmentId}
+          onEnvironmentChange={props.onEnvironmentChange}
         />
       ) : null}
       {Platform.OS === "ios" && workspace ? (
@@ -809,17 +874,17 @@ export function HomeScreen(props: HomeScreenProps) {
                 ref={listRef}
                 onLoad={() => {
                   settleLaunchSplashHomeRows();
-                  activateVisibleRows(threadListV2Items);
+                  activateVisibleRows(listItems);
                 }}
                 onTouchStart={(event) => trackListTouches(event, true)}
                 onTouchEnd={(event) => trackListTouches(event, false)}
                 onTouchCancel={(event) => trackListTouches(event, false)}
                 renderScrollComponent={Platform.OS === "ios" ? renderHomeScrollView : undefined}
-                data={threadListV2Items}
+                data={listItems}
                 renderItem={renderV2Item}
                 keyExtractor={v2KeyExtractor}
                 getItemType={(item) => item.type}
-                itemsAreEqual={threadListV2ListItemsAreEqual}
+                itemsAreEqual={homeThreadListItemsAreEqual}
                 estimatedItemSize={ESTIMATED_THREAD_LIST_V2_ROW_HEIGHT}
                 drawDistance={THREAD_LIST_V2_DRAW_DISTANCE}
                 recycleItems

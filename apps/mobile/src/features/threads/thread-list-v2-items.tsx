@@ -664,6 +664,8 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly providerInstance: ThreadRowProviderInstance | null;
   readonly environmentLabel: string | null;
   readonly environmentMachine?: EnvironmentMachineKind;
+  /** Tints the row's edge and device label so devices tell apart in one timeline. */
+  readonly deviceColor?: string;
   readonly pane?: "screen" | "sidebar";
   readonly showTrailingDivider?: boolean;
   readonly selected?: boolean;
@@ -1174,6 +1176,11 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       : `Opens the thread. Swipe left for ${primaryAction.label.toLowerCase()} and snooze actions.`;
 
   const titleTextInset = props.project ? projectIconSize + 8 : 0;
+  const deviceStripe = props.deviceColor
+    ? { borderLeftWidth: 3, borderLeftColor: props.deviceColor }
+    : undefined;
+  const deviceLabelColor =
+    props.deviceColor && !selected ? { color: props.deviceColor } : undefined;
   const cardContent = (
     <>
       <View className="flex-row items-start gap-2">
@@ -1346,6 +1353,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
                   : rowAppearance.tertiaryForegroundClassName,
               )}
               numberOfLines={1}
+              style={deviceLabelColor}
             >
               {props.environmentLabel}
             </Text>
@@ -1464,10 +1472,12 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         style={rowAppearance.cardStyle}
       >
         {sidebarPane ? (
-          fadedCardContent
+          <View style={deviceStripe}>{fadedCardContent}</View>
         ) : (
           <View>
-            <View className={THREAD_LIST_V2_ROW_CONTENT_CLASS_NAME}>{fadedCardContent}</View>
+            <View className={THREAD_LIST_V2_ROW_CONTENT_CLASS_NAME} style={deviceStripe}>
+              {fadedCardContent}
+            </View>
             {THREAD_LIST_V2_ROW_DIVIDERS && props.showTrailingDivider !== false ? (
               <View className="ml-5 h-px bg-border-subtle" />
             ) : null}
@@ -1496,6 +1506,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
             "min-h-[44px] flex-row items-center gap-2 py-2",
             sidebarPane && "px-3",
           )}
+          style={deviceStripe}
         >
           {props.project ? (
             <View className="opacity-40">
