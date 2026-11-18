@@ -447,13 +447,23 @@ export function HomeScreen(props: HomeScreenProps) {
     selectedThreadKey,
   });
   const deviceLayout = useThreadListDeviceLayout();
-  const deviceIds = Object.keys(props.savedConnectionsById);
+  // Switched-off connections list no threads, so they take no colour and don't count as a device.
+  const enabledEnvironmentIds = new Set<string>(
+    props.environments.map((environment) => environment.environmentId),
+  );
+  const deviceIds = Object.keys(props.savedConnectionsById).filter((id) =>
+    enabledEnvironmentIds.has(id),
+  );
   const multipleDevices = deviceIds.length > 1;
   // Section headers already name the device, so rows under them drop the label.
+  // The filter chips name the device too once one is picked.
+  const showDeviceChips =
+    multipleDevices && deviceLayout.layout === "filter" && props.environments.length > 1;
   const showRowDevice =
     multipleDevices &&
     deviceLayout.layout !== "sections" &&
-    deviceLayout.layout !== "device-project";
+    deviceLayout.layout !== "device-project" &&
+    !(showDeviceChips && props.selectedEnvironmentId !== null);
   const listItems = useMemo(
     () =>
       groupThreadListByDevice(threadListV2Items, {
@@ -763,7 +773,7 @@ export function HomeScreen(props: HomeScreenProps) {
           onStartNewTask={props.onStartNewTask}
         />
       ) : null}
-      {multipleDevices && deviceLayout.layout === "filter" && props.environments.length > 1 ? (
+      {showDeviceChips ? (
         <ThreadListDeviceChips
           gutter={sidebarSurface ? 8 : 0}
           devices={props.environments}
@@ -790,6 +800,7 @@ export function HomeScreen(props: HomeScreenProps) {
           selectedProjectKey={props.selectedProjectKey}
           onEnvironmentChange={props.onEnvironmentChange}
           onProjectChange={props.onProjectChange}
+          showEnvironmentMenu={!showDeviceChips}
         />
       ) : null}
     </>

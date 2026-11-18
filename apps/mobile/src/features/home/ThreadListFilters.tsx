@@ -16,6 +16,8 @@ export function ThreadListFilters(props: {
   readonly onProjectChange: (projectKey: string | null) => void;
   /** List padding the scroller bleeds through so pills start where row content does. */
   readonly gutter: number;
+  /** Off when the device chips above the list already pick the environment. */
+  readonly showEnvironmentMenu?: boolean;
 }) {
   const selectedEnvironment = props.environments.find(
     (environment) => environment.environmentId === props.selectedEnvironmentId,
@@ -30,35 +32,37 @@ export function ThreadListFilters(props: {
       style={{ marginHorizontal: -props.gutter, overflow: "visible" }}
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 2, paddingBottom: 10, gap: 8 }}
     >
-      <ListFilterMenu
-        label={selectedEnvironment?.label ?? "All environments"}
-        accessibilityLabel="Filter threads by environment"
-        active={selectedEnvironment !== undefined}
-        actions={[
-          {
-            id: "all",
-            title: "All environments",
-            state: props.selectedEnvironmentId === null ? "on" : "off",
-          },
-          ...props.environments.map((environment) => ({
-            id: JSON.stringify(environment.environmentId),
-            title: environment.label,
-            state:
-              environment.environmentId === props.selectedEnvironmentId
-                ? ("on" as const)
-                : ("off" as const),
-          })),
-        ]}
-        onSelect={(id) => {
-          if (id === "all") props.onEnvironmentChange(null);
-          else {
-            const environment = props.environments.find(
-              (candidate) => JSON.stringify(candidate.environmentId) === id,
-            );
-            if (environment) props.onEnvironmentChange(environment.environmentId);
-          }
-        }}
-      />
+      {props.showEnvironmentMenu === false ? null : (
+        <ListFilterMenu
+          label={selectedEnvironment?.label ?? "All environments"}
+          accessibilityLabel="Filter threads by environment"
+          active={selectedEnvironment !== undefined}
+          actions={[
+            {
+              id: "all",
+              title: "All environments",
+              state: props.selectedEnvironmentId === null ? "on" : "off",
+            },
+            ...props.environments.map((environment) => ({
+              id: JSON.stringify(environment.environmentId),
+              title: environment.label,
+              state:
+                environment.environmentId === props.selectedEnvironmentId
+                  ? ("on" as const)
+                  : ("off" as const),
+            })),
+          ]}
+          onSelect={(id) => {
+            if (id === "all") props.onEnvironmentChange(null);
+            else {
+              const environment = props.environments.find(
+                (candidate) => JSON.stringify(candidate.environmentId) === id,
+              );
+              if (environment) props.onEnvironmentChange(environment.environmentId);
+            }
+          }}
+        />
+      )}
       <ListFilterMenu
         label={selectedProject?.label ?? "All projects"}
         accessibilityLabel="Filter threads by project"
