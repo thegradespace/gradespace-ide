@@ -122,10 +122,11 @@ export function ThreadListAppearanceSection() {
               accessibilityRole="radio"
               accessibilityState={{ checked: selected, disabled: !loaded }}
               className={cn(
-                "min-w-36 flex-1 basis-[47%] gap-2 rounded-[24px] p-2 active:scale-[0.97]",
+                "min-w-36 flex-1 basis-[47%] gap-2 rounded-[24px] active:scale-[0.97]",
+                // The selected border is 1pt thicker, so its padding is 1pt less and nothing shifts.
                 selected
-                  ? "border-2 border-primary bg-subtle"
-                  : "border border-border bg-grouped-card",
+                  ? "border-2 border-primary bg-subtle p-[7px]"
+                  : "border border-border bg-grouped-card p-2",
               )}
               disabled={!loaded}
               onPress={() => setLayout(option.value)}

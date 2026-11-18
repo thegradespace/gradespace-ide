@@ -649,6 +649,30 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
   );
 });
 
+/** A device's colour in the colour layout: a bright edge stripe and a readable label tint. */
+export interface ThreadRowDeviceColor {
+  readonly stripe: string;
+  readonly labelClassName: string;
+}
+
+// Overlays the row's leading edge, so the stripe takes no layout space and content stays aligned.
+function DeviceStripe(props: { readonly color: ThreadRowDeviceColor | undefined }) {
+  if (!props.color) return null;
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 3,
+        backgroundColor: props.color.stripe,
+      }}
+    />
+  );
+}
+
 export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly thread: EnvironmentThreadShell;
   readonly variant: "card" | "slim";
@@ -665,7 +689,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly environmentLabel: string | null;
   readonly environmentMachine?: EnvironmentMachineKind;
   /** Tints the row's edge and device label so devices tell apart in one timeline. */
-  readonly deviceColor?: string;
+  readonly deviceColor?: ThreadRowDeviceColor;
   readonly pane?: "screen" | "sidebar";
   readonly showTrailingDivider?: boolean;
   readonly selected?: boolean;
@@ -1176,11 +1200,6 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       : `Opens the thread. Swipe left for ${primaryAction.label.toLowerCase()} and snooze actions.`;
 
   const titleTextInset = props.project ? projectIconSize + 8 : 0;
-  const deviceStripe = props.deviceColor
-    ? { borderLeftWidth: 3, borderLeftColor: props.deviceColor }
-    : undefined;
-  const deviceLabelColor =
-    props.deviceColor && !selected ? { color: props.deviceColor } : undefined;
   const cardContent = (
     <>
       <View className="flex-row items-start gap-2">
@@ -1350,10 +1369,10 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
                 "shrink text-xs",
                 selected
                   ? selectedThreadRowColors.mutedForegroundClassName
-                  : rowAppearance.tertiaryForegroundClassName,
+                  : (props.deviceColor?.labelClassName ??
+                      rowAppearance.tertiaryForegroundClassName),
               )}
               numberOfLines={1}
-              style={deviceLabelColor}
             >
               {props.environmentLabel}
             </Text>
@@ -1472,11 +1491,15 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         style={rowAppearance.cardStyle}
       >
         {sidebarPane ? (
-          <View style={deviceStripe}>{fadedCardContent}</View>
+          <View>
+            {fadedCardContent}
+            <DeviceStripe color={props.deviceColor} />
+          </View>
         ) : (
           <View>
-            <View className={THREAD_LIST_V2_ROW_CONTENT_CLASS_NAME} style={deviceStripe}>
+            <View className={THREAD_LIST_V2_ROW_CONTENT_CLASS_NAME}>
               {fadedCardContent}
+              <DeviceStripe color={props.deviceColor} />
             </View>
             {THREAD_LIST_V2_ROW_DIVIDERS && props.showTrailingDivider !== false ? (
               <View className="ml-5 h-px bg-border-subtle" />
@@ -1506,8 +1529,8 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
             "min-h-[44px] flex-row items-center gap-2 py-2",
             sidebarPane && "px-3",
           )}
-          style={deviceStripe}
         >
+          <DeviceStripe color={props.deviceColor} />
           {props.project ? (
             <View className="opacity-40">
               <ProjectFavicon

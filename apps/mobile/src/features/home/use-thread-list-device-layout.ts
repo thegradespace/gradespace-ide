@@ -3,6 +3,7 @@ import { AsyncResult } from "effect/reactivity";
 import { useMemo } from "react";
 
 import type { ThreadListDeviceLayout } from "../../persistence/mobile-preferences";
+import type { ThreadRowDeviceColor } from "../threads/thread-list-v2-items";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { DEFAULT_THREAD_LIST_DEVICE_LAYOUT } from "./deviceGrouping";
 
@@ -42,13 +43,22 @@ export function useThreadListDeviceLayout() {
   return { loaded, layout, collapsedDevices, setLayout, toggleDevice } as const;
 }
 
-const DEVICE_COLORS = ["#3b82f6", "#f59e0b", "#ec4899", "#10b981", "#8b5cf6", "#06b6d4"] as const;
+// The stripe is the bright 500 shade in both themes. Labels are text, so they use a darker shade on
+// light backgrounds and a lighter one on dark, which keeps each at least 4.5:1.
+export const DEVICE_COLORS: ReadonlyArray<ThreadRowDeviceColor> = [
+  { stripe: "#3b82f6", labelClassName: "text-adaptive-blue-600-400" },
+  { stripe: "#f59e0b", labelClassName: "text-adaptive-amber-700-300" },
+  { stripe: "#f43f5e", labelClassName: "text-adaptive-rose-600-400" },
+  { stripe: "#10b981", labelClassName: "text-adaptive-emerald-700-300" },
+  { stripe: "#8b5cf6", labelClassName: "text-adaptive-violet-600-400" },
+  { stripe: "#0ea5e9", labelClassName: "text-adaptive-sky-700-300" },
+];
 
 /** A steady colour per device, in the order the devices were added. */
 export function threadListDeviceColor(
   environmentIds: ReadonlyArray<string>,
   environmentId: string,
-): string | undefined {
+): ThreadRowDeviceColor | undefined {
   const index = environmentIds.indexOf(environmentId);
   return index < 0 ? undefined : DEVICE_COLORS[index % DEVICE_COLORS.length];
 }
