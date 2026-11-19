@@ -14851,14 +14851,18 @@ describe("ClaudeAdapterV2 background wake turns", () => {
         const rosterBAfterFail = providerThreadRosterEvents(events).findLast(
           (event) => event.providerThread.id === providerThreadB.id,
         )?.providerThread.pendingBackgroundTasks;
-        assert.deepEqual(rosterBAfterFail ?? [], [
-          {
-            taskId: taskB,
-            description: "work on B",
-            kind: "command",
-            nativeItemId: "toolu-roster-b",
-          },
-        ]);
+        assert.isDefined(rosterBAfterFail?.[0]?.startedAt);
+        assert.deepEqual(
+          (rosterBAfterFail ?? []).map(({ startedAt: _startedAt, ...task }) => task),
+          [
+            {
+              taskId: taskB,
+              description: "work on B",
+              kind: "command",
+              nativeItemId: "toolu-roster-b",
+            },
+          ],
+        );
         assert.isFalse(yield* hasPendingBackgroundWorkForThread(providerThreadA));
         assert.isTrue(yield* hasPendingBackgroundWorkForThread(providerThreadB));
         assert.isTrue(yield* hasPendingBackgroundWork);

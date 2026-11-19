@@ -2932,7 +2932,7 @@ describe("AcpAdapterV2", () => {
                         title: "Wait for the child",
                         status: "in_progress",
                         rawInput: {
-                          server: "t3-code",
+                          server: "gradespace",
                           tool: "t3_thread_wait",
                           arguments: { threadId: "child" },
                         },
@@ -6011,7 +6011,7 @@ describe("AcpAdapterV2", () => {
         return yield* Effect.die("ACP runtime must register MCP-over-ACP handlers");
       }
       const { connectionId } = yield* mcpConnect(
-        { serverId: "t3-code" },
+        { serverId: "gradespace" },
         { requestId: "stop-mcp-connect", method: "mcp/connect" },
       );
       const call = yield* mcpMessage(

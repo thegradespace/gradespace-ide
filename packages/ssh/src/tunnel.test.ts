@@ -1579,7 +1579,13 @@ const canBind = (port) =>
       const connect = (archiveVersion: string) =>
         Effect.gen(function* () {
           const launch = `${root}/launch-${archiveVersion}.sh`;
-          yield* fs.writeFileString(launch, SshTunnel.buildRemoteLaunchScript({ archiveVersion }));
+          yield* fs.writeFileString(
+            launch,
+            SshTunnel.buildRemoteLaunchScript({
+              archiveVersion,
+              releaseBaseUrl: "https://releases.example.com/t3",
+            }),
+          );
           const result = yield* runScript(home, [launch, "test-state"]);
           assert.equal(result.exitCode, 0, result.stderr);
           const pid = yield* readManagedPid;
