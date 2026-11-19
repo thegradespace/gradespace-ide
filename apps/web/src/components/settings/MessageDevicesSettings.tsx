@@ -13,7 +13,7 @@ import { DraftInput } from "../ui/draft-input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
 import { SettingResetButton, SettingsRow, SettingsSection } from "./settingsLayout";
-import { searchableSetting } from "./settingsSearch";
+import { useSearchableSetting } from "./settingsSearch";
 import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
 
 const STYLE_LABELS: Record<MessageDeviceStyle, string> = {
@@ -33,6 +33,7 @@ const COLOR_LABELS: Record<MessageDeviceColor, string> = {
 };
 
 export function MessageDevicesSettings() {
+  const searchableSetting = useSearchableSetting();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const devices = Object.entries(settings.messageDevices);
@@ -47,7 +48,7 @@ export function MessageDevicesSettings() {
         resetAction={
           settings.showMessageDevice !== DEFAULT_CLIENT_SETTINGS.showMessageDevice ? (
             <SettingResetButton
-              label="sending device"
+              ariaLabel="Reset sending device to default"
               onClick={() =>
                 updateSettings({ showMessageDevice: DEFAULT_CLIENT_SETTINGS.showMessageDevice })
               }
@@ -68,7 +69,7 @@ export function MessageDevicesSettings() {
         resetAction={
           settings.messageDeviceStyle !== DEFAULT_CLIENT_SETTINGS.messageDeviceStyle ? (
             <SettingResetButton
-              label="device style"
+              ariaLabel="Reset device style to default"
               onClick={() =>
                 updateSettings({ messageDeviceStyle: DEFAULT_CLIENT_SETTINGS.messageDeviceStyle })
               }

@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { AuthOrchestrationOperateScope, type EnvironmentId } from "@t3tools/contracts";
 import type { ScopedThreadRef } from "@t3tools/contracts";
-import { writeTextToClipboard } from "~/hooks/useCopyToClipboard";
+import { namedClipboardTarget, writeTextToClipboard } from "~/hooks/useCopyToClipboard";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -131,7 +131,9 @@ const ThreadFileRow = memo(function ThreadFileRow(props: {
               {props.revealLabel}
             </MenuItem>
           ) : null}
-          <MenuItem onClick={() => void writeTextToClipboard(file.path, "path")}>
+          <MenuItem
+            onClick={() => void writeTextToClipboard(file.path, namedClipboardTarget("path"))}
+          >
             <CopyIcon className="size-3.5" />
             Copy full path
           </MenuItem>

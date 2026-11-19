@@ -22,7 +22,7 @@ import {
 } from "./settingsLayout";
 import { settingsScopeEnvironmentLabel } from "./settingsScopeAxis";
 import { useSettingsScope } from "./SettingsScopeContext";
-import { searchableSetting } from "./settingsSearch";
+import { useSearchableSetting } from "./settingsSearch";
 import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
 
 type ScopedEnvironment = ReturnType<typeof useSettingsScope>["connectedEnvironments"][number];
@@ -257,6 +257,7 @@ function EnvironmentSkills({
 }
 
 export function SkillsSettingsPanel() {
+  const searchableSetting = useSearchableSetting();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const { connectedEnvironments } = useSettingsScope();
@@ -275,7 +276,7 @@ export function SkillsSettingsPanel() {
           resetAction={
             settings.keepSkillsUpToDate !== DEFAULT_UNIFIED_SETTINGS.keepSkillsUpToDate ? (
               <SettingResetButton
-                label="keep skills up to date"
+                ariaLabel="Reset keep skills up to date to default"
                 onClick={() =>
                   updateSettings({
                     keepSkillsUpToDate: DEFAULT_UNIFIED_SETTINGS.keepSkillsUpToDate,

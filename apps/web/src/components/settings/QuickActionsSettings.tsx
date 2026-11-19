@@ -45,7 +45,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../
 import { Textarea } from "../ui/textarea";
 import { commandLabel, keybindingFromKeyboardEvent } from "./KeybindingsSettings.logic";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsLayout";
-import { searchableSetting } from "./settingsSearch";
+import { useSearchableSetting } from "./settingsSearch";
 
 const RUN_IN_OPTIONS: ReadonlyArray<{ value: QuickActionRunIn; label: string }> = [
   { value: "new-chat", label: "New chat in the current project" },
@@ -76,6 +76,7 @@ interface EditorState {
 }
 
 export function QuickActionsSettingsPanel({ startNew }: { readonly startNew: boolean }) {
+  const searchableSetting = useSearchableSetting();
   const navigate = useNavigate();
   const actions = useClientSettings((settings) => settings.quickActions);
   const [editor, setEditor] = useState<EditorState | null>(null);

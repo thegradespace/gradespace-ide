@@ -28,7 +28,7 @@ import { toastManager } from "../ui/toast";
 import { SettingsRow, SettingsSection } from "./settingsLayout";
 import { settingsScopeEnvironmentLabel } from "./settingsScopeAxis";
 import { useSettingsScope } from "./SettingsScopeContext";
-import { searchableSetting } from "./settingsSearch";
+import { useSearchableSetting } from "./settingsSearch";
 
 type ScopedEnvironment = ReturnType<typeof useSettingsScope>["connectedEnvironments"][number];
 
@@ -60,6 +60,7 @@ function EnvironmentBackups({
   environment: ScopedEnvironment;
   label: string | null;
 }) {
+  const searchableSetting = useSearchableSetting();
   const { environmentId } = environment;
   const nowMinute = useNowMinute();
   const nowMs = Date.parse(`${nowMinute}:00.000Z`);

@@ -151,6 +151,13 @@ export function classifyReachability(
       restart,
     );
   }
+  if (status === 530 && cloudflareError === "1016") {
+    return fail(
+      "dns_failed",
+      "The Gradespace Connect address no longer points to this machine's tunnel (Cloudflare error 1016). Gradespace Connect may have removed this environment.",
+      "Link this environment again. Turn Gradespace Connect off and on in Settings > Sharing & access, or run `gs connect link` and then restart GS.",
+    );
+  }
   if (status !== null) {
     const code = cloudflareError === undefined ? "" : ` (Cloudflare error ${cloudflareError})`;
     return fail(
