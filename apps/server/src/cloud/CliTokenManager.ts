@@ -129,6 +129,16 @@ const PersistedToken = Schema.Struct({
 });
 export type PersistedToken = typeof PersistedToken.Type;
 
+// The largest valid Date, so the refresh check never comes due.
+const OWNER_TOKEN_EXPIRES_AT_EPOCH_MS = 8_640_000_000_000_000;
+
+/** An owner-mode relay credential: sent as is, never refreshed, replaced only by storing another. */
+export const makeOwnerToken = (accessToken: string): PersistedToken => ({
+  accessToken,
+  refreshToken: "",
+  expiresAtEpochMs: OWNER_TOKEN_EXPIRES_AT_EPOCH_MS,
+});
+
 const PersistedTokenJson = Schema.fromJsonString(PersistedToken);
 const decodePersistedToken = Schema.decodeUnknownEffect(PersistedTokenJson);
 const encodePersistedToken = Schema.encodeEffect(PersistedTokenJson);

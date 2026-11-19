@@ -78,6 +78,24 @@ export function hasCloudPublicConfig(): boolean {
   return Boolean(config.clerk.publishableKey && config.clerk.jwtTemplate && config.relay.url);
 }
 
+/**
+ * How this build proves who it is to the relay. Owner mode is a relay with no Clerk, where a
+ * pasted owner token stands in for sign-in. A Clerk key without its JWT template is an
+ * incomplete Clerk build, so there is no mode.
+ */
+export function resolveConnectAuthMode(
+  config: CloudPublicConfig = resolveCloudPublicConfig(),
+): "clerk" | "owner" | null {
+  if (!config.relay.url) return null;
+  if (!config.clerk.publishableKey) return "owner";
+  return config.clerk.jwtTemplate ? "clerk" : null;
+}
+
+/** Gates notifications and Live Activities, which need a relay but not the Clerk screens. */
+export function hasRelayPublicConfig(): boolean {
+  return resolveConnectAuthMode() !== null;
+}
+
 type Configured<T> = {
   readonly [Key in keyof T]: NonNullable<T[Key]>;
 };

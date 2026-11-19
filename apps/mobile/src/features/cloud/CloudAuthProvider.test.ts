@@ -6,6 +6,7 @@ import {
   activateCloudRelayAccount,
   cloudAccountService,
   deactivateCloudRelayAccount,
+  type RelayAccountSource,
 } from "./cloudAccountService";
 import { setAgentAwarenessRelayTokenProvider } from "../agent-awareness/remoteRegistration";
 import { requestConnectOnboarding } from "./connectOnboarding";
@@ -58,15 +59,16 @@ vi.mock("../agent-awareness/remoteRegistration", () => ({
 
 type ClerkListener = (resources: { readonly user: { readonly id: string } | null }) => void;
 
-function fakeClerk() {
+function fakeClerk(options: { readonly managedRelay?: boolean } = {}) {
   const listeners = new Set<ClerkListener>();
-  const clerk = {
-    session: null,
+  const clerk: RelayAccountSource = {
     addListener: (listener: ClerkListener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-  } as unknown as Parameters<typeof cloudAccountService.attach>[0];
+    readToken: async () => "relay-token",
+    managedRelay: options.managedRelay ?? true,
+  };
   const emit = (userId: string | null) => {
     for (const listener of listeners) listener({ user: userId === null ? null : { id: userId } });
   };
@@ -107,6 +109,21 @@ describe("cloudAccountService", () => {
     expect(vi.mocked(restoreCloudComposerDrafts)).toHaveBeenCalledWith("account-1");
     // Clerk already had this account on its first emission, so this is not a fresh sign-in.
     expect(vi.mocked(requestConnectOnboarding)).not.toHaveBeenCalled();
+  });
+
+  it("gives an owner token to agent awareness without starting a managed relay session", async () => {
+    const { clerk: owner, emit } = fakeClerk({ managedRelay: false });
+    using _detach = { [Symbol.dispose]: cloudAccountService.attach(owner) };
+
+    emit("owner");
+    await vi.waitFor(() => expect(cloudAccountService.getState()._tag).toBe("Active"));
+
+    expect(vi.mocked(setAgentAwarenessRelayTokenProvider)).toHaveBeenLastCalledWith(
+      owner.readToken,
+      "owner",
+    );
+    expect(appAtomRegistry.get(managedRelaySessionAtom)).toBeNull();
+    expect(vi.mocked(restoreCloudComposerDrafts)).not.toHaveBeenCalled();
   });
 
   it("retries an activation whose draft restore failed on the next emission", async () => {

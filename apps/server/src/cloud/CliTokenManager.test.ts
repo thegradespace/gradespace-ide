@@ -212,6 +212,32 @@ it.effect(
     }),
 );
 
+it.effect("keeps an owner token as stored, with no refresh however old it gets", () => {
+  const stored = new Map<string, Uint8Array>();
+  let requests = 0;
+  return Effect.gen(function* () {
+    const manager = yield* CliTokenManager.CloudCliTokenManager;
+    yield* manager.store(CliTokenManager.makeOwnerToken("owner-token-1"));
+    yield* TestClock.adjust(Duration.days(3650));
+    const token = yield* manager.getExisting;
+    assert.equal(Option.getOrThrow(token).accessToken, "owner-token-1");
+    assert.equal(requests, 0);
+  }).pipe(
+    provideRefreshManager(
+      HttpClient.make((request) =>
+        Effect.sync(() => {
+          requests += 1;
+          return HttpClientResponse.fromWeb(request, new Response(null, { status: 500 }));
+        }),
+      ),
+      Layer.mock(ServerSecretStore.ServerSecretStore)({
+        get: (name) => Effect.sync(() => Option.fromUndefinedOr(stored.get(name))),
+        set: (name, value) => Effect.sync(() => void stored.set(name, value)),
+      }),
+    ),
+  );
+});
+
 it.effect.each([
   { status: 400, code: "invalid_grant", requiresLogin: true, diagnostic: true },
   { status: 403, code: "private-provider-secret", requiresLogin: true, diagnostic: false },

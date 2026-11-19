@@ -2,7 +2,14 @@ import { ClerkProvider, getClerkInstance } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import type { ReactNode } from "react";
 
-import { cloudAccountService, deactivateCloudRelayAccount } from "./cloudAccountService";
+import { reportAtomCommandResult, settlePromise } from "@t3tools/client-runtime/state/runtime";
+
+import {
+  clerkAccountSource,
+  cloudAccountService,
+  deactivateCloudRelayAccount,
+} from "./cloudAccountService";
+import { loadOwnerCredential, ownerAccountSource } from "./ownerCredential";
 import { resolveCloudPublicConfig } from "./publicConfig";
 
 const cloudConfig = resolveCloudPublicConfig();
@@ -12,7 +19,12 @@ const publishableKey = cloudConfig.relay.url ? cloudConfig.clerk.publishableKey 
 if (publishableKey) {
   // The same native singleton ClerkProvider renders with, so the service
   // observes it for the app's lifetime without a React subscription.
-  cloudAccountService.attach(getClerkInstance({ publishableKey }));
+  cloudAccountService.attach(clerkAccountSource(getClerkInstance({ publishableKey })));
+} else if (cloudConfig.relay.url) {
+  cloudAccountService.attach(ownerAccountSource);
+  void settlePromise(loadOwnerCredential).then((result) =>
+    reportAtomCommandResult(result, { label: "owner token load" }),
+  );
 } else {
   // Without cloud config no account can ever activate, so drop anything a
   // previous build with cloud enabled left registered.

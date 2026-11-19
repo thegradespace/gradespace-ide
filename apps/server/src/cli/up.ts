@@ -13,7 +13,7 @@ import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as BootService from "../cloud/bootService.ts";
 import * as CliState from "../cloud/CliState.ts";
 import { CLOUD_ENDPOINT_RUNTIME_CONFIG, CLOUD_LINK_REVOKED } from "../cloud/config.ts";
-import { hasCloudPublicConfig } from "../cloud/publicConfig.ts";
+import { hasCloudPublicConfig, hasManagedTunnelConfig } from "../cloud/publicConfig.ts";
 import { compareExactServiceVersions } from "../cloud/serviceProtocol.ts";
 import * as ServerConfig from "../config.ts";
 import * as ManagedLimits from "../policy/managedLimits.ts";
@@ -24,6 +24,7 @@ import {
   disconnectCloud,
   headlessFlag,
   linkEnvironmentForConnect,
+  OWNER_RELAY_ALERTS_ONLY,
   requireConnectAllowed,
   runCloudCommand,
   waitForReachability,
@@ -37,7 +38,7 @@ type Routes = Readonly<Record<Route, boolean>>;
 /** How other devices reach this machine now. */
 interface Setup {
   readonly service: BootService.BootServiceStatus;
-  /** Null in builds without T3 Connect. Off when T3 Connect revoked the link. */
+  /** Null in builds without T3 Connect tunnels. Off when T3 Connect revoked the link. */
   readonly connect: boolean | null;
   /** T3 Connect revoked the link; `gs connect` links again. */
   readonly connectRevoked: boolean;
@@ -70,8 +71,8 @@ const readSetup = Effect.fn("cli.up.read_setup")(function* () {
     .parse(ConfigProvider.fromEnv({ env: entries }));
   const secrets = yield* ServerSecretStore.ServerSecretStore;
   const connectRevoked =
-    hasCloudPublicConfig && Option.isSome(yield* secrets.get(CLOUD_LINK_REVOKED));
-  const connect = hasCloudPublicConfig
+    hasManagedTunnelConfig && Option.isSome(yield* secrets.get(CLOUD_LINK_REVOKED));
+  const connect = hasManagedTunnelConfig
     ? connectEnabled({
         cliDesired: yield* CliState.readCliDesiredCloudLink,
         cliMode: yield* CliState.readCliDesiredLinkMode,
@@ -241,7 +242,9 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
   if (before.connect === null && Option.getOrElse(flags.connect, () => false)) {
     return yield* new CliError.UserError({
       cause: "connect",
-      userMessage: "Gradespace Connect is unavailable in this build.",
+      userMessage: hasCloudPublicConfig
+        ? OWNER_RELAY_ALERTS_ONLY
+        : "Gradespace Connect is unavailable in this build.",
     });
   }
 

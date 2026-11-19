@@ -208,8 +208,31 @@ export function makeCloudCliOAuthConfig({
 
 export const cloudCliOAuthConfig = makeCloudCliOAuthConfig();
 
-export const hasCloudPublicConfig = Boolean(
-  (normalizeSecureRelayUrl(process.env.T3CODE_RELAY_URL ?? "") ?? buildTimeRelayUrl) &&
-  (process.env.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() || buildTimeClerkPublishableKey) &&
-  (process.env.T3CODE_CLERK_CLI_OAUTH_CLIENT_ID?.trim() || buildTimeClerkCliOAuthClientId),
-);
+export type CloudAuthMode = "clerk" | "owner";
+
+/**
+ * Owner mode is a self-hosted relay with no Clerk: one owner token stands in for the Clerk JWT.
+ * A Clerk key without its CLI client ID is an incomplete Clerk build, so Connect stays off.
+ */
+export function resolveCloudAuthMode(input: {
+  readonly relayUrl: string;
+  readonly clerkPublishableKey: string;
+  readonly clerkCliOAuthClientId: string;
+}): CloudAuthMode | null {
+  if (!input.relayUrl) return null;
+  if (!input.clerkPublishableKey) return "owner";
+  return input.clerkCliOAuthClientId ? "clerk" : null;
+}
+
+export const cloudAuthMode = resolveCloudAuthMode({
+  relayUrl: normalizeSecureRelayUrl(process.env.T3CODE_RELAY_URL ?? "") ?? buildTimeRelayUrl,
+  clerkPublishableKey:
+    process.env.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() || buildTimeClerkPublishableKey,
+  clerkCliOAuthClientId:
+    process.env.T3CODE_CLERK_CLI_OAUTH_CLIENT_ID?.trim() || buildTimeClerkCliOAuthClientId,
+});
+
+export const hasCloudPublicConfig = cloudAuthMode !== null;
+
+/** An owner-mode relay only delivers agent activity; it provisions no tunnels. */
+export const hasManagedTunnelConfig = cloudAuthMode === "clerk";

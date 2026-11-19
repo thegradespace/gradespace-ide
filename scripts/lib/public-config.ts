@@ -101,6 +101,16 @@ export function loadRepoEnv({
   };
 }
 
+const GRADESPACE_RELAY_URL = "https://connect.thegradespace.com";
+
+/**
+ * The relay a server build embeds. Unset means Gradespace's; an empty value, as in
+ * `.env.example`, embeds none and keeps Connect off.
+ */
+export function resolveBuildRelayUrl(env: Environment): string {
+  return env.T3CODE_RELAY_URL?.trim() ?? GRADESPACE_RELAY_URL;
+}
+
 function resolvePublicConfig(...sources: readonly Environment[]): T3CodePublicConfig {
   return {
     clerkPublishableKey: firstNonEmpty(

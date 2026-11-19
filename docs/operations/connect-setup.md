@@ -4,9 +4,36 @@ Deployment and client configuration for T3 Connect. The [architecture note](../i
 explains the trust boundaries; the [relay README](../../infra/relay/README.md#deployment) owns relay
 provisioning instructions.
 
+## Owner mode
+
+A relay started with an owner token needs no Clerk. A build runs in owner mode when it has a relay
+URL and no Clerk publishable key; the owner token is then sent wherever a Clerk JWT would be.
+Owner mode delivers notifications and Live Activities only. It provisions no tunnel, so
+`gs up --connect` and `gs connect link` without `--publish-only` refuse.
+
+Server builds embed `https://connect.thegradespace.com` when `T3CODE_RELAY_URL` is unset. An empty
+value embeds no relay, which is what `cp .env.example .env` gives you. A server run from source
+embeds nothing, so set `T3CODE_RELAY_URL` in its environment.
+
+Link each machine once, then restart Gradespace:
+
+```sh
+GRADESPACE_CONNECT_OWNER_TOKEN=<owner token> gs connect link --publish-only
+```
+
+The token is read from that variable, from piped input, or from a hidden prompt, never from an
+argument. A stored token is kept until the variable supplies another. Run the command against the
+data directory the server uses: the `gs` command the desktop app installs already does, and
+any other `gs` needs `--base-dir ~/.gradespace`.
+
+The mobile app needs `T3CODE_RELAY_URL` at build time and no Clerk keys. Paste the same token
+under Settings > Notifications.
+
+Changing the relay's owner token is the only way to revoke a device or a machine.
+
 ## Public application configuration
 
-T3 Connect is disabled in a fresh clone. To build against the production deployment, copy the
+The rest of this page covers a Clerk deployment. To switch Connect off in a clone, copy the
 repository-root example:
 
 ```sh
