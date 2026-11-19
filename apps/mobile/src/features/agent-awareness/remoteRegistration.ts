@@ -49,7 +49,7 @@ import {
   getAgentLiveActivities,
   startAgentLiveActivity,
 } from "./agentLiveActivity";
-import { resolveCloudPublicConfig } from "../cloud/publicConfig";
+import { resolveCloudPublicConfig, resolveConnectAuthMode } from "../cloud/publicConfig";
 import { supportsAgentAwarenessPush } from "./capabilities";
 import { makeRelayDeviceRegistrationRequest, resolveApsEnvironment } from "./registrationPayload";
 
@@ -227,7 +227,7 @@ export function setAgentAwarenessRelayTokenProvider(
     }
     // Signed-out activities would be orphaned because the relay can no longer update or end them.
     endLocalLiveActivities("live activity cleanup after cloud sign-out failed");
-    publishWidget({ kind: "signed-out" });
+    publishWidget({ kind: "signed-out", ownerMode: resolveConnectAuthMode() === "owner" });
     setRegistrationStatus("unknown");
     void clearAgentAwarenessRegistrationRecord().catch((error: unknown) => {
       logRegistrationError("clear registration record on sign-out failed", error);

@@ -1618,6 +1618,7 @@
   "7219cf25e7c97171": "{count, plural, one {{count} active} other {{count} active}}",
   "94f538ed9fec5a25": "{count, plural, one {{count} needs attention} other {{count} need attention}}",
   "97884c869683f97f": "{count, plural, one {{count} needs you} other {{count} need you}}",
+  "43727d1cf77e74a2": "Add your owner token in Settings > Notifications",
   "5def882c684f7e63": "Sign in to {product} to see agents",
   "bff51e99c807d911": "Couldn't reach {product}",
   "fce1fffd36b99b45": "Loading agents…",

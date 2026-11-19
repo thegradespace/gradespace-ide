@@ -1618,6 +1618,7 @@
   "7219cf25e7c97171": "{count, plural, one {{count} aktiv} other {{count} aktiva}}",
   "94f538ed9fec5a25": "{count, plural, one {{count} behöver uppmärksamhet} other {{count} behöver uppmärksamhet}}",
   "97884c869683f97f": "{count, plural, one {{count} behöver dig} other {{count} behöver dig}}",
+  "43727d1cf77e74a2": "Lägg till din ägartoken i Inställningar > Aviseringar",
   "5def882c684f7e63": "Logga in på {product} för att se agenter",
   "bff51e99c807d911": "Kunde inte nå {product}",
   "fce1fffd36b99b45": "Läser in agenter…",

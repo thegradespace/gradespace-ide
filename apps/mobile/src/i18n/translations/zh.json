@@ -1619,6 +1619,7 @@
   "7219cf25e7c97171": "{count, plural, other {{count} 个活跃}}",
   "94f538ed9fec5a25": "{count, plural, other {{count} 个需要关注}}",
   "97884c869683f97f": "{count, plural, other {{count} 个需要你处理}}",
+  "43727d1cf77e74a2": "请在“设置 > 通知”中添加所有者 token",
   "5def882c684f7e63": "登录 {product} 以查看智能体",
   "bff51e99c807d911": "无法访问 {product}",
   "fce1fffd36b99b45": "正在加载智能体…",

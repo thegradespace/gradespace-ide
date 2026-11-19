@@ -1618,6 +1618,7 @@
   "7219cf25e7c97171": "{count, plural, one {{count} activo} other {{count} activos}}",
   "94f538ed9fec5a25": "{count, plural, one {{count} requiere atención} other {{count} requieren atención}}",
   "97884c869683f97f": "{count, plural, one {{count} te necesita} other {{count} te necesitan}}",
+  "43727d1cf77e74a2": "Añade tu token de propietario en Ajustes > Notificaciones",
   "5def882c684f7e63": "Inicia sesión en {product} para ver los agentes",
   "bff51e99c807d911": "No se pudo contactar con {product}",
   "fce1fffd36b99b45": "Cargando agentes…",

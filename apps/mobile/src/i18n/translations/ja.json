@@ -1618,6 +1618,7 @@
   "7219cf25e7c97171": "{count, plural, other {{count} 個がアクティブ}}",
   "94f538ed9fec5a25": "{count, plural, other {{count} 件の確認が必要}}",
   "97884c869683f97f": "{count, plural, other {{count} 件が対応を求めています}}",
+  "43727d1cf77e74a2": "[設定] > [通知] でオーナートークンを追加してください",
   "5def882c684f7e63": "エージェントを表示するには {product} にサインインしてください",
   "bff51e99c807d911": "{product} に接続できませんでした",
   "fce1fffd36b99b45": "エージェントを読み込んでいます…",

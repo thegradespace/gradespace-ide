@@ -10,7 +10,7 @@ import type { AgentActivityProps, AgentActivityText } from "./AgentActivity";
 export const AGENT_ACTIVITY_WIDGET_STALE_AFTER_MS = 10 * 60_000;
 
 export type AgentActivityWidgetSource =
-  | { readonly kind: "signed-out" }
+  | { readonly kind: "signed-out"; readonly ownerMode?: boolean }
   | { readonly kind: "unavailable" }
   | { readonly kind: "loading" }
   | { readonly kind: "snapshot"; readonly aggregate: RelayAgentActivityAggregateState | null };
@@ -76,7 +76,9 @@ export function agentActivityWidgetTimeline(
       title: "GS",
       subtitle:
         source.kind === "signed-out"
-          ? resolve(msg("Sign in to {product} to see agents", { product: "Gradespace Connect" }))
+          ? source.ownerMode
+            ? resolve(msg("Add your owner token in Settings > Notifications"))
+            : resolve(msg("Sign in to {product} to see agents", { product: "Gradespace Connect" }))
           : source.kind === "unavailable"
             ? resolve(msg("Couldn't reach {product}", { product: "Gradespace Connect" }))
             : source.kind === "loading"

@@ -1618,6 +1618,7 @@
   "7219cf25e7c97171": "{count, plural, one {{count} aktiv} other {{count} aktiv}}",
   "94f538ed9fec5a25": "{count, plural, one {{count} braucht Aufmerksamkeit} other {{count} brauchen Aufmerksamkeit}}",
   "97884c869683f97f": "{count, plural, one {{count} braucht dich} other {{count} brauchen dich}}",
+  "43727d1cf77e74a2": "Füge dein Besitzer-Token unter Einstellungen > Benachrichtigungen hinzu",
   "5def882c684f7e63": "Melde dich bei {product} an, um Agenten zu sehen",
   "bff51e99c807d911": "{product} nicht erreichbar",
   "fce1fffd36b99b45": "Agenten werden geladen…",

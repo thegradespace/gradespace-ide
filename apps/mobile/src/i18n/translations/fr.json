@@ -1618,6 +1618,7 @@
   "7219cf25e7c97171": "{count, plural, one {{count} actif} other {{count} actifs}}",
   "94f538ed9fec5a25": "{count, plural, one {{count} demande votre attention} other {{count} demandent votre attention}}",
   "97884c869683f97f": "{count, plural, one {{count} a besoin de vous} other {{count} ont besoin de vous}}",
+  "43727d1cf77e74a2": "Ajoutez votre jeton de propriétaire dans Paramètres > Notifications",
   "5def882c684f7e63": "Connectez-vous à {product} pour voir les agents",
   "bff51e99c807d911": "Impossible de joindre {product}",
   "fce1fffd36b99b45": "Chargement des agents…",
