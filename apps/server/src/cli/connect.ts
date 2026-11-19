@@ -9,6 +9,7 @@ import {
   type RelayClientInstallProgressStage,
 } from "@t3tools/contracts";
 import { RelayOkResponse } from "@t3tools/contracts/relay";
+import { parseOwnerToken } from "@t3tools/shared/relayAuth";
 import * as RelayClient from "@t3tools/shared/relayClient";
 import { withRelayClientTracing } from "@t3tools/shared/relayTracing";
 import * as Cause from "effect/Cause";
@@ -23,9 +24,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Redacted from "effect/Redacted";
 import * as References from "effect/References";
 import * as Schema from "effect/Schema";
+import * as Stdio from "effect/Stdio";
+import * as Stream from "effect/Stream";
 import { Command, Flag, GlobalFlag, Prompt } from "effect/cli";
+import * as CliError from "effect/cli/CliError";
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import * as HttpApiClient from "effect/http-api/HttpApiClient";
 
@@ -45,7 +50,7 @@ import {
   PUBLISH_AGENT_ACTIVITY_SECRET,
   RELAY_URL_SECRET,
 } from "../cloud/config.ts";
-import { relayUrlConfig } from "../cloud/publicConfig.ts";
+import { cloudAuthMode, hasManagedTunnelConfig, relayUrlConfig } from "../cloud/publicConfig.ts";
 import * as RelayTracing from "../cloud/relayTracing.ts";
 import * as ServerConfig from "../config.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
@@ -100,9 +105,54 @@ function formatDeviceAuthorizationPrompt(
   ].join("\n");
 }
 
+export const OWNER_RELAY_ALERTS_ONLY =
+  "This relay sends alerts only, with no remote access. Run `gs connect link --publish-only`.";
+
+const OWNER_TOKEN_ENV = "GRADESPACE_CONNECT_OWNER_TOKEN";
+const ownerTokenConfig = Config.Redacted(OWNER_TOKEN_ENV).pipe(Config.option);
+
+const ownerTokenError = (userMessage: string) =>
+  new CliError.UserError({ cause: "owner-token", userMessage });
+
+/**
+ * Never read from an argument: arguments show in the process list and shell history.
+ * The variable replaces a stored token; otherwise a stored one is kept and nothing is read.
+ */
+const readOwnerToken = Effect.fn("cloud.cli.read_owner_token")(function* (hasStored: boolean) {
+  const fromEnv = yield* ownerTokenConfig;
+  if (Option.isSome(fromEnv)) {
+    return (
+      parseOwnerToken(Redacted.value(fromEnv.value)) ??
+      (yield* ownerTokenError(`${OWNER_TOKEN_ENV} is not a valid owner token.`))
+    );
+  }
+  if (hasStored) return null;
+  const entered = process.stdin.isTTY
+    ? Redacted.value(
+        yield* Prompt.run(Prompt.Hidden({ message: "Gradespace Connect owner token" })),
+      )
+    : yield* Stdio.Stdio.pipe(
+        Effect.flatMap((stdio) => stdio.stdin.pipe(Stream.decodeText(), Stream.mkString)),
+      );
+  return (
+    parseOwnerToken(entered) ??
+    (yield* ownerTokenError(
+      `No owner token. Set ${OWNER_TOKEN_ENV}, or pipe the token to this command.`,
+    ))
+  );
+});
+
+const authorizeOwnerCli = Effect.fn("cloud.cli.authorize_owner")(function* () {
+  const tokens = yield* CliTokenManager.CloudCliTokenManager;
+  const token = yield* readOwnerToken(yield* tokens.hasCredential);
+  if (token !== null) yield* tokens.store(CliTokenManager.makeOwnerToken(token));
+  return null;
+});
+
 const authorizeCli = Effect.fn("cloud.cli.authorize")(function* (options: {
   readonly headless: boolean;
 }) {
+  if (cloudAuthMode === "owner") return yield* authorizeOwnerCli();
   const tokens = yield* CliTokenManager.CloudCliTokenManager;
   // Without a terminal, no key press can open a browser, so sign in with a code.
   const useOutOfBandOAuth =
@@ -552,6 +602,7 @@ export const runCloudCommand = Effect.fn("cloud.cli.run_cloud_command")(function
     | Path.Path
     | HttpClient.HttpClient
     | Prompt.Environment
+    | Stdio.Stdio
     | ServerConfig.ServerConfig
     | ServerEnvironment.ServerEnvironmentIdentity
     | ManagedPolicy.ManagedPolicy
@@ -602,6 +653,12 @@ const linkEnvironmentForConnect = Effect.fn("cloud.cli.link_environment")(functi
   readonly installRelayClient?: boolean;
 }) {
   const publishOnly = options.publishOnly ?? false;
+  if (!publishOnly && !hasManagedTunnelConfig) {
+    return yield* new CliError.UserError({
+      cause: "owner-relay",
+      userMessage: OWNER_RELAY_ALERTS_ONLY,
+    });
+  }
   if (!publishOnly) {
     const relayClient = yield* RelayClient.RelayClient;
     const installed = yield* acquireRelayClientForLink(

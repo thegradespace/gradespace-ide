@@ -4,6 +4,7 @@ import {
   ClerkPublishableKeyFrontendApiError,
   clerkFrontendApiHostnameFromPublishableKey,
   clerkFrontendApiUrlFromPublishableKey,
+  parseOwnerToken,
 } from "./relayAuth.ts";
 
 const clerkPublishableKey = (hostname: string): string => `pk_test_${btoa(`${hostname}$`)}`;
@@ -49,4 +50,14 @@ describe("Clerk relay auth", () => {
     });
     expect((pathError as Error & { cause?: unknown }).cause).toBeUndefined();
   });
+});
+
+it.each([
+  { input: "  owner-token_1.~  \n", token: "owner-token_1.~" },
+  { input: "", token: null },
+  { input: "   ", token: null },
+  { input: "two words", token: null },
+  { input: "line\r\nx-injected: 1", token: null },
+])("parseOwnerToken keeps only a token that is safe in a header: $input", ({ input, token }) => {
+  expect(parseOwnerToken(input)).toBe(token);
 });
