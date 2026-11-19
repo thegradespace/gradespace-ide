@@ -459,6 +459,7 @@ function ConfiguredSettingsNotificationsRouteScreen() {
   return (
     <SettingsScreen title={gt("Notifications")}>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         className="flex-1"
