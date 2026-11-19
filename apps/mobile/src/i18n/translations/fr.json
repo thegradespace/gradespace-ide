@@ -1028,7 +1028,7 @@
   "bbcda8ccf6bc655f": "Ce lien désigne une pull request que GS ne peut pas lire.",
   "df1915cc1c939ef9": "Ce lien ne contient aucun prompt.",
   "e8f616552b78e9c4": "Ce lien désigne un dépôt que GS ne peut pas lire.",
-  "207267a58d3542ba": "Une fois l’enregistrement arrêté, {environment} l’envoie à OpenRouter. OpenRouter choisit qui exécute votre modèle. T3 demande une conservation nulle des données ; votre compte OpenRouter peut autoriser une conservation à des fins de sécurité.",
+  "0dbd30e191b29e10": "Une fois l’enregistrement arrêté, {environment} l’envoie à OpenRouter. OpenRouter choisit qui exécute votre modèle. Gradespace demande une conservation nulle des données ; votre compte OpenRouter peut autoriser une conservation à des fins de sécurité.",
   "81b64c298285297c": "Une fois l’enregistrement arrêté, {environment} envoie votre enregistrement et des indications de vocabulaire, y compris les noms de projets, à {provider}.",
   "615ce9f2edf7208f": "Associer une pull request",
   "4ece383dad280e57": "Associer des pull requests",

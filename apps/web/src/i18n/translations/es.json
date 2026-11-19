@@ -1028,7 +1028,7 @@
   "bbcda8ccf6bc655f": "Este enlace apunta a una pull request que GS no puede leer.",
   "df1915cc1c939ef9": "Este enlace no tiene prompt.",
   "e8f616552b78e9c4": "Este enlace apunta a un repositorio que GS no puede leer.",
-  "207267a58d3542ba": "Cuando te detengas, {environment} envía la grabación a OpenRouter. OpenRouter elige quién ejecuta tu modelo. T3 solicita retención de datos cero; tu cuenta de OpenRouter puede permitir la retención por seguridad.",
+  "0dbd30e191b29e10": "Cuando te detengas, {environment} envía la grabación a OpenRouter. OpenRouter elige quién ejecuta tu modelo. Gradespace solicita retención de datos cero; tu cuenta de OpenRouter puede permitir la retención por seguridad.",
   "81b64c298285297c": "Cuando te detengas, {environment} envía tu grabación y las pistas de vocabulario, incluidos los nombres de proyecto, a {provider}.",
   "615ce9f2edf7208f": "Vincular una pull request",
   "4ece383dad280e57": "Vincular pull requests",

@@ -1028,7 +1028,7 @@
   "bbcda8ccf6bc655f": "Den här länken pekar på en pull request som GS inte kan läsa.",
   "df1915cc1c939ef9": "Den här länken har ingen prompt.",
   "e8f616552b78e9c4": "Den här länken pekar på ett repo som GS inte kan läsa.",
-  "207267a58d3542ba": "När du stoppar skickar {environment} inspelningen till OpenRouter. OpenRouter väljer vem som kör din modell. T3 begär att ingen data sparas; ditt OpenRouter-konto kan tillåta lagring av säkerhetsskäl.",
+  "0dbd30e191b29e10": "När du stoppar skickar {environment} inspelningen till OpenRouter. OpenRouter väljer vem som kör din modell. Gradespace begär att ingen data sparas; ditt OpenRouter-konto kan tillåta lagring av säkerhetsskäl.",
   "81b64c298285297c": "När du stoppar skickar {environment} din inspelning och dina ordförrådstips, inklusive projektnamn, till {provider}.",
   "615ce9f2edf7208f": "Länka en pull request",
   "4ece383dad280e57": "Länka pull requests",

@@ -1028,7 +1028,7 @@
   "bbcda8ccf6bc655f": "Dieser Link verweist auf einen Pull Request, den GS nicht lesen kann.",
   "df1915cc1c939ef9": "Dieser Link enthält keinen Prompt.",
   "e8f616552b78e9c4": "Dieser Link verweist auf ein Repository, das GS nicht lesen kann.",
-  "207267a58d3542ba": "Wenn du stoppst, sendet {environment} die Aufnahme an OpenRouter. OpenRouter wählt aus, wer dein Modell ausführt. T3 fordert keine Datenspeicherung an; dein OpenRouter-Konto erlaubt möglicherweise eine Speicherung aus Sicherheitsgründen.",
+  "0dbd30e191b29e10": "Wenn du stoppst, sendet {environment} die Aufnahme an OpenRouter. OpenRouter wählt aus, wer dein Modell ausführt. Gradespace fordert keine Datenspeicherung an; dein OpenRouter-Konto erlaubt möglicherweise eine Speicherung aus Sicherheitsgründen.",
   "81b64c298285297c": "Wenn du stoppst, sendet {environment} deine Aufnahme und Vokabelhinweise, einschließlich Projektnamen, an {provider}.",
   "615ce9f2edf7208f": "Pull Request verknüpfen",
   "4ece383dad280e57": "Pull Requests verknüpfen",

@@ -1028,7 +1028,7 @@
   "bbcda8ccf6bc655f": "This link names a pull request GS cannot read.",
   "df1915cc1c939ef9": "This link has no prompt.",
   "e8f616552b78e9c4": "This link names a repository GS cannot read.",
-  "207267a58d3542ba": "After you stop, {environment} sends the recording to OpenRouter. OpenRouter chooses who runs your model. T3 requests zero data retention; your OpenRouter account may allow safety retention.",
+  "0dbd30e191b29e10": "After you stop, {environment} sends the recording to OpenRouter. OpenRouter chooses who runs your model. Gradespace requests zero data retention; your OpenRouter account may allow safety retention.",
   "81b64c298285297c": "After you stop, {environment} sends your recording and vocabulary hints, including project names, to {provider}.",
   "615ce9f2edf7208f": "Link a pull request",
   "4ece383dad280e57": "Link pull requests",

@@ -1028,7 +1028,7 @@
   "bbcda8ccf6bc655f": "此链接指向 GS 无法读取的 pull request。",
   "df1915cc1c939ef9": "此链接不包含提示词。",
   "e8f616552b78e9c4": "此链接指向 GS 无法读取的仓库。",
-  "207267a58d3542ba": "停止录音后，{environment} 会将录音发送至 OpenRouter。OpenRouter 决定由谁运行模型。T3 会请求不保留数据；你的 OpenRouter 账户可能允许出于安全目的保留数据。",
+  "0dbd30e191b29e10": "停止录音后，{environment} 会将录音发送至 OpenRouter。OpenRouter 决定由谁运行模型。Gradespace 会请求不保留数据；你的 OpenRouter 账户可能允许出于安全目的保留数据。",
   "81b64c298285297c": "停止后，{environment} 会将你的录音和词汇提示（包括项目名称）发送到 {provider}。",
   "615ce9f2edf7208f": "关联 PR",
   "4ece383dad280e57": "关联 PR",
