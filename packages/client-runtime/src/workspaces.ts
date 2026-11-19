@@ -297,6 +297,19 @@ export function resolveThreadWorkspace(
   return isWorkspaceId(own) ? own : DEFAULT_WORKSPACE_ID;
 }
 
+/** Rows name their workspace only in a list that mixes them; an all-Code list stays as it was. */
+export function listMixesWorkspaces(
+  threads: ReadonlyArray<{
+    readonly id: string;
+    readonly lineage?: { readonly rootThreadId: string } | null;
+  }>,
+  threadWorkspaces: Readonly<Record<string, string>>,
+): boolean {
+  return threads.some(
+    (thread) => resolveThreadWorkspace(thread, threadWorkspaces) !== DEFAULT_WORKSPACE_ID,
+  );
+}
+
 interface TaggableThread {
   readonly id: string;
   readonly workspace?: string | null;

@@ -4,6 +4,8 @@ import { FolderGit2Icon, FolderIcon, GitBranchIcon } from "lucide-react";
 import { ProjectFavicon, type ProjectFaviconProject } from "./ProjectFavicon";
 import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
 import { cn } from "~/lib/utils";
+import { WORKSPACE_ICONS } from "~/workspaces/workspaceIcons";
+import { workspaceDefinition, type WorkspaceId } from "~/workspaces/workspaces.logic";
 
 import { MiddleTruncate } from "./ui/middle-truncate";
 
@@ -33,6 +35,8 @@ function WorkspaceIcon(props: { variant: ThreadCommandSubtitleVariant; isWorktre
 export function ThreadCommandSubtitle(props: {
   project: ProjectFaviconProject | null;
   projectTitle: string | null;
+  /** The thread's workspace, named where a list mixes workspaces. */
+  workspace?: WorkspaceId | null;
   environmentLabel?: string | null;
   branch: string | null;
   worktreePath: string | null;
@@ -51,8 +55,10 @@ export function ThreadCommandSubtitle(props: {
 
   const projectLabel = props.projectTitle?.trim() || null;
   const branchLabel = props.branch?.trim() || null;
+  const workspace = props.workspace ?? null;
+  const WorkspaceGlyph = workspace ? WORKSPACE_ICONS[workspace] : null;
 
-  if (!projectLabel && !branchLabel && !props.isCurrent && !showHarness) {
+  if (!workspace && !projectLabel && !branchLabel && !props.isCurrent && !showHarness) {
     return null;
   }
 
@@ -63,6 +69,18 @@ export function ThreadCommandSubtitle(props: {
         props.className,
       )}
     >
+      {workspace && WorkspaceGlyph ? (
+        <>
+          <span className="inline-flex shrink-0 items-center gap-1">
+            <WorkspaceGlyph className={COMMAND_PALETTE_META_ICON_CLASS} aria-hidden />
+            {workspaceDefinition(workspace).label}
+          </span>
+          {projectLabel || branchLabel || showHarness || props.isCurrent ? (
+            <CommandPaletteMetaDot />
+          ) : null}
+        </>
+      ) : null}
+
       {projectLabel ? (
         <span className="inline-flex min-w-0 items-center gap-1">
           {props.project ? (

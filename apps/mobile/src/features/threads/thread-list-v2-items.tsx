@@ -31,6 +31,7 @@ import {
   type EnvironmentMachineKind,
 } from "@t3tools/contracts";
 import { toServerClock } from "@t3tools/client-runtime/clock";
+import { workspaceDefinition, type WorkspaceId } from "@t3tools/client-runtime/workspaces";
 import type { SnoozePresetSetting } from "@t3tools/contracts/settings";
 import { canSnooze } from "@t3tools/client-runtime/state/thread-settled";
 import { threadChipCopyTarget } from "@t3tools/client-runtime/thread-reference";
@@ -70,6 +71,7 @@ import {
   type ThreadPrPresentation,
 } from "../../state/thread-pr-presentation";
 import { useThreadPr } from "../../state/use-thread-pr";
+import { WORKSPACE_SYMBOLS } from "../gs-workspaces/workspaceSymbols";
 import { useSwipeRowDormant } from "../home/swipe-row-activation";
 import { ThreadSwipeable } from "../home/thread-swipe-actions";
 import { buildThreadTitleRegenerationMenuItems } from "./thread-title-regeneration-menu";
@@ -781,6 +783,8 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly providerInstance: ThreadRowProviderInstance | null;
   readonly environmentLabel: string | null;
   readonly environmentMachine?: EnvironmentMachineKind;
+  /** Named before the device where the list mixes workspaces. */
+  readonly workspace?: WorkspaceId | null;
   /** Tints the row's edge and device label so devices tell apart in one timeline. */
   readonly deviceColor?: ThreadRowDeviceColor;
   readonly pane?: "screen" | "sidebar";
@@ -1541,9 +1545,33 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           >
             {thread.runtime.lastError}
           </Text>
-        ) : props.environmentLabel ? (
+        ) : props.environmentLabel || props.workspace ? (
           <View className="min-w-0 flex-1 flex-row items-center gap-1">
-            {props.environmentMachine ? (
+            {props.workspace ? (
+              <>
+                <SymbolView
+                  name={WORKSPACE_SYMBOLS[props.workspace]}
+                  size={machineIconSize}
+                  tintColorClassName={
+                    selected
+                      ? selectedThreadRowColors.mutedIconTintClassName
+                      : rowAppearance.tertiaryIconTintClassName
+                  }
+                />
+                <Text
+                  className={cn(
+                    "text-xs",
+                    selected
+                      ? selectedThreadRowColors.mutedForegroundClassName
+                      : rowAppearance.tertiaryForegroundClassName,
+                  )}
+                >
+                  {workspaceDefinition(props.workspace).label}
+                  {props.environmentLabel ? "  ·" : null}
+                </Text>
+              </>
+            ) : null}
+            {props.environmentLabel && props.environmentMachine ? (
               <EnvironmentMachineSymbol
                 kind={props.environmentMachine}
                 size={machineIconSize}
@@ -1554,18 +1582,20 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
                 }
               />
             ) : null}
-            <Text
-              className={cn(
-                "shrink text-xs",
-                selected
-                  ? selectedThreadRowColors.mutedForegroundClassName
-                  : (props.deviceColor?.labelClassName ??
-                      rowAppearance.tertiaryForegroundClassName),
-              )}
-              numberOfLines={1}
-            >
-              {props.environmentLabel}
-            </Text>
+            {props.environmentLabel ? (
+              <Text
+                className={cn(
+                  "shrink text-xs",
+                  selected
+                    ? selectedThreadRowColors.mutedForegroundClassName
+                    : (props.deviceColor?.labelClassName ??
+                        rowAppearance.tertiaryForegroundClassName),
+                )}
+                numberOfLines={1}
+              >
+                {props.environmentLabel}
+              </Text>
+            ) : null}
           </View>
         ) : (
           <View className="flex-1" />

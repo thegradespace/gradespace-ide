@@ -12,6 +12,7 @@ import type {
   EnvironmentThreadShell,
 } from "@t3tools/client-runtime/state/shell";
 import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
+import { listMixesWorkspaces, resolveThreadWorkspace } from "@t3tools/client-runtime/workspaces";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
 import { THREAD_LIST_ROW_LAYOUT } from "./threadListAnimations";
 import { useAtomValue } from "@effect/atom-react";
@@ -59,6 +60,7 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "../home/thr
 import { usePendingTaskListActions } from "../home/usePendingTaskListActions";
 import { useThreadListActions } from "../home/useThreadListActions";
 import { useFabScroll } from "../home/FabScrollContext";
+import { useThreadWorkspaces } from "../gs-workspaces/workspacePreferences";
 import { WorkspaceListHeader } from "../layout/workspace/WorkspaceListHeader";
 import { WorkspaceSidebarColumn } from "../layout/workspace/WorkspaceSidebarColumn";
 import {
@@ -131,6 +133,8 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
   const { fabClearance, fabSize } = useAndroidControlSizing();
   const projects = useProjects();
   const threads = useAtomValue(steadyNavigationThreadShellsAtom);
+  const threadWorkspaces = useThreadWorkspaces();
+  const showRowWorkspace = listMixesWorkspaces(threads, threadWorkspaces);
   const selectedThreadKey = useSidebarRowThreadKey(props.selectedThreadKey);
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
@@ -437,6 +441,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
                 : null
             }
             environmentMachine={machineByEnvironmentId.get(thread.environmentId)}
+            workspace={showRowWorkspace ? resolveThreadWorkspace(thread, threadWorkspaces) : null}
             searchMatch={
               // Only rows listed for their messages show one and open at it.
               contentOnlyThreadKeys.has(

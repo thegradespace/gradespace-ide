@@ -16,6 +16,11 @@ import {
 } from "@t3tools/client-runtime/state/shell";
 import { pickableProjectGroups } from "@t3tools/client-runtime/state/project-grouping";
 import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
+import {
+  DEFAULT_WORKSPACE_ID,
+  listMixesWorkspaces,
+  resolveThreadWorkspace,
+} from "@t3tools/client-runtime/workspaces";
 import { type EnvironmentId, type SidebarProjectGroupingMode } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -117,7 +122,10 @@ import { MailHome } from "../gs-workspaces/MailHome";
 import { CareerHome } from "../gs-workspaces/CareerHome";
 import { WorkspaceStudioShortcut } from "../gs-workspaces/WorkspaceStudioShortcut";
 import { showsAppEmptyState, workspaceEmptyCopy } from "../gs-workspaces/workspaceEmptyState";
-import { useWorkspacePreferences } from "../gs-workspaces/workspacePreferences";
+import {
+  useThreadWorkspaces,
+  useWorkspacePreferences,
+} from "../gs-workspaces/workspacePreferences";
 
 interface HomeScreenProps {
   /** Whether this list is the one on screen; see `useHomeRouteVisible`. */
@@ -473,6 +481,11 @@ export function HomeScreen(props: HomeScreenProps) {
     deviceLayout.layout !== "sections" &&
     deviceLayout.layout !== "device-project" &&
     !(showDeviceChips && props.selectedEnvironmentId !== null);
+  const threadWorkspaces = useThreadWorkspaces();
+  // Only Code lists every workspace's chats.
+  const showRowWorkspace =
+    activeWorkspace === DEFAULT_WORKSPACE_ID &&
+    listMixesWorkspaces(props.threads, threadWorkspaces);
   const listItems = useMemo(
     () =>
       groupThreadListByDevice(threadListV2Items, {
@@ -623,6 +636,7 @@ export function HomeScreen(props: HomeScreenProps) {
             : null
         }
         environmentMachine={machineByEnvironmentId.get(thread.environmentId)}
+        workspace={showRowWorkspace ? resolveThreadWorkspace(thread, threadWorkspaces) : null}
         deviceColor={
           multipleDevices && deviceLayout.layout === "color"
             ? threadListDeviceColor(deviceIds, thread.environmentId)

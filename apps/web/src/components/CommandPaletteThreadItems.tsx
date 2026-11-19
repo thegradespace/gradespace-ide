@@ -39,6 +39,9 @@ import { formatRelativeTimeLabel } from "../timestampFormat";
 import { buildThreadActionItems, ITEM_ICON_CLASS } from "./CommandPalette.logic";
 import { useEnvironmentLookups, useProjectLookups } from "./CommandPaletteLookups";
 import { ThreadCommandSubtitle } from "./ThreadCommandSubtitle";
+import { useClientSettings } from "../hooks/useSettings";
+import { useThreadWorkspaces } from "../workspaces/workspaceStore";
+import { listMixesWorkspaces, resolveThreadWorkspace } from "../workspaces/workspaces.logic";
 import {
   ThreadRowLeadingStatus,
   ThreadRowTrailingStatus,
@@ -109,6 +112,9 @@ export function useCommandPaletteThreadItems(input: {
   const messageSearch = useConnectedThreadSearch(threadSearchQuery);
   const { projectByKey } = useProjectLookups();
   const visitThread = useAtomCommand(threadEnvironment.visit, { reportFailure: false });
+  const workspaceRailEnabled = useClientSettings((settings) => settings.workspaceRailEnabled);
+  const threadWorkspaces = useThreadWorkspaces();
+  const showWorkspace = workspaceRailEnabled && listMixesWorkspaces(threads, threadWorkspaces);
   // Ranking is relative to when the palette opened, so rows do not reorder as time passes.
   const [now] = useState(() => Date.now());
 
@@ -148,6 +154,7 @@ export function useCommandPaletteThreadItems(input: {
           <ThreadCommandSubtitle
             project={projectByKey.get(`${thread.environmentId}:${thread.projectId}`) ?? null}
             projectTitle={projectTitle ?? null}
+            workspace={showWorkspace ? resolveThreadWorkspace(thread, threadWorkspaces) : null}
             environmentLabel={
               projectEnvironmentLocationById.get(thread.environmentId)?.label ??
               gt("Remote", { $context: "machine location" })

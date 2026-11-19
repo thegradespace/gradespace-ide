@@ -5,6 +5,7 @@ export {
   isSkillInstalled,
   isWorkspaceId,
   isWorkspaceSeedPrompt,
+  listMixesWorkspaces,
   planThreadWorkspaceSync,
   resolveThreadWorkspace,
   threadWorkspaceTags,

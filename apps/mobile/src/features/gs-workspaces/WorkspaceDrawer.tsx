@@ -1,34 +1,19 @@
-import {
-  WORKSPACES,
-  workspaceDefinition,
-  type WorkspaceId,
-} from "@t3tools/client-runtime/workspaces";
+import { WORKSPACES, workspaceDefinition } from "@t3tools/client-runtime/workspaces";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Modal, Pressable, View, useWindowDimensions } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { SymbolView, type AppSymbolName } from "../../components/ui/AppSymbol";
+import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import { cn } from "../../lib/cn";
 import { useAdaptiveWorkspaceLayout } from "../layout/adaptive-workspace-context";
 import { LibrarySheet } from "./LibrarySheet";
 import { useWorkspacePreferences } from "./workspacePreferences";
+import { WORKSPACE_SYMBOLS } from "./workspaceSymbols";
 
 const DRAWER_WIDTH_RATIO = 0.78;
 const DRAWER_MAX_WIDTH = 360;
 const SLIDE_MS = 220;
-
-// Closest mobile icons to the desktop rail's.
-const WORKSPACE_SYMBOLS: Record<WorkspaceId, AppSymbolName> = {
-  code: "chevron.left.forwardslash.chevron.right",
-  present: "desktopcomputer",
-  studio: "square.grid.2x2",
-  research: "magnifyingglass",
-  write: "pencil",
-  mail: "envelope",
-  qa: "checkmark.shield",
-  career: "briefcase",
-};
 
 /** The round ☰ that opens the workspace drawer, the phone's version of the desktop rail. */
 export function WorkspaceMenuButton() {
