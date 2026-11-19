@@ -5,7 +5,7 @@ import {
   OrchestratorMcpFailure,
   type OrchestrationV2ThreadLaunchWorkspaceStrategy,
   ProjectId,
-  T3_PROJECT_FILE_NAME,
+  PROJECT_FILE_NAMES,
 } from "@t3tools/contracts";
 import * as Digest from "effect/crypto/Digest";
 import * as Effect from "effect/Effect";
@@ -99,14 +99,18 @@ const assertProjectWorktree = Effect.fn("mcp.assertProjectWorktree")(function* (
     });
 });
 
-/** The composer falls back to the project's t3.json when no setting picks the mode. */
+/** The composer falls back to the project's gs.json, else its t3.json, when no setting picks the mode. */
 const projectFileThreadEnvMode = Effect.fn("mcp.projectFileThreadEnvMode")(function* (
   workspaceRoot: string,
 ) {
   const fileSystem = yield* FileSystem.FileSystem;
-  const contents = yield* fileSystem
-    .readFileString(`${workspaceRoot}/${T3_PROJECT_FILE_NAME}`)
-    .pipe(Effect.orElseSucceed(() => null));
+  let contents: string | null = null;
+  for (const name of PROJECT_FILE_NAMES) {
+    contents = yield* fileSystem
+      .readFileString(`${workspaceRoot}/${name}`)
+      .pipe(Effect.orElseSucceed(() => null));
+    if (contents !== null) break;
+  }
   return resolveProjectFileBackedSetting(
     "defaultThreadEnvMode",
     null,

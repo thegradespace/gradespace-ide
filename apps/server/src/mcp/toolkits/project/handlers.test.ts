@@ -691,7 +691,7 @@ it.effect("a worktree launch that omits startFromOrigin follows the new-worktree
 it.effect("a launch that omits its workspace follows the new-threads-in-a-worktree default", () =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    for (const source of ["setting", "t3.json"] as const) {
+    for (const source of ["setting", "t3.json", "gs.json"] as const) {
       const repo = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-launch-env-mode-" });
       const launched: Array<ThreadLaunch.ThreadLaunchInput> = [];
       const { projectId, dependencies } = clientLaunchHarness({
@@ -707,10 +707,15 @@ it.effect("a launch that omits its workspace follows the new-threads-in-a-worktr
       ]) {
         yield* git.execute({ operation: "test.setupRepo", cwd: repo, args });
       }
-      if (source === "t3.json")
+      if (source !== "setting")
+        yield* fileSystem.writeFileString(
+          `${repo}/${source}`,
+          JSON.stringify({ defaultThreadEnvMode: "worktree" }),
+        );
+      if (source === "gs.json")
         yield* fileSystem.writeFileString(
           `${repo}/t3.json`,
-          JSON.stringify({ defaultThreadEnvMode: "worktree" }),
+          JSON.stringify({ defaultThreadEnvMode: "local" }),
         );
       const toolkit = yield* ProjectToolkit.pipe(
         Effect.provide(
