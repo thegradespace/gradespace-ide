@@ -264,9 +264,21 @@ export class ApnsClient extends Context.Service<
   }
 >()("t3code-relay/agentActivity/ApnsClient") {}
 
+/** Replaces Apple's host for both environments, so a local fake APNs can stand in. */
+export const ApnsBaseUrl = Context.Reference<string | undefined>(
+  "t3code-relay/agentActivity/ApnsClient/ApnsBaseUrl",
+  { defaultValue: () => undefined },
+);
+
 const make = Effect.gen(function* () {
   const httpClient = yield* HttpClient.HttpClient;
   const providerTokens = yield* ApnsProviderTokens.ApnsProviderTokens;
+  const baseUrlOverride = (yield* ApnsBaseUrl)?.replace(/\/+$/u, "");
+  const apnsHost = (environment: ApnsEnvironment) =>
+    baseUrlOverride ??
+    (environment === "production"
+      ? "https://api.push.apple.com"
+      : "https://api.sandbox.push.apple.com");
 
   const sendLiveActivityRequest: ApnsClient["Service"]["sendLiveActivityRequest"] = Effect.fn(
     "relay.apns.send_live_activity_request",
@@ -276,10 +288,7 @@ const make = Effect.gen(function* () {
       ...input.credentials,
       issuedAtUnixSeconds: input.issuedAtUnixSeconds,
     });
-    const host =
-      input.credentials.environment === "production"
-        ? "https://api.push.apple.com"
-        : "https://api.sandbox.push.apple.com";
+    const host = apnsHost(input.credentials.environment);
     const response = yield* HttpClientRequest.post(`${host}/3/device/${input.request.token}`).pipe(
       HttpClientRequest.setHeaders({
         authorization: `bearer ${jwt}`,
@@ -336,10 +345,7 @@ const make = Effect.gen(function* () {
         ...input.credentials,
         issuedAtUnixSeconds: input.issuedAtUnixSeconds,
       });
-      const host =
-        input.credentials.environment === "production"
-          ? "https://api.push.apple.com"
-          : "https://api.sandbox.push.apple.com";
+      const host = apnsHost(input.credentials.environment);
       const response = yield* HttpClientRequest.post(
         `${host}/3/device/${input.request.token}`,
       ).pipe(
