@@ -22,7 +22,7 @@ import { useNativeColumnLayoutMetrics } from "../../native/native-layout-metrics
 import { deriveProjectGroupLabel } from "@t3tools/client-runtime/state/project-grouping";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { hasCloudPublicConfig } from "../cloud/publicConfig";
+import { hasCloudPublicConfig, hasRelayPublicConfig } from "../cloud/publicConfig";
 import { useAdaptiveWorkspaceLayout } from "../layout/adaptive-workspace-context";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
 import { SettingsRow } from "./components/SettingsRow";
@@ -133,12 +133,7 @@ function ConfiguredSettingsRouteScreen() {
           onPress: () => navigation.navigate("SettingsAuth"),
         },
         environmentsRow(gt("Environments"), Object.keys(savedConnectionsById).length),
-        {
-          id: "SettingsNotifications",
-          icon: "bell.badge",
-          label: gt("Notifications"),
-          target: "SettingsNotifications",
-        },
+        notificationsRow(gt("Notifications")),
       ]}
     />
   );
@@ -149,9 +144,22 @@ function LocalSettingsRouteScreen() {
   const { savedConnectionsById } = useSavedRemoteConnections();
   return (
     <SettingsList
-      connections={[environmentsRow(gt("Environments"), Object.keys(savedConnectionsById).length)]}
+      connections={[
+        environmentsRow(gt("Environments"), Object.keys(savedConnectionsById).length),
+        // An owner-mode relay delivers notifications without the account screens.
+        ...(hasRelayPublicConfig() ? [notificationsRow(gt("Notifications"))] : []),
+      ]}
     />
   );
+}
+
+function notificationsRow(label: string): SettingsListRow {
+  return {
+    id: "SettingsNotifications",
+    icon: "bell.badge",
+    label,
+    target: "SettingsNotifications",
+  };
 }
 
 function environmentsRow(label: string, count: number): SettingsListRow {

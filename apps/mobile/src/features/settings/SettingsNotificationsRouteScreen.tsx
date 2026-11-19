@@ -7,7 +7,6 @@ import { readEnvironmentScope } from "../../state/session";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { serverEnvironment } from "../../state/server";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
-import { useAuth } from "@clerk/expo";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import * as Notifications from "expo-notifications";
 import { useNavigation } from "@react-navigation/native";
@@ -40,11 +39,13 @@ import {
   subscribeAgentAwarenessRegistrationStatus,
 } from "../agent-awareness/remoteRegistration";
 import { refreshManagedRelayEnvironments } from "../cloud/managedRelayState";
-import { hasCloudPublicConfig, resolveRelayClerkTokenOptions } from "../cloud/publicConfig";
+import { hasRelayPublicConfig } from "../cloud/publicConfig";
+import { useConnectAuth } from "../cloud/useConnectAuth";
 import { makePermissionStatusAtom } from "../../lib/permissionStatusAtom";
 import { runtime } from "../../lib/runtime";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
+import { ConnectOwnerTokenSection } from "./components/ConnectOwnerTokenSection";
 import { SettingsRow } from "./components/SettingsRow";
 import { SettingsSection } from "./components/SettingsSection";
 import { SettingsSwitchRow } from "./components/SettingsSwitchRow";
@@ -119,7 +120,7 @@ function useNotificationsReady(): boolean {
 
 export function SettingsNotificationsRouteScreen() {
   const gt = useGT();
-  if (!hasCloudPublicConfig()) {
+  if (!hasRelayPublicConfig()) {
     return (
       <SettingsScreen title={gt("Notifications")}>
         <ScrollView
@@ -152,7 +153,8 @@ function ConfiguredSettingsNotificationsRouteScreen() {
       : agentAwarenessPlatform.subtitle;
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { getToken, isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const auth = useConnectAuth();
+  const { isLoaded, isSignedIn } = auth;
   const { savedConnectionsById } = useSavedRemoteConnections();
   const notificationStatus = useAtomValue(notificationStatusAtom);
   const setNotificationStatus = useAtomSet(notificationStatusAtom);
@@ -244,6 +246,15 @@ function ConfiguredSettingsNotificationsRouteScreen() {
   };
 
   const promptSignIn = () => {
+    if (auth.mode === "owner") {
+      Dialog.alert(
+        gt("Add your owner token"),
+        gt("Paste your {product} owner token on this screen to get alerts on this device.", {
+          product: "Gradespace Connect",
+        }),
+      );
+      return;
+    }
     Dialog.alert(
       gt("Sign in to {product}", { product: "Gradespace Connect" }),
       gt("Live Activity updates require {product} so relay can deliver updates to this device.", {
@@ -295,7 +306,7 @@ function ConfiguredSettingsNotificationsRouteScreen() {
       }
       setNotificationStatus("enabled");
     }
-    const tokenResult = await settlePromise(() => getToken(resolveRelayClerkTokenOptions()));
+    const tokenResult = await settlePromise(auth.getEnvironmentLinkToken);
     if (tokenResult._tag === "Failure") {
       setLiveActivityStatus("disabled");
       const error = squashAtomCommandFailure(tokenResult);
@@ -309,7 +320,8 @@ function ConfiguredSettingsNotificationsRouteScreen() {
       );
       return;
     }
-    if (!tokenResult.value) {
+    // Owner mode has no token here: each machine links itself, so only this device registers.
+    if (!tokenResult.value && auth.mode === "clerk") {
       promptSignIn();
       setLiveActivityStatus("signed-out");
       return;
@@ -389,7 +401,7 @@ function ConfiguredSettingsNotificationsRouteScreen() {
   async function disableLiveActivities() {
     let token: string | null = null;
     if (isSignedIn) {
-      const tokenResult = await settlePromise(() => getToken(resolveRelayClerkTokenOptions()));
+      const tokenResult = await settlePromise(auth.getEnvironmentLinkToken);
       if (tokenResult._tag === "Failure") {
         setLiveActivityStatus("enabled");
         reportAtomCommandResult(tokenResult, {
@@ -455,6 +467,7 @@ function ConfiguredSettingsNotificationsRouteScreen() {
           paddingBottom: Math.max(insets.bottom, 18) + 18,
         }}
       >
+        {auth.mode === "owner" ? <ConnectOwnerTokenSection /> : null}
         <SettingsSection title={gt("Agent activity")}>
           <SettingsSwitchRow
             icon="bell.badge"

@@ -1,5 +1,6 @@
 import type { getClerkInstance } from "@clerk/expo";
 import {
+  type CloudAccountSource,
   createCloudAccountService,
   ManagedRelay,
   setManagedRelaySession,
@@ -29,6 +30,22 @@ import { resolveRelayClerkTokenOptions } from "./publicConfig";
 
 type ClerkInstance = ReturnType<typeof getClerkInstance>;
 
+/** Who is signed in to the relay, and the token that proves it. */
+export interface RelayAccountSource extends CloudAccountSource {
+  readonly readToken: () => Promise<string | null>;
+  /** False for an owner token: it registers this device for alerts and lists no environments. */
+  readonly managedRelay: boolean;
+}
+
+export function clerkAccountSource(clerk: ClerkInstance): RelayAccountSource {
+  return {
+    addListener: (listener) => clerk.addListener(listener),
+    readToken: async () =>
+      clerk.session ? await clerk.session.getToken(resolveRelayClerkTokenOptions()) : null,
+    managedRelay: true,
+  };
+}
+
 export function deactivateCloudRelayAccount(): void {
   setAgentAwarenessRelayTokenProvider(null);
   setManagedRelaySession(appAtomRegistry, null);
@@ -45,13 +62,8 @@ export function activateCloudRelayAccount(
   });
 }
 
-function clerkTokenReader(clerk: ClerkInstance): () => Promise<string | null> {
-  return async () =>
-    clerk.session ? await clerk.session.getToken(resolveRelayClerkTokenOptions()) : null;
-}
-
 const cleanUpCloudAccount = async (
-  clerk: ClerkInstance,
+  source: RelayAccountSource,
   accountId: string | null,
   wasActive: boolean,
 ) => {
@@ -69,9 +81,7 @@ const cleanUpCloudAccount = async (
     ...(wasActive
       ? [
           settleAsyncResult(() =>
-            runtime.runPromiseExit(
-              unregisterAgentAwarenessDeviceForCurrentUser(clerkTokenReader(clerk)),
-            ),
+            runtime.runPromiseExit(unregisterAgentAwarenessDeviceForCurrentUser(source.readToken)),
           ),
         ]
       : []),
@@ -81,7 +91,7 @@ const cleanUpCloudAccount = async (
   }
 };
 
-export const cloudAccountService = createCloudAccountService<ClerkInstance>({
+export const cloudAccountService = createCloudAccountService<RelayAccountSource>({
   deactivate: deactivateCloudRelayAccount,
   // Detaching is not a sign-out: the user is usually still signed in, so keep
   // lock-screen activities and the persisted registration for the next attach.
@@ -91,8 +101,12 @@ export const cloudAccountService = createCloudAccountService<ClerkInstance>({
   },
   // A not-yet-presented onboarding request belongs to the account that left.
   onSignOutTransition: clearConnectOnboardingRequest,
-  cleanUp: ({ source, accountId, wasActive }) => cleanUpCloudAccount(source, accountId, wasActive),
+  // An owner token has no cloud environments or drafts, and it is gone by the time this runs:
+  // removing it unregisters the device first, while the token still works.
+  cleanUp: ({ source, accountId, wasActive }) =>
+    source.managedRelay ? cleanUpCloudAccount(source, accountId, wasActive) : Promise.resolve(),
   prepare: async ({ source, accountId, isCurrent }) => {
+    if (!source.managedRelay) return;
     const storedAccount = await getComposerCloudAccountId();
     if (storedAccount !== null && storedAccount !== accountId) {
       await cleanUpCloudAccount(source, storedAccount, false);
@@ -101,7 +115,11 @@ export const cloudAccountService = createCloudAccountService<ClerkInstance>({
     await restoreCloudComposerDrafts(accountId);
   },
   activate: ({ source, accountId, isAccountTransition }) => {
-    activateCloudRelayAccount(accountId, clerkTokenReader(source));
+    if (!source.managedRelay) {
+      setAgentAwarenessRelayTokenProvider(source.readToken, accountId);
+      return;
+    }
+    activateCloudRelayAccount(accountId, source.readToken);
     // Issued after cleanup so the sheet never lists the previous account's environments.
     if (isAccountTransition) requestConnectOnboarding(accountId);
   },
