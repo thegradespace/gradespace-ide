@@ -103,7 +103,7 @@ const capture = (
             code,
             stdout,
             output: withoutNodeNoise(output),
-            shown: code === 0 ? withoutLogEntries(stdout) : withoutNodeNoise(output),
+            shown: withoutLogEntries(code === 0 ? stdout : output),
           }),
         );
       }),
@@ -217,7 +217,7 @@ const main = Effect.gen(function* () {
   const gs = Effect.fn("e2e.gs")(function* (
     baseDir: string,
     args: ReadonlyArray<string>,
-    env: Record<string, string> = {},
+    options: { readonly ownerToken?: string; readonly relayUrl?: string } = {},
   ) {
     const step = `gs ${args.join(" ")}`;
     const result = yield* capture(
@@ -226,14 +226,19 @@ const main = Effect.gen(function* () {
       [cliPath, ...args, "--base-dir", baseDir],
       {
         cwd: project,
-        env: { ...cliEnv, ...env },
+        env: {
+          ...cliEnv,
+          ...(options.ownerToken ? { GRADESPACE_CONNECT_OWNER_TOKEN: options.ownerToken } : {}),
+          ...(options.relayUrl ? { T3CODE_RELAY_URL: options.relayUrl } : {}),
+        },
       },
     );
     yield* Console.log(`$ ${step}  (exit ${result.code})\n${result.shown}`);
     yield* expect(
       step,
-      !result.output.includes(prepared.state.ownerToken) &&
-        Object.values(env).every((value) => !result.output.includes(value)),
+      [prepared.state.ownerToken, options.ownerToken].every(
+        (token) => token === undefined || !result.output.includes(token),
+      ),
       "the command printed the owner token",
     );
     return result;
@@ -299,35 +304,39 @@ const main = Effect.gen(function* () {
   const relay = yield* makeRelayRequests(publicOrigin);
   yield* expectRelayGuardsOwner(relay);
 
-  // A wrong owner token on the server side: the link is stored, and only the next start finds out.
-  yield* Console.log("\n--- server with a WRONG owner token ---");
-  const wrongBase = NodePath.join(dir, "base-wrong-token");
-  const wrongLink = yield* gs(wrongBase, ["connect", "link", "--publish-only"], {
-    GRADESPACE_CONNECT_OWNER_TOKEN: randomToken(),
-  });
-  yield* expect("link with a wrong token", wrongLink.code === 0, wrongLink.output);
-  yield* Effect.scoped(
-    Effect.gen(function* () {
-      const server = yield* serve(wrongBase);
-      yield* server.waitForLog(
-        "the server reports the rejected link",
-        "Failed to reconcile T3 Connect desired link on startup",
-      );
-    }),
-  );
-  const wrongStatus = yield* status(wrongBase);
+  // The link command asks the relay about the token, so a wrong one or a dead relay stops there.
+  yield* Console.log("\n--- server CLI with a WRONG owner token, then an unreachable relay ---");
+  const refusedBase = NodePath.join(dir, "base-refused");
+  for (const refusal of [
+    { ownerToken: randomToken(), says: "rejected this owner token" },
+    {
+      ownerToken: prepared.state.ownerToken,
+      relayUrl: `https://localhost:${yield* freePort("pick a port nothing listens on")}`,
+      says: "Could not check the owner token",
+    },
+  ]) {
+    const refused = yield* gs(refusedBase, ["connect", "link", "--publish-only"], refusal);
+    yield* expect(
+      `the link command says: ${refusal.says}`,
+      refused.code !== 0 && refused.output.includes(refusal.says),
+      refused.output,
+    );
+  }
+  const refusedStatus = yield* status(refusedBase);
   yield* expect(
-    "status after a wrong token",
-    field(wrongStatus, "linked") === false && field(wrongStatus, "authenticated") === true,
-    toJson(wrongStatus),
+    "a refused token is not stored",
+    field(refusedStatus, "authenticated") === false &&
+      field(refusedStatus, "desired") === false &&
+      field(refusedStatus, "linked") === false,
+    toJson(refusedStatus),
   );
-  yield* Console.log("ok  a wrong owner token leaves the server unlinked");
+  yield* Console.log("ok  the link command refuses both and stores nothing");
 
   // The real server: link with the owner token, start, and wait for the relay to accept its proof.
   yield* Console.log("\n--- server with the owner token ---");
   const baseDir = NodePath.join(dir, "base");
   const linked = yield* gs(baseDir, ["connect", "link", "--publish-only"], {
-    GRADESPACE_CONNECT_OWNER_TOKEN: prepared.state.ownerToken,
+    ownerToken: prepared.state.ownerToken,
   });
   yield* expect("gs connect link --publish-only", linked.code === 0, linked.output);
   NodeFS.writeFileSync(

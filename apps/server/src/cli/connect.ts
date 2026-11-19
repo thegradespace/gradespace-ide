@@ -42,7 +42,7 @@ import * as BootService from "../cloud/bootService.ts";
 import * as CliState from "../cloud/CliState.ts";
 import * as CliTokenManager from "../cloud/CliTokenManager.ts";
 import { formatReachabilityFailure } from "../cloud/ConnectReachability.ts";
-import { filterRelayResponse } from "../cloud/relayResponse.ts";
+import { filterRelayResponse, relayRequestError } from "../cloud/relayResponse.ts";
 import {
   CLOUD_LINK_REVOKED,
   CLOUD_LINKED_USER_ID,
@@ -118,15 +118,19 @@ const ownerTokenError = (userMessage: string) =>
  * Never read from an argument: arguments show in the process list and shell history.
  * The variable replaces a stored token; otherwise a stored one is kept and nothing is read.
  */
-const readOwnerToken = Effect.fn("cloud.cli.read_owner_token")(function* (hasStored: boolean) {
+const readOwnerToken = Effect.fn("cloud.cli.read_owner_token")(function* (
+  stored: Option.Option<string>,
+) {
   const fromEnv = yield* ownerTokenConfig;
   if (Option.isSome(fromEnv)) {
-    return (
-      parseOwnerToken(Redacted.value(fromEnv.value)) ??
-      (yield* ownerTokenError(`${OWNER_TOKEN_ENV} is not a valid owner token.`))
-    );
+    return {
+      token:
+        parseOwnerToken(Redacted.value(fromEnv.value)) ??
+        (yield* ownerTokenError(`${OWNER_TOKEN_ENV} is not a valid owner token.`)),
+      entered: true,
+    };
   }
-  if (hasStored) return null;
+  if (Option.isSome(stored)) return { token: stored.value, entered: false };
   const entered = process.stdin.isTTY
     ? Redacted.value(
         yield* Prompt.run(Prompt.Hidden({ message: "Gradespace Connect owner token" })),
@@ -134,18 +138,48 @@ const readOwnerToken = Effect.fn("cloud.cli.read_owner_token")(function* (hasSto
     : yield* Stdio.Stdio.pipe(
         Effect.flatMap((stdio) => stdio.stdin.pipe(Stream.decodeText(), Stream.mkString)),
       );
-  return (
-    parseOwnerToken(entered) ??
-    (yield* ownerTokenError(
-      `No owner token. Set ${OWNER_TOKEN_ENV}, or pipe the token to this command.`,
-    ))
+  return {
+    token:
+      parseOwnerToken(entered) ??
+      (yield* ownerTokenError(
+        `No owner token. Set ${OWNER_TOKEN_ENV}, or pipe the token to this command.`,
+      )),
+    entered: true,
+  };
+});
+
+const OWNER_TOKEN_CHECK_TIMEOUT = Duration.seconds(10);
+
+/** A wrong token would otherwise only show as a link that never provisions after the next start. */
+const checkOwnerToken = Effect.fn("cloud.cli.check_owner_token")(function* (token: string) {
+  const relayUrl = yield* relayUrlConfig;
+  const httpClient = yield* HttpClient.HttpClient;
+  yield* HttpClientRequest.get(`${relayUrl}/v1/environments`).pipe(
+    HttpClientRequest.bearerToken(token),
+    httpClient.execute,
+    Effect.flatMap(filterRelayResponse),
+    Effect.timeout(OWNER_TOKEN_CHECK_TIMEOUT),
+    withRelayClientTracing,
+    Effect.catch((cause) => {
+      const { rejection } = relayRequestError(cause);
+      return ownerTokenError(
+        rejection === "unauthorized" || rejection === "forbidden"
+          ? `The relay at ${relayUrl} rejected this owner token. Set ${OWNER_TOKEN_ENV} to the relay's RELAY_OWNER_TOKEN and try again.`
+          : `Could not check the owner token with the relay at ${relayUrl}. Check that the relay is running and reachable, then try again.`,
+      );
+    }),
   );
 });
 
-const authorizeOwnerCli = Effect.fn("cloud.cli.authorize_owner")(function* () {
+export const authorizeOwnerCli = Effect.fn("cloud.cli.authorize_owner")(function* () {
   const tokens = yield* CliTokenManager.CloudCliTokenManager;
-  const token = yield* readOwnerToken(yield* tokens.hasCredential);
-  if (token !== null) yield* tokens.store(CliTokenManager.makeOwnerToken(token));
+  // A credential left by a Clerk build cannot refresh here, so it counts as none.
+  const stored = yield* tokens.getExisting.pipe(Effect.orElseSucceed(() => Option.none()));
+  const { token, entered } = yield* readOwnerToken(
+    Option.map(stored, (credential) => credential.accessToken),
+  );
+  yield* checkOwnerToken(token);
+  if (entered) yield* tokens.store(CliTokenManager.makeOwnerToken(token));
   return null;
 });
 

@@ -22,9 +22,10 @@ GRADESPACE_CONNECT_OWNER_TOKEN=<owner token> gs connect link --publish-only
 ```
 
 The token is read from that variable, from piped input, or from a hidden prompt, never from an
-argument. A stored token is kept until the variable supplies another. Run the command against the
-data directory the server uses: the `gs` command the desktop app installs already does, and
-any other `gs` needs `--base-dir ~/.gradespace`.
+argument. A stored token is kept until the variable supplies another. The command asks the relay to
+accept the token first, so a wrong token or an unreachable relay fails there and nothing is stored.
+Run the command against the data directory the server uses: the `gs` command the desktop app
+installs already does, and any other `gs` needs `--base-dir ~/.gradespace`.
 
 The mobile app needs `T3CODE_RELAY_URL` at build time and no Clerk keys. Paste the same token
 under Settings > Notifications.
