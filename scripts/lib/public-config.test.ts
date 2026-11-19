@@ -4,7 +4,7 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { loadRepoEnv } from "./public-config.ts";
+import { loadRepoEnv, resolveBuildRelayUrl } from "./public-config.ts";
 
 const temporaryDirectories: string[] = [];
 
@@ -50,6 +50,20 @@ describe("loadRepoEnv", () => {
       T3CODE_RELAY_URL: "https://ci.example.test",
       VITE_T3CODE_RELAY_URL: "https://ci.example.test",
     });
+  });
+});
+
+describe("resolveBuildRelayUrl", () => {
+  it.each([
+    { label: "unset", env: {}, relayUrl: "https://connect.thegradespace.com" },
+    { label: "empty", env: { T3CODE_RELAY_URL: "" }, relayUrl: "" },
+    {
+      label: "set",
+      env: { T3CODE_RELAY_URL: " https://relay.example.test " },
+      relayUrl: "https://relay.example.test",
+    },
+  ])("embeds the Gradespace relay only when the variable is unset: $label", (input) => {
+    expect(resolveBuildRelayUrl(input.env)).toBe(input.relayUrl);
   });
 });
 
