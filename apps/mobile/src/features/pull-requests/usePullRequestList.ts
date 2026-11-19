@@ -346,14 +346,21 @@ export function usePullRequestList(targets: readonly ListTarget[]) {
       }),
     [sources, messages],
   );
-  const listing = useMemo(
-    () => ({ ...data, entries, errors: [...data.errors, ...errors] }),
-    [data, entries, errors],
-  );
+  const listing = useMemo(() => {
+    // One server fails each of its lists the same way; say it once.
+    const seen = new Set<string>();
+    const distinct = [...data.errors, ...errors].filter((error) => {
+      const key = `${error.environmentId} ${error.projectTitle} ${error.message}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return { ...data, entries, errors: distinct };
+  }, [data, entries, errors]);
   return {
     data: listing,
     entries,
-    error: errors.map((error) => error.message).join("\n") || null,
+    error: [...new Set(errors.map((error) => error.message))].join("\n") || null,
     isPending: sources.some(({ result }) => result.waiting) && !data.entries.length,
     continued: data.continued,
     loadMore,
