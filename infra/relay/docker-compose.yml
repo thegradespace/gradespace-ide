@@ -1,0 +1,54 @@
+# The self-hosted Node relay with its Postgres. See README.md, "Run the Node relay with Docker".
+#   cp .env.node.example .env.node   # then fill it in
+#   docker compose --env-file .env.node up --detach --build
+name: gradespace-connect
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: relay
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the env file}
+      POSTGRES_DB: relay
+    volumes:
+      - relay-postgres:/var/lib/postgresql/data
+    # Loopback only, for backups with pg_dump from the host.
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username relay --dbname relay"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  relay:
+    image: gradespace-connect-relay:local
+    build:
+      context: ../..
+      dockerfile: infra/relay/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://relay:${POSTGRES_PASSWORD}@postgres:5432/relay
+      RELAY_PUBLIC_ORIGIN: ${RELAY_PUBLIC_ORIGIN:?Set RELAY_PUBLIC_ORIGIN in the env file}
+      RELAY_AUTH_MODE: owner
+      RELAY_OWNER_TOKEN: ${RELAY_OWNER_TOKEN:?Set RELAY_OWNER_TOKEN in the env file}
+      RELAY_OWNER_USER_ID: ${RELAY_OWNER_USER_ID:-owner}
+      RELAY_MINT_PRIVATE_KEY: ${RELAY_MINT_PRIVATE_KEY:?Set RELAY_MINT_PRIVATE_KEY in the env file}
+      RELAY_JOB_SIGNING_SECRET: ${RELAY_JOB_SIGNING_SECRET:?Set RELAY_JOB_SIGNING_SECRET in the env file}
+      APNS_ENABLED: ${APNS_ENABLED:-true}
+      APNS_ENVIRONMENT: ${APNS_ENVIRONMENT:-production}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-}
+      APNS_PRIVATE_KEY: ${APNS_PRIVATE_KEY:-}
+      APNS_BASE_URL: ${APNS_BASE_URL:-}
+    # Loopback only: put a TLS proxy or tunnel in front, and point it here.
+    ports:
+      - "127.0.0.1:${RELAY_HOST_PORT:-8787}:8787"
+
+volumes:
+  relay-postgres:
