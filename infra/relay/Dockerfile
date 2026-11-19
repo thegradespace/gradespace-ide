@@ -9,9 +9,11 @@ RUN npm install --global pnpm@12.14.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .pnpmfile.cjs ./
 COPY patches ./patches
 COPY packages ./packages
-COPY infra/relay ./infra/relay
+COPY infra/relay/package.json ./infra/relay/package.json
 # No install scripts: the root `prepare` needs dev tooling, and nothing the relay runs has a native build.
 RUN pnpm install --filter "t3code-relay..." --prod --frozen-lockfile --ignore-scripts
+# After the install, so editing relay source does not download the dependencies again.
+COPY infra/relay ./infra/relay
 
 FROM node:26.13.1-bookworm-slim
 ENV NODE_ENV=production \
