@@ -10,6 +10,7 @@
     "destroy": "alchemy destroy",
     "start": "node src/node/main.ts",
     "smoke:owner": "node scripts/owner-mode-smoke.ts",
+    "e2e:owner": "node scripts/owner-mode-e2e.ts",
     "test": "vp test run --config ../../vite.config.ts --dir .",
     "typecheck": "effect-tsgo tsrs --noEmit"
   },

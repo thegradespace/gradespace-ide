@@ -54,7 +54,7 @@ const USAGE = `Checks the Node relay in owner mode end to end, with a fake of Ap
 const RELAY_DIR = NodePath.resolve(NodePath.dirname(NodeURL.fileURLToPath(import.meta.url)), "..");
 // The relay must answer for this origin although the test reaches it on a loopback port, as it would behind a TLS proxy.
 const PUBLIC_ORIGIN = "https://connect.smoke.test";
-const OWNER_USER_ID = "owner-smoke";
+export const OWNER_USER_ID = "owner-smoke";
 const APNS_TEAM_ID = "SMOKETEAM1";
 const APNS_KEY_ID = "SMOKEKEY01";
 const RELAY_DEFAULT_BUNDLE_ID = "com.example.smoke";
@@ -63,7 +63,7 @@ const DEVICE_BUNDLE_ID = "com.example.smoke.dev";
 const PUSH_WAIT = "20 seconds";
 const STACK_START_TIMEOUT_MS = 30 * 60_000;
 
-class SmokeFailed extends Schema.TaggedError<SmokeFailed>()("SmokeFailed", {
+export class SmokeFailed extends Schema.TaggedError<SmokeFailed>()("SmokeFailed", {
   step: Schema.String,
   detail: Schema.String,
 }) {
@@ -72,36 +72,36 @@ class SmokeFailed extends Schema.TaggedError<SmokeFailed>()("SmokeFailed", {
   }
 }
 
-const SmokeState = Schema.Struct({
+export const SmokeState = Schema.Struct({
   ownerToken: Schema.String,
   apnsPort: Schema.Int,
   apnsPublicKeyPem: Schema.String,
 });
-type SmokeState = typeof SmokeState.Type;
+export type SmokeState = typeof SmokeState.Type;
 const SmokeStateJson = Schema.fromJsonString(SmokeState);
 const decodeState = Schema.decodeUnknownEffect(SmokeStateJson);
 const encodeState = Schema.encodeSync(SmokeStateJson);
 const UnknownJson = Schema.fromJsonString(Schema.Unknown);
-const toJson = Schema.encodeSync(UnknownJson);
+export const toJson = Schema.encodeSync(UnknownJson);
 const decodeJson = Schema.decodeOption(UnknownJson);
-const parseJson = (text: string): unknown => Option.getOrElse(decodeJson(text), () => text);
+export const parseJson = (text: string): unknown => Option.getOrElse(decodeJson(text), () => text);
 
-const promise = <A>(step: string, run: () => Promise<A>) =>
+export const promise = <A>(step: string, run: () => Promise<A>) =>
   Effect.tryPromise({
     try: run,
     catch: (cause) =>
       new SmokeFailed({ step, detail: cause instanceof Error ? cause.message : String(cause) }),
   });
 
-const expect = (step: string, condition: boolean, detail: string) =>
+export const expect = (step: string, condition: boolean, detail: string) =>
   condition ? Effect.void : Effect.fail(new SmokeFailed({ step, detail }));
 
 const base64Url = (value: string | Uint8Array) => Buffer.from(value).toString("base64url");
 const oneLine = (pem: string) => pem.trim().replace(/\n/gu, "\\n");
-const randomToken = () => NodeCrypto.randomBytes(32).toString("base64url");
+export const randomToken = () => NodeCrypto.randomBytes(32).toString("base64url");
 const randomDeviceToken = () => NodeCrypto.randomBytes(32).toString("hex");
 
-const freePort = (step: string) =>
+export const freePort = (step: string) =>
   promise(
     step,
     () =>
@@ -119,7 +119,7 @@ const freePort = (step: string) =>
       }),
   );
 
-const run = (
+export const run = (
   step: string,
   command: string,
   args: ReadonlyArray<string>,
@@ -141,18 +141,20 @@ const run = (
       }),
   );
 
-interface PreparedState {
+export interface PreparedState {
   readonly dir: string;
   readonly state: SmokeState;
 }
 
 /** Writes the keys, the fake APNs certificate and the relay's environment file. Nothing here is reused outside the run. */
-const prepare = Effect.fn("smoke.prepare")(function* (input: {
+export const prepare = Effect.fn("smoke.prepare")(function* (input: {
   readonly dir: string;
   /** Host name the relay reaches the fake APNs by: the Docker host from a container, loopback otherwise. */
   readonly apnsHost: string;
   /** Compose reads its published ports from the same file as the relay's settings. */
   readonly hostPorts?: { readonly relay: number; readonly postgres: number };
+  /** The origin clients sign into their proofs. Defaults to one nothing listens on. */
+  readonly publicOrigin?: string;
 }) {
   NodeFS.mkdirSync(input.dir, { recursive: true, mode: 0o700 });
   const apnsPort = yield* freePort("pick a port for the fake APNs");
@@ -188,7 +190,7 @@ const prepare = Effect.fn("smoke.prepare")(function* (input: {
     apnsPublicKeyPem: apns.publicKey.export({ type: "spki", format: "pem" }).toString(),
   };
   const env = {
-    RELAY_PUBLIC_ORIGIN: PUBLIC_ORIGIN,
+    RELAY_PUBLIC_ORIGIN: input.publicOrigin ?? PUBLIC_ORIGIN,
     RELAY_AUTH_MODE: "owner",
     RELAY_OWNER_TOKEN: state.ownerToken,
     RELAY_OWNER_USER_ID: OWNER_USER_ID,
@@ -230,7 +232,7 @@ interface ReceivedPush {
 }
 
 /** Stands in for api.sandbox.push.apple.com: HTTP/2 over TLS only, like Apple. */
-const startFakeApns = Effect.fn("smoke.startFakeApns")(function* (prepared: PreparedState) {
+export const startFakeApns = Effect.fn("smoke.startFakeApns")(function* (prepared: PreparedState) {
   const arrivals = yield* Queue.unbounded<ReceivedPush>();
   // A container reaches a Linux host through the bridge address, not loopback.
   const listenHost = (yield* HostProcess.Platform) === "linux" ? "0.0.0.0" : "127.0.0.1";
@@ -299,7 +301,9 @@ const startFakeApns = Effect.fn("smoke.startFakeApns")(function* (prepared: Prep
   return { waitFor };
 });
 
-const startComposeStack = Effect.fn("smoke.startComposeStack")(function* (prepared: PreparedState) {
+export const startComposeStack = Effect.fn("smoke.startComposeStack")(function* (
+  prepared: PreparedState,
+) {
   const project = `gs-connect-smoke-${NodeCrypto.randomBytes(4).toString("hex")}`;
   const override = NodePath.join(prepared.dir, "smoke.compose.yml");
   NodeFS.writeFileSync(
@@ -360,27 +364,24 @@ interface JsonResponse {
   readonly json: unknown;
 }
 
-const field = (value: unknown, ...path: ReadonlyArray<string>): unknown =>
+export const field = (value: unknown, ...path: ReadonlyArray<string>): unknown =>
   path.reduce<unknown>(
     (current, key) =>
       typeof current === "object" && current !== null ? Reflect.get(current, key) : undefined,
     value,
   );
 
-const stringField = (step: string, value: unknown, ...path: ReadonlyArray<string>) => {
+export const stringField = (step: string, value: unknown, ...path: ReadonlyArray<string>) => {
   const found = field(value, ...path);
   return typeof found === "string" && found.length > 0
     ? Effect.succeed(found)
     : Effect.fail(new SmokeFailed({ step, detail: `response has no ${path.join(".")}` }));
 };
 
-/** Plays the T3 server and the phone against the relay, then checks what reached the fake APNs. */
-const check = Effect.fn("smoke.check")(function* (input: {
-  readonly relayUrl: string;
-  readonly state: SmokeState;
-  readonly apns: Effect.Success<ReturnType<typeof startFakeApns>>;
-}) {
-  const issuer = normalizeRelayIssuer(PUBLIC_ORIGIN);
+const nowSeconds = Effect.map(Clock.currentTimeMillis, (millis) => Math.floor(millis / 1_000));
+
+/** JSON requests against the relay at the address the caller dials. */
+export const makeRelayRequests = Effect.fn("smoke.makeRelayRequests")(function* (relayUrl: string) {
   const http = yield* HttpClient.HttpClient;
   const request = (
     step: string,
@@ -392,7 +393,7 @@ const check = Effect.fn("smoke.check")(function* (input: {
       readonly json?: unknown;
     },
   ) =>
-    HttpClientRequest.make(init.method ?? "POST")(`${input.relayUrl}${path}`).pipe(
+    HttpClientRequest.make(init.method ?? "POST")(`${relayUrl}${path}`).pipe(
       HttpClientRequest.setHeaders(init.headers),
       init.form !== undefined
         ? HttpClientRequest.bodyUrlParams(init.form)
@@ -413,14 +414,235 @@ const check = Effect.fn("smoke.check")(function* (input: {
     expect(step, response.status === 200, `HTTP ${response.status} ${toJson(response.json)}`).pipe(
       Effect.as(response.json),
     );
-  const nowSeconds = Effect.map(Clock.currentTimeMillis, (millis) => Math.floor(millis / 1_000));
+  return { request, ok };
+});
 
+type RelayRequests = Effect.Success<ReturnType<typeof makeRelayRequests>>;
+type FakeApns = Effect.Success<ReturnType<typeof startFakeApns>>;
+
+/** Plays the phone: exchanges the owner token for a DPoP-bound token, then registers with it. */
+export const makePhone = Effect.fn("smoke.makePhone")(function* (input: {
+  readonly relay: RelayRequests;
+  /** Proofs are signed for the public URL, never for a loopback address the caller dials. */
+  readonly publicOrigin: string;
+  readonly ownerToken: string;
+}) {
+  const { request, ok } = input.relay;
+  const phoneKey = NodeCrypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const phoneJwk = phoneKey.publicKey.export({ format: "jwk" });
+  const dpopProof = Effect.fn("smoke.dpopProof")(function* (
+    method: string,
+    path: string,
+    accessToken?: string,
+  ) {
+    const header = base64Url(
+      toJson({
+        typ: "dpop+jwt",
+        alg: "ES256",
+        jwk: { kty: "EC", crv: "P-256", x: phoneJwk.x, y: phoneJwk.y },
+      }),
+    );
+    const payload = base64Url(
+      toJson({
+        htm: method,
+        htu: `${input.publicOrigin}${path}`,
+        jti: NodeCrypto.randomUUID(),
+        iat: yield* nowSeconds,
+        ...(accessToken
+          ? { ath: NodeCrypto.createHash("sha256").update(accessToken).digest("base64url") }
+          : {}),
+      }),
+    );
+    const signature = NodeCrypto.sign("sha256", Buffer.from(`${header}.${payload}`), {
+      key: phoneKey.privateKey,
+      dsaEncoding: "ieee-p1363",
+    });
+    return `${header}.${payload}.${base64Url(signature)}`;
+  });
+  const accessToken = yield* stringField(
+    "exchange the owner token",
+    yield* ok(
+      "exchange the owner token",
+      yield* request("exchange the owner token", "/v1/client/dpop-token", {
+        headers: { dpop: yield* dpopProof("POST", "/v1/client/dpop-token") },
+        form: {
+          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+          subject_token: input.ownerToken,
+          subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
+          requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
+          resource: normalizeRelayIssuer(input.publicOrigin),
+          scope: "mobile:registration",
+          client_id: "t3-mobile",
+        },
+      }),
+    ),
+    "access_token",
+  );
+  yield* Console.log("ok  phone exchanged the owner token for a DPoP access token");
+
+  const post = Effect.fn("smoke.phone")(function* (step: string, path: string, json: unknown) {
+    return yield* ok(
+      step,
+      yield* request(step, path, {
+        headers: {
+          authorization: `DPoP ${accessToken}`,
+          dpop: yield* dpopProof("POST", path, accessToken),
+        },
+        json,
+      }),
+    );
+  });
+  const deviceId = `device-smoke-${NodeCrypto.randomBytes(4).toString("hex")}`;
+  const pushToken = randomDeviceToken();
+  const activityPushToken = randomDeviceToken();
+  return {
+    pushToken,
+    activityPushToken,
+    registerDevice: post("register the device", "/v1/mobile/devices", {
+      deviceId,
+      label: "Smoke iPhone",
+      platform: "ios",
+      iosMajorVersion: 18,
+      appVersion: "0.0.0-smoke",
+      bundleId: DEVICE_BUNDLE_ID,
+      apsEnvironment: "sandbox",
+      pushToken,
+      preferences: {
+        liveActivitiesEnabled: true,
+        notificationsEnabled: true,
+        notifyOnApproval: true,
+        notifyOnInput: true,
+        notifyOnCompletion: true,
+        notifyOnFailure: true,
+      },
+    } satisfies RelayDeviceRegistrationRequest).pipe(
+      Effect.andThen(Console.log(`ok  phone registered ${deviceId}`)),
+    ),
+    registerLiveActivity: post("register the Live Activity", "/v1/mobile/live-activities", {
+      deviceId,
+      activityPushToken,
+    } satisfies RelayLiveActivityRegistrationRequest).pipe(
+      Effect.andThen(Console.log("ok  phone registered a Live Activity")),
+    ),
+  };
+});
+
+const verifyProviderToken = Effect.fn("smoke.verifyProviderToken")(function* (
+  step: string,
+  push: ReceivedPush,
+  apnsPublicKeyPem: string,
+) {
+  const authorization = String(push.headers.authorization ?? "");
+  const [scheme, jwt] = authorization.split(" ");
+  const [header, payload, signature] = (jwt ?? "").split(".");
+  yield* expect(
+    step,
+    scheme === "bearer" && Boolean(header && payload && signature),
+    "no bearer JWT",
+  );
+  const decode = (segment: string | undefined): unknown =>
+    parseJson(Buffer.from(segment ?? "", "base64url").toString("utf8"));
+  yield* expect(
+    step,
+    field(decode(header), "alg") === "ES256" &&
+      field(decode(header), "kid") === APNS_KEY_ID &&
+      field(decode(payload), "iss") === APNS_TEAM_ID,
+    `provider token claims are ${toJson([decode(header), decode(payload)])}`,
+  );
+  yield* expect(
+    step,
+    NodeCrypto.verify(
+      "sha256",
+      Buffer.from(`${header}.${payload}`),
+      { key: apnsPublicKeyPem, dsaEncoding: "ieee-p1363" },
+      Buffer.from(signature ?? "", "base64url"),
+    ),
+    "provider token is not signed by the relay's APNs key",
+  );
+});
+
+interface ExpectedPush {
+  readonly apns: FakeApns;
+  readonly state: SmokeState;
+  readonly environmentId: string;
+  readonly threadId: string;
+}
+
+/** Waits for the alert the relay sends to a device with no Live Activity, and checks it names the thread. */
+export const expectAlertPush = Effect.fn("smoke.expectAlertPush")(function* (
+  input: ExpectedPush & { readonly pushToken: string },
+) {
+  const alert = yield* input.apns.waitFor(
+    "alert push reaches the fake APNs",
+    (push) => push.path === `/3/device/${input.pushToken}`,
+  );
+  yield* expect(
+    "alert push headers",
+    alert.headers[":method"] === "POST" &&
+      alert.headers["apns-push-type"] === "alert" &&
+      alert.headers["apns-topic"] === DEVICE_BUNDLE_ID &&
+      alert.headers["apns-priority"] === "10",
+    toJson(alert.headers),
+  );
+  yield* verifyProviderToken("alert push provider token", alert, input.state.apnsPublicKeyPem);
+  yield* expect(
+    "alert push body",
+    typeof field(alert.body, "aps", "alert", "title") === "string" &&
+      field(alert.body, "body", "environmentId") === input.environmentId &&
+      field(alert.body, "body", "threadId") === input.threadId,
+    toJson(alert.body),
+  );
+  yield* Console.log(
+    `ok  alert push: apns-push-type=alert apns-topic=${alert.headers["apns-topic"]} apns-priority=${alert.headers["apns-priority"]} alert=${toJson(field(alert.body, "aps", "alert"))} thread=${input.threadId}`,
+  );
+});
+
+/** Waits for a Live Activity update whose content names the thread. */
+export const expectLiveActivityPush = Effect.fn("smoke.expectLiveActivityPush")(function* (
+  input: ExpectedPush & { readonly activityPushToken: string },
+) {
+  const liveActivity = yield* input.apns.waitFor(
+    "liveactivity push reaches the fake APNs",
+    (push) =>
+      push.path === `/3/device/${input.activityPushToken}` &&
+      String(field(push.body, "aps", "content-state", "props")).includes(input.threadId),
+  );
+  yield* expect(
+    "liveactivity push headers",
+    liveActivity.headers[":method"] === "POST" &&
+      liveActivity.headers["apns-push-type"] === "liveactivity" &&
+      liveActivity.headers["apns-topic"] === `${DEVICE_BUNDLE_ID}.push-type.liveactivity` &&
+      (liveActivity.headers["apns-priority"] === "5" ||
+        liveActivity.headers["apns-priority"] === "10"),
+    toJson(liveActivity.headers),
+  );
+  yield* verifyProviderToken(
+    "liveactivity push provider token",
+    liveActivity,
+    input.state.apnsPublicKeyPem,
+  );
+  yield* expect(
+    "liveactivity push body",
+    field(liveActivity.body, "aps", "event") === "update" &&
+      typeof field(liveActivity.body, "aps", "timestamp") === "number",
+    toJson(liveActivity.body),
+  );
+  yield* Console.log(
+    `ok  liveactivity push: apns-push-type=liveactivity apns-topic=${liveActivity.headers["apns-topic"]} apns-priority=${liveActivity.headers["apns-priority"]} event=update thread=${input.threadId}`,
+  );
+});
+
+/** Checks the relay answers and turns away a token that is not the owner's. */
+export const expectRelayGuardsOwner = Effect.fn("smoke.expectRelayGuardsOwner")(function* (
+  relay: RelayRequests,
+) {
   yield* expect(
     "relay health",
-    (yield* request("relay health", "/health", { method: "GET", headers: {} })).status === 200,
+    (yield* relay.request("relay health", "/health", { method: "GET", headers: {} })).status ===
+      200,
     "the relay did not report healthy",
   );
-  const stranger = yield* request("reject a wrong owner token", "/v1/environments", {
+  const stranger = yield* relay.request("reject a wrong owner token", "/v1/environments", {
     method: "GET",
     headers: { authorization: `Bearer ${randomToken()}` },
   });
@@ -430,6 +652,18 @@ const check = Effect.fn("smoke.check")(function* (input: {
     `expected 401, got ${stranger.status}`,
   );
   yield* Console.log("ok  relay is healthy and refuses a wrong owner token");
+});
+
+/** Plays the T3 server and the phone against the relay, then checks what reached the fake APNs. */
+const check = Effect.fn("smoke.check")(function* (input: {
+  readonly relayUrl: string;
+  readonly state: SmokeState;
+  readonly apns: FakeApns;
+}) {
+  const issuer = normalizeRelayIssuer(PUBLIC_ORIGIN);
+  const relay = yield* makeRelayRequests(input.relayUrl);
+  const { request, ok } = relay;
+  yield* expectRelayGuardsOwner(relay);
 
   // The T3 server: link this environment with the owner token.
   const environmentId = EnvironmentId.make(
@@ -560,129 +794,13 @@ const check = Effect.fn("smoke.check")(function* (input: {
     );
   });
 
-  // The phone: exchange the owner token for a DPoP-bound token, then register.
-  const phoneKey = NodeCrypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-  const phoneJwk = phoneKey.publicKey.export({ format: "jwk" });
-  const dpopProof = Effect.fn("smoke.dpopProof")(function* (
-    method: string,
-    path: string,
-    accessToken?: string,
-  ) {
-    const header = base64Url(
-      toJson({
-        typ: "dpop+jwt",
-        alg: "ES256",
-        jwk: { kty: "EC", crv: "P-256", x: phoneJwk.x, y: phoneJwk.y },
-      }),
-    );
-    const payload = base64Url(
-      toJson({
-        htm: method,
-        // Signed for the public URL, never for the loopback address the test dials.
-        htu: `${PUBLIC_ORIGIN}${path}`,
-        jti: NodeCrypto.randomUUID(),
-        iat: yield* nowSeconds,
-        ...(accessToken
-          ? { ath: NodeCrypto.createHash("sha256").update(accessToken).digest("base64url") }
-          : {}),
-      }),
-    );
-    const signature = NodeCrypto.sign("sha256", Buffer.from(`${header}.${payload}`), {
-      key: phoneKey.privateKey,
-      dsaEncoding: "ieee-p1363",
-    });
-    return `${header}.${payload}.${base64Url(signature)}`;
+  const phone = yield* makePhone({
+    relay,
+    publicOrigin: PUBLIC_ORIGIN,
+    ownerToken: input.state.ownerToken,
   });
-  const accessToken = yield* stringField(
-    "exchange the owner token",
-    yield* ok(
-      "exchange the owner token",
-      yield* request("exchange the owner token", "/v1/client/dpop-token", {
-        headers: { dpop: yield* dpopProof("POST", "/v1/client/dpop-token") },
-        form: {
-          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
-          subject_token: input.state.ownerToken,
-          subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
-          requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
-          resource: issuer,
-          scope: "mobile:registration",
-          client_id: "t3-mobile",
-        },
-      }),
-    ),
-    "access_token",
-  );
-  yield* Console.log("ok  phone exchanged the owner token for a DPoP access token");
-
-  const phone = Effect.fn("smoke.phone")(function* (step: string, path: string, json: unknown) {
-    return yield* ok(
-      step,
-      yield* request(step, path, {
-        headers: {
-          authorization: `DPoP ${accessToken}`,
-          dpop: yield* dpopProof("POST", path, accessToken),
-        },
-        json,
-      }),
-    );
-  });
-  const deviceId = `device-smoke-${NodeCrypto.randomBytes(4).toString("hex")}`;
-  const pushToken = randomDeviceToken();
-  const activityPushToken = randomDeviceToken();
-  yield* phone("register the device", "/v1/mobile/devices", {
-    deviceId,
-    label: "Smoke iPhone",
-    platform: "ios",
-    iosMajorVersion: 18,
-    appVersion: "0.0.0-smoke",
-    bundleId: DEVICE_BUNDLE_ID,
-    apsEnvironment: "sandbox",
-    pushToken,
-    preferences: {
-      liveActivitiesEnabled: true,
-      notificationsEnabled: true,
-      notifyOnApproval: true,
-      notifyOnInput: true,
-      notifyOnCompletion: true,
-      notifyOnFailure: true,
-    },
-  } satisfies RelayDeviceRegistrationRequest);
-  yield* Console.log(`ok  phone registered ${deviceId}`);
-
-  const verifyProviderToken = Effect.fn("smoke.verifyProviderToken")(function* (
-    step: string,
-    push: ReceivedPush,
-  ) {
-    {
-      const authorization = String(push.headers.authorization ?? "");
-      const [scheme, jwt] = authorization.split(" ");
-      const [header, payload, signature] = (jwt ?? "").split(".");
-      yield* expect(
-        step,
-        scheme === "bearer" && Boolean(header && payload && signature),
-        "no bearer JWT",
-      );
-      const decode = (segment: string | undefined): unknown =>
-        parseJson(Buffer.from(segment ?? "", "base64url").toString("utf8"));
-      yield* expect(
-        step,
-        field(decode(header), "alg") === "ES256" &&
-          field(decode(header), "kid") === APNS_KEY_ID &&
-          field(decode(payload), "iss") === APNS_TEAM_ID,
-        `provider token claims are ${toJson([decode(header), decode(payload)])}`,
-      );
-      yield* expect(
-        step,
-        NodeCrypto.verify(
-          "sha256",
-          Buffer.from(`${header}.${payload}`),
-          { key: input.state.apnsPublicKeyPem, dsaEncoding: "ieee-p1363" },
-          Buffer.from(signature ?? "", "base64url"),
-        ),
-        "provider token is not signed by the relay's APNs key",
-      );
-    }
-  });
+  yield* phone.registerDevice;
+  const expected = { apns: input.apns, state: input.state, environmentId };
 
   // An agent asks for approval: with no Live Activity yet, the phone must get an alert.
   yield* publish(
@@ -691,61 +809,16 @@ const check = Effect.fn("smoke.check")(function* (input: {
     "waiting_for_approval",
     "Needs approval",
   );
-  const alert = yield* input.apns.waitFor(
-    "alert push reaches the fake APNs",
-    (push) => push.path === `/3/device/${pushToken}`,
-  );
-  yield* expect(
-    "alert push headers",
-    alert.headers[":method"] === "POST" &&
-      alert.headers["apns-push-type"] === "alert" &&
-      alert.headers["apns-topic"] === DEVICE_BUNDLE_ID &&
-      alert.headers["apns-priority"] === "10",
-    toJson(alert.headers),
-  );
-  yield* verifyProviderToken("alert push provider token", alert);
-  yield* expect(
-    "alert push body",
-    typeof field(alert.body, "aps", "alert", "title") === "string" &&
-      field(alert.body, "body", "environmentId") === environmentId &&
-      field(alert.body, "body", "threadId") === "thread-approval",
-    toJson(alert.body),
-  );
-  yield* Console.log(
-    `ok  alert push: apns-push-type=alert apns-topic=${alert.headers["apns-topic"]} apns-priority=${alert.headers["apns-priority"]}`,
-  );
+  yield* expectAlertPush({ ...expected, pushToken: phone.pushToken, threadId: "thread-approval" });
 
   // The phone starts a Live Activity, then another agent starts running.
-  yield* phone("register the Live Activity", "/v1/mobile/live-activities", {
-    deviceId,
-    activityPushToken,
-  } satisfies RelayLiveActivityRegistrationRequest);
+  yield* phone.registerLiveActivity;
   yield* publish("publish a running agent", "thread-running", "running", "Working");
-  const liveActivity = yield* input.apns.waitFor(
-    "liveactivity push reaches the fake APNs",
-    (push) =>
-      push.path === `/3/device/${activityPushToken}` &&
-      String(field(push.body, "aps", "content-state", "props")).includes("thread-running"),
-  );
-  yield* expect(
-    "liveactivity push headers",
-    liveActivity.headers[":method"] === "POST" &&
-      liveActivity.headers["apns-push-type"] === "liveactivity" &&
-      liveActivity.headers["apns-topic"] === `${DEVICE_BUNDLE_ID}.push-type.liveactivity` &&
-      (liveActivity.headers["apns-priority"] === "5" ||
-        liveActivity.headers["apns-priority"] === "10"),
-    toJson(liveActivity.headers),
-  );
-  yield* verifyProviderToken("liveactivity push provider token", liveActivity);
-  yield* expect(
-    "liveactivity push body",
-    field(liveActivity.body, "aps", "event") === "update" &&
-      typeof field(liveActivity.body, "aps", "timestamp") === "number",
-    toJson(liveActivity.body),
-  );
-  yield* Console.log(
-    `ok  liveactivity push: apns-push-type=liveactivity apns-topic=${liveActivity.headers["apns-topic"]} apns-priority=${liveActivity.headers["apns-priority"]} event=update`,
-  );
+  yield* expectLiveActivityPush({
+    ...expected,
+    activityPushToken: phone.activityPushToken,
+    threadId: "thread-running",
+  });
 });
 
 const readState = Effect.fn("smoke.readState")(function* (dir: string) {
@@ -813,4 +886,4 @@ const main = Effect.gen(function* () {
   Effect.provide(Layer.merge(NodeCryptoLayer.layerSignature, FetchHttpClient.layer)),
 );
 
-NodeRuntime.runMain(main);
+if (import.meta.main) NodeRuntime.runMain(main);

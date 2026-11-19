@@ -115,7 +115,16 @@ that an alert and a Live Activity push arrive, and removes the stack:
 node scripts/owner-mode-smoke.ts
 ```
 
-Delivery to real devices through Apple has not been exercised by that test.
+The smoke test plays the server itself. To check the real server against the relay, run the
+end-to-end test instead. It builds the server CLI, links it with `gs connect link --publish-only`
+through a local TLS proxy, runs free replayed agent turns through `gs serve`, and checks that their
+alert and Live Activity pushes arrive:
+
+```sh
+node scripts/owner-mode-e2e.ts
+```
+
+Delivery to real devices through Apple has not been exercised by either test.
 
 ## Deployment
 
