@@ -323,7 +323,7 @@ const resolveCanonicalWorkspaceFile = Effect.fn("AssetAccess.resolveCanonicalWor
   function* (input: {
     readonly workspaceRoot: string;
     readonly relativePath: string;
-    readonly previewDependency?: true;
+    readonly previewBaseRelativePath?: string;
   }) {
     const fileSystem = yield* FileSystem.FileSystem;
     const workspacePaths = yield* WorkspacePaths.WorkspacePaths;
@@ -345,7 +345,15 @@ const resolveCanonicalWorkspaceFile = Effect.fn("AssetAccess.resolveCanonicalWor
     const relative = path.relative(canonicalRoot.value, canonicalFile.value);
     if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) return null;
 
-    if (input.previewDependency && !isPreviewDependencyPath(relative, path)) return null;
+    if (input.previewBaseRelativePath !== undefined) {
+      // The page's own folder may be a dot folder (.gradespace/studio); only what lies below it is checked.
+      const belowBase = path.relative(
+        path.join(canonicalRoot.value, input.previewBaseRelativePath),
+        canonicalFile.value,
+      );
+      const escapesBase = belowBase.startsWith("..") || path.isAbsolute(belowBase);
+      if (!isPreviewDependencyPath(escapesBase ? relative : belowBase, path)) return null;
+    }
 
     const info = yield* ProjectFaviconResolver.optionOnNotFound(
       fileSystem.stat(canonicalFile.value),
@@ -359,7 +367,7 @@ const resolveCanonicalWorkspaceFile = Effect.fn("AssetAccess.resolveCanonicalWor
 const resolveCanonicalWorkspaceFileForRequest = (input: {
   readonly workspaceRoot: string;
   readonly relativePath: string;
-  readonly previewDependency?: true;
+  readonly previewBaseRelativePath?: string;
 }) =>
   resolveCanonicalWorkspaceFile(input).pipe(
     Effect.tapError((cause) =>
@@ -1098,7 +1106,7 @@ export const resolveAsset = Effect.fn("AssetAccess.resolveAsset")(function* (
   const workspaceFile = yield* resolveCanonicalWorkspaceFileForRequest({
     workspaceRoot: claims.workspaceRoot,
     relativePath: joinedRelativePath,
-    previewDependency: true,
+    previewBaseRelativePath: claims.baseRelativePath,
   });
   return workspaceFile
     ? ({ kind: "file", path: workspaceFile, renderIntent: "file-preview" } satisfies ResolvedAsset)

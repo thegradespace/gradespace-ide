@@ -1058,6 +1058,35 @@ describe("AssetAccess", () => {
     }).pipe(Effect.provide(layerTest)),
   );
 
+  it.effect("serves preview dependencies of a page inside a dot folder", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const set = path.join(root, ".gradespace", "studio", "2026-11-19-set");
+      yield* fs.makeDirectory(set, { recursive: true });
+      const page = path.join(set, "option-a.html");
+      yield* fs.writeFileString(page, "<!doctype html>");
+      for (const name of ["option-a.css", ".internal.css"]) {
+        yield* fs.writeFileString(path.join(set, name), "fixture");
+      }
+
+      const result = yield* issueAssetUrl({
+        resource: { _tag: "workspace-file", threadId: ThreadId.make("thread-1"), path: page },
+        workspaceRoot: root,
+      });
+      const suffix = result.relativeUrl.slice(ASSET_ROUTE_PREFIX.length + 1);
+      const token = suffix.slice(0, suffix.indexOf("/"));
+      expect(yield* resolveAsset(token, "option-a.html")).toMatchObject({
+        path: yield* fs.realPath(page),
+      });
+      expect(yield* resolveAsset(token, "option-a.css")).toMatchObject({
+        path: yield* fs.realPath(path.join(set, "option-a.css")),
+      });
+      expect(yield* resolveAsset(token, ".internal.css")).toBeNull();
+    }).pipe(Effect.provide(layerTest)),
+  );
+
   it.effect("issues workspace URLs that resolve the entry file and sibling assets", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
