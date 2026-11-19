@@ -50,7 +50,7 @@ import {
   relayDpopFailureReason,
   traceRelayHttpRequestWith,
   unlinkEnvironmentRecord,
-  verifyRelayClientBearerToken,
+  verifyRelaySubjectToken,
   verifyEnvironmentTunnelRecoveryProof,
   withoutCapturedParentSpan,
 } from "./Api.ts";
@@ -73,6 +73,13 @@ vi.mock("@clerk/backend", () => ({
   verifyToken: vi.fn(),
 }));
 
+const clerkAuth = {
+  mode: "clerk",
+  secretKey: Redacted.make("clerk-secret-key"),
+  publishableKey: "pk_test_test",
+  jwtAudience: "t3-code-relay",
+} satisfies RelayConfiguration.ClerkAuthSettings;
+
 const relaySettings: RelayConfiguration.RelayConfiguration["Service"] = {
   relayIssuer: "https://relay.example.test",
   apns: {
@@ -82,9 +89,7 @@ const relaySettings: RelayConfiguration.RelayConfiguration["Service"] = {
     bundleId: "com.example.t3",
     environment: "sandbox",
   },
-  clerkSecretKey: Redacted.make("clerk-secret-key"),
-  clerkPublishableKey: "pk_test_test",
-  clerkJwtAudience: "t3-code-relay",
+  auth: clerkAuth,
   apnsDeliveryJobSigningSecret: Redacted.make("apns-delivery-secret"),
   cloudMintPrivateKey: Redacted.make("cloud-mint-private-key"),
   cloudMintPublicKey: "cloud-mint-public-key",
@@ -390,19 +395,21 @@ describe("relay client authentication", () => {
     Effect.gen(function* () {
       vi.mocked(verifyToken).mockResolvedValue({
         sub: "user_session",
-        aud: relaySettings.clerkJwtAudience,
+        aud: clerkAuth.jwtAudience,
       } as never);
 
-      expect(yield* verifyRelayClientBearerToken(relaySettings, "session-token")).toEqual({
-        sub: "user_session",
-        mode: "clerk_session_bearer",
-      });
+      for (const acceptClerkOAuthToken of [true, false]) {
+        expect(
+          yield* verifyRelaySubjectToken(relaySettings, "session-token", { acceptClerkOAuthToken }),
+        ).toEqual({ sub: "user_session", mode: "clerk_session_bearer" });
+      }
       expect(verifyToken).toHaveBeenCalledWith("session-token", {
         secretKey: "clerk-secret-key",
-        audience: relaySettings.clerkJwtAudience,
+        audience: clerkAuth.jwtAudience,
       });
       expect(createClerkClient).not.toHaveBeenCalled();
     }).pipe(
+      Effect.provide(NodeCryptoLayer.layerDigest),
       Effect.ensuring(
         Effect.sync(() => {
           vi.mocked(verifyToken).mockReset();
@@ -422,21 +429,70 @@ describe("relay client authentication", () => {
         }),
       } as never);
 
-      expect(yield* verifyRelayClientBearerToken(relaySettings, "oauth-token")).toEqual({
-        sub: "user_oauth",
-        mode: "clerk_oauth_bearer",
-      });
+      // The token exchange takes session JWTs only, so it must not reach the OAuth check.
+      const exchange = yield* verifyRelaySubjectToken(relaySettings, "oauth-token", {
+        acceptClerkOAuthToken: false,
+      }).pipe(Effect.exit);
+      expect(exchange._tag).toBe("Failure");
+      expect(createClerkClient).not.toHaveBeenCalled();
+
+      expect(
+        yield* verifyRelaySubjectToken(relaySettings, "oauth-token", {
+          acceptClerkOAuthToken: true,
+        }),
+      ).toEqual({ sub: "user_oauth", mode: "clerk_oauth_bearer" });
       expect(createClerkClient).toHaveBeenCalledWith({
         secretKey: "clerk-secret-key",
         publishableKey: "pk_test_test",
       });
     }).pipe(
+      Effect.provide(NodeCryptoLayer.layerDigest),
       Effect.ensuring(
         Effect.sync(() => {
           vi.mocked(verifyToken).mockReset();
           vi.mocked(createClerkClient).mockReset();
         }),
       ),
+    ),
+  );
+
+  it.effect("in owner mode accepts exactly the owner token and never asks Clerk", () =>
+    Effect.gen(function* () {
+      const ownerToken = "owner-token-0123456789abcdef0123456789abcdef";
+      const ownerSettings: RelayConfiguration.RelayConfiguration["Service"] = {
+        ...relaySettings,
+        auth: { mode: "owner", ownerToken: Redacted.make(ownerToken), ownerUserId: "owner-1" },
+      };
+      // A Clerk session that would verify must not open an owner-mode relay.
+      vi.mocked(verifyToken).mockResolvedValue({
+        sub: "user_session",
+        aud: clerkAuth.jwtAudience,
+      } as never);
+
+      for (const acceptClerkOAuthToken of [true, false]) {
+        expect(
+          yield* verifyRelaySubjectToken(ownerSettings, ownerToken, { acceptClerkOAuthToken }),
+        ).toEqual({ sub: "owner-1", mode: "owner_token" });
+
+        for (const rejected of [
+          "session-token",
+          ownerToken.slice(0, -1),
+          `${ownerToken}0`,
+          `${ownerToken.slice(0, -1)}e`,
+          ownerToken.toUpperCase(),
+          ` ${ownerToken}`,
+        ]) {
+          const error = yield* verifyRelaySubjectToken(ownerSettings, rejected, {
+            acceptClerkOAuthToken,
+          }).pipe(Effect.flip);
+          expect(error._tag).toBe("OwnerTokenRejected");
+        }
+      }
+      expect(verifyToken).not.toHaveBeenCalled();
+      expect(createClerkClient).not.toHaveBeenCalled();
+    }).pipe(
+      Effect.provide(NodeCryptoLayer.layerDigest),
+      Effect.ensuring(Effect.sync(() => vi.mocked(verifyToken).mockReset())),
     ),
   );
 });

@@ -54,15 +54,30 @@ export interface T3ChatSettings {
   readonly linkSecret: Redacted.Redacted<string>;
 }
 
+export interface ClerkAuthSettings {
+  readonly mode: "clerk";
+  readonly secretKey: Redacted.Redacted<string>;
+  readonly publishableKey: string;
+  readonly jwtAudience: string;
+}
+
+export interface OwnerAuthSettings {
+  readonly mode: "owner";
+  // Sent wherever a Clerk token would be; rotating it is the only revocation.
+  readonly ownerToken: Redacted.Redacted<string>;
+  // Every relay table is keyed by this id, so changing it orphans the owner's rows.
+  readonly ownerUserId: string;
+}
+
+export type RelayAuthSettings = ClerkAuthSettings | OwnerAuthSettings;
+
 export class RelayConfiguration extends Context.Service<
   RelayConfiguration,
   {
     readonly relayIssuer: string;
     readonly apns: ApnsCredentials | null;
     readonly fcmServiceAccount?: Redacted.Redacted<string>;
-    readonly clerkSecretKey: Redacted.Redacted<string>;
-    readonly clerkPublishableKey: string;
-    readonly clerkJwtAudience: string;
+    readonly auth: RelayAuthSettings;
     readonly apnsDeliveryJobSigningSecret: Redacted.Redacted<string>;
     readonly cloudMintPrivateKey: Redacted.Redacted<string>;
     readonly cloudMintPublicKey: string;
