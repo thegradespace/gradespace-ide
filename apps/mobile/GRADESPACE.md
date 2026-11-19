@@ -62,7 +62,8 @@ Check the result with `APP_VARIANT=production npx expo config --type public`.
 Optional settings:
 
 - `T3CODE_MOBILE_VERSION` sets the store version string. It defaults to `2.2.0`, so set it to `1.0.0` for a first release. The `testflight` build profile pins it to `3.0.0`, so use the `production` profile instead.
-- Sign-in and T3 Connect need `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, `EXPO_PUBLIC_CLERK_JWT_TEMPLATE`, `T3CODE_RELAY_URL` and `T3CODE_MOBILE_CLERK_RELYING_PARTY` (your Clerk frontend API domain). Leave all four unset unless you run your own Clerk instance and relay. See section 8.
+- Push alerts and Live Activity updates need `T3CODE_RELAY_URL`, the address of your Gradespace Connect relay. Set it in both places, like the three values above. See section 8.
+- Sign-in and T3 Connect remote access also need `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, `EXPO_PUBLIC_CLERK_JWT_TEMPLATE` and `T3CODE_MOBILE_CLERK_RELYING_PARTY` (your Clerk frontend API domain). Leave these three unset unless you run your own Clerk instance.
 
 ## 4. Apple setup
 
@@ -145,16 +146,31 @@ Use the in-app scanner, not the system Camera app:
 - Some QR codes point at T3's hosted web app (`app.t3.codes/pair?host=…`). The in-app scanner reads the host from them and connects directly. The Camera app would open T3's website instead.
 - `t3code://` links open T3 Code's app, not this one.
 
-## 8. What needs T3's services
+## 8. What needs a relay
 
 This build can't use T3's Clerk instance, T3's relay or T3's EAS project. When their settings are unset, the app hides those features and everything else still works:
 
-| Feature                                                         | Without T3's services                                                                                                       |
-| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Pairing over LAN or Tailscale, threads, terminals, diffs, files | Works. The app talks to your server directly.                                                                               |
-| Sign-in and T3 Connect remote access                            | Hidden. Use Tailscale for remote access.                                                                                    |
-| Push notifications and remote Live Activity updates             | Off. They're delivered by the relay over APNs/FCM after Clerk sign-in. You'll still see in-app state when you open the app. |
-| Crash reporting                                                 | Off. It goes through the relay.                                                                                             |
-| Over-the-air updates                                            | Work once `T3CODE_MOBILE_EAS_PROJECT_ID` is set, through your own EAS project (`eas update --channel production`).          |
+| Feature                                                         | Without T3's services                                                                                              |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Pairing over LAN or Tailscale, threads, terminals, diffs, files | Works. The app talks to your server directly.                                                                      |
+| Sign-in and T3 Connect remote access                            | Hidden. Use Tailscale for remote access.                                                                           |
+| Push notifications and remote Live Activity updates             | Work through your own Gradespace Connect relay, set up below. Off when `T3CODE_RELAY_URL` is unset.                |
+| Crash reporting                                                 | Off. Reports go to the relay, and the Gradespace Connect relay drops them.                                         |
+| Over-the-air updates                                            | Work once `T3CODE_MOBILE_EAS_PROJECT_ID` is set, through your own EAS project (`eas update --channel production`). |
 
-To get push and remote access without Tailscale, you'd need to self-host the relay in `infra/relay` with your own Clerk instance plus APNs and FCM credentials, then set the variables from step 3. That's a project of its own and isn't needed to ship.
+### Alerts through Gradespace Connect
+
+The relay runs in owner mode: one owner token takes the place of sign-in. It delivers to iOS only for now, because the relay has no FCM credentials.
+
+1. Build the app with `T3CODE_RELAY_URL` set to the relay, for example `https://connect.thegradespace.com`, and the Clerk variables unset. Push needs a paid Apple team in `T3CODE_IOS_TEAM_ID`; a Personal Team build switches it off.
+2. On each Mac, link Gradespace to the relay, then restart it:
+
+   ```sh
+   GRADESPACE_CONNECT_OWNER_TOKEN=<owner token> gs connect link --publish-only
+   ```
+
+3. On the phone, open Settings → Notifications, paste the same token and tap **Connect**. Then turn on **Device Notifications** and **Live Activity Updates**.
+
+**Remove token** on the same screen stops alerts on that phone. To cut off a lost phone, change the owner token on the relay.
+
+Remote access without Tailscale still needs the relay in `infra/relay` deployed with your own Clerk instance and tunnels. That's a project of its own and isn't needed to ship.
