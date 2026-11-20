@@ -598,7 +598,9 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
           ) : (
             <V5CardStackView
               {...props}
-              onRootVisibilityChange={setPrimaryVisible}
+              // A tab prewarmed off screen puts its root in the window too; only the shown tab's
+              // root says whether the dock is uncovered.
+              onRootVisibilityChange={headerOnly ? undefined : setPrimaryVisible}
               onNativePopChange={setNativelyPoppingWorkspaceRoute}
               descriptors={slotDescriptors}
               state={{
