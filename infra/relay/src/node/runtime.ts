@@ -22,7 +22,6 @@ import * as HttpRouter from "effect/http/HttpRouter";
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
-import * as HttpApiScalar from "effect/http-api/HttpApiScalar";
 
 import { RelayApi } from "@t3tools/contracts/relay";
 
@@ -308,11 +307,8 @@ export const makeHttpEffect = Effect.fn("relay.node.makeHttpEffect")(function* (
   );
   const httpEffect = yield* Layer.merge(
     Layer.mergeAll(
-      HttpApiBuilder.layer(RelayApi, { openapiPath: "/openapi.json" }).pipe(
-        Layer.provide(layerApp),
-      ),
-      HttpApiScalar.layer(RelayApi, { path: "/docs" }),
-      RelayHttpApi.layerDocsRedirectRoute,
+      // No API docs page or OpenAPI file: this relay serves one owner's devices, not integrators.
+      HttpApiBuilder.layer(RelayApi).pipe(Layer.provide(layerApp)),
     ).pipe(
       Layer.provide([
         NodeServices.layer,
