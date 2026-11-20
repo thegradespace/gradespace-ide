@@ -124,13 +124,60 @@ const chromeIdentity = (
   };
 };
 
+// The headless shell has no `window.chrome`. Google sign-in refuses a Chrome user agent without
+// `app`, `csi` and `loadTimes` there, and pages that find them read the values Chrome returns.
+const CHROME_OBJECT = `(() => {
+  if (window.chrome) return;
+  const seconds = (ms) => ms / 1000;
+  const protocol = () => performance.getEntriesByType("navigation")[0]?.nextHopProtocol || "unknown";
+  window.chrome = {
+    app: {
+      isInstalled: false,
+      InstallState: { DISABLED: "disabled", INSTALLED: "installed", NOT_INSTALLED: "not_installed" },
+      RunningState: { CANNOT_RUN: "cannot_run", READY_TO_RUN: "ready_to_run", RUNNING: "running" },
+      getDetails: () => null,
+      getIsInstalled: () => false,
+      installState: (callback) => callback?.("not_installed"),
+      runningState: () => "cannot_run",
+    },
+    csi: () => ({
+      onloadT: performance.timing.domContentLoadedEventEnd,
+      pageT: performance.now(),
+      startE: performance.timing.navigationStart,
+      tran: 15,
+    }),
+    loadTimes: () => ({
+      requestTime: seconds(performance.timing.navigationStart),
+      startLoadTime: seconds(performance.timing.navigationStart),
+      commitLoadTime: seconds(performance.timing.responseStart),
+      finishDocumentLoadTime: seconds(performance.timing.domContentLoadedEventEnd),
+      finishLoadTime: seconds(performance.timing.loadEventEnd),
+      firstPaintTime: seconds(performance.timing.domContentLoadedEventEnd),
+      firstPaintAfterLoadTime: 0,
+      navigationType: "Other",
+      wasFetchedViaSpdy: /^h[23]/.test(protocol()),
+      wasNpnNegotiated: /^h[23]/.test(protocol()),
+      npnNegotiatedProtocol: protocol(),
+      wasAlternateProtocolAvailable: false,
+      connectionInfo: protocol(),
+    }),
+  };
+})()`;
+
 export const presentAsChrome = async (
   cdp: CDPSession,
   host: { readonly platform: NodeJS.Platform; readonly arch: string },
 ) => {
   const browser = await cdp.send("Browser.getVersion");
   const identity = chromeIdentity(browser, { ...host, release: NodeOS.release() });
-  if (identity) await cdp.send("Emulation.setUserAgentOverride", identity);
+  if (!identity) return;
+  await cdp.send("Emulation.setUserAgentOverride", identity);
+  // Scripts for new documents run only while this session's Page domain is on.
+  await cdp.send("Page.enable");
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: CHROME_OBJECT,
+    runImmediately: true,
+  });
 };
 
 export class ServerBrowserContexts {

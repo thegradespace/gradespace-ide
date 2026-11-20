@@ -465,6 +465,14 @@ describe("ServerBrowserContexts", () => {
         );
         expect(fromPage?.brands).toContain('"Google Chrome"');
         expect(throughWorker?.userAgent).toBe(fromPage?.userAgent);
+        // Google sign-in refuses a Chrome user agent whose page lacks Chrome's own object.
+        expect(
+          await page.evaluate(`[
+            typeof chrome.app.isInstalled,
+            typeof chrome.csi().pageT,
+            typeof chrome.loadTimes().finishLoadTime,
+          ]`),
+        ).toEqual(["boolean", "number", "number"]);
       } finally {
         await pool.close();
       }
