@@ -5,6 +5,7 @@ import * as NodeOS from "node:os";
 import * as NodeModule from "node:module";
 import * as NodeVM from "node:vm";
 import { assert, describe, it } from "@effect/vitest";
+import { PULL_REQUEST_LINKING_INSTRUCTIONS } from "@t3tools/provider-core/server/runtimeInstructions";
 
 import { PI_T3_MCP_EXTENSION_SOURCE, PI_T3_SERVICE_TIER_COMMAND } from "./mcpExtensionSource.ts";
 import { loadMcpBridge } from "./mcpBridge.testkit.ts";
@@ -79,7 +80,20 @@ describe("Pi orchestration prompt section", () => {
       assert.isDefined(result);
       assert.isTrue(result!.systemPrompt.startsWith(`${event.systemPrompt}\n\n`));
       assert.include(result!.systemPrompt, "orchestrator_capabilities");
+      assert.include(result!.systemPrompt, PULL_REQUEST_LINKING_INSTRUCTIONS);
     }
+  });
+
+  it("sets the guidance section on Pi builds with prompt sections", async () => {
+    const bridge = await loadMcpBridge();
+    const sections: Record<string, string> = {};
+    const result = await bridge.handlers.get("before_agent_start")!(
+      { systemPrompt: "base", systemPromptOptions: { sections } },
+      { ui: { notify: assert.fail } },
+    );
+    assert.isUndefined(result);
+    assert.include(sections.t3_code_orchestration, "orchestrator_capabilities");
+    assert.include(sections.t3_code_orchestration, PULL_REQUEST_LINKING_INSTRUCTIONS);
   });
 });
 
@@ -169,7 +183,11 @@ describe("Pi MCP tool exposure", () => {
   };
 
   it("keeps orchestration direct and optional bridge tools discoverable on modern Pi", async () => {
-    const bridge = await loadMcpBridge({ modern: true, toolSearchAvailable: true });
+    const bridge = await loadMcpBridge({
+      modern: true,
+      toolSearchAvailable: true,
+      activatesOnRegistration: true,
+    });
     await bridge.handlers.get("session_start")!({ systemPrompt: "" }, discoveryContext);
     const start = bridge.handlers.get("before_agent_start");
     assert.isDefined(start);
@@ -177,7 +195,13 @@ describe("Pi MCP tool exposure", () => {
     assert.include(prompt?.systemPrompt ?? "", "orchestrator_capabilities");
     assert.equal(bridge.servers.length, 0);
     assert.equal(bridge.tools.length, 4);
-    assert.deepEqual(bridge.getActiveTools(), ["read", "tool_search"]);
+    const publicDirect = [
+      "mcp__gradespace__orchestrator_capabilities",
+      "mcp__gradespace__delegate_task",
+      "mcp__gradespace__task_status",
+    ];
+    assert.sameMembers(bridge.getActiveTools(), ["read", "tool_search", ...publicDirect]);
+    assert.deepEqual(bridge.declaredTools(), publicDirect);
     assert.deepEqual(
       bridge.tools.map((tool) => [tool.name, tool.exposure]),
       [
@@ -202,6 +226,7 @@ describe("Pi MCP tool exposure", () => {
     });
     const event = { systemPrompt: "" };
     await bridge.handlers.get("session_start")!(event, discoveryContext);
+    assert.notInclude(bridge.getActiveTools(), "mcp__t3_code__delegate_task");
     const gatewayContext = { model: { api: "openai-completions" }, ui: { notify: assert.fail } };
     await bridge.handlers.get("model_select")!(event, gatewayContext);
     bridge.restoreActiveTools(["read", "mcp__gradespace__task_status"]);
@@ -219,6 +244,29 @@ describe("Pi MCP tool exposure", () => {
       "deferred",
     );
     assert.include(bridge.getActiveTools(), "mcp__gradespace__preview_snapshot");
+  });
+
+  // "gradespace" is already Pi's canonical MCP name, so no hidden alias is registered; deferred
+  // tools stay behind tool_search.
+  it("keeps Pi's canonical MCP tool names callable by the model without declaring them twice", async () => {
+    const bridge = await loadMcpBridge({
+      modern: true,
+      toolSearchAvailable: true,
+      activatesOnRegistration: true,
+    });
+    const canonicalNames = [
+      "mcp__gradespace__orchestrator_capabilities",
+      "mcp__gradespace__delegate_task",
+      "mcp__gradespace__task_status",
+    ];
+    await bridge.handlers.get("session_start")!({ systemPrompt: "" }, discoveryContext);
+    for (const name of canonicalNames) {
+      const result = await bridge.callModelTool(name, {});
+      assert.notEqual(result.isError, true, `${name} fails with Tool not found`);
+    }
+    const declared = bridge.declaredTools();
+    assert.equal(new Set(declared).size, declared.length, "declared twice after session start");
+    assert.isFalse(bridge.tools.some((tool) => tool.name.startsWith("mcp__t3_code__")));
   });
 
   it.each(["legacy Pi", "disabled tool search"])(

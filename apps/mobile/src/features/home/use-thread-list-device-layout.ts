@@ -1,17 +1,18 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/reactivity";
 import { useMemo } from "react";
 
 import type { ThreadListDeviceLayout } from "../../persistence/mobile-preferences";
 import type { ThreadRowDeviceColor } from "../threads/thread-list-v2-items";
-import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
+import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
+import { useAtomCommand } from "../../state/use-atom-command";
 import { DEFAULT_THREAD_LIST_DEVICE_LAYOUT } from "./deviceGrouping";
 
 const EMPTY_COLLAPSED: ReadonlySet<string> = new Set();
 
 export function useThreadListDeviceLayout() {
   const preferencesResult = useAtomValue(mobilePreferencesAtom);
-  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const savePreferences = useAtomCommand(saveMobilePreferences, { reportFailure: false });
   const loaded = AsyncResult.isSuccess(preferencesResult);
   const layout =
     (loaded ? preferencesResult.value.threadListDeviceLayout : undefined) ??
@@ -24,12 +25,12 @@ export function useThreadListDeviceLayout() {
 
   const setLayout = (next: ThreadListDeviceLayout) => {
     if (!loaded) return;
-    savePreferences({ threadListDeviceLayout: next });
+    void savePreferences({ threadListDeviceLayout: next });
   };
   // Transforms read optimistic state so same-frame presses toggle twice.
   const toggleDevice = (environmentId: string) => {
     if (!loaded) return;
-    savePreferences({
+    void savePreferences({
       transform: (current) => {
         const collapsed = current.threadListCollapsedDevices ?? [];
         return {
