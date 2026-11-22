@@ -55,9 +55,10 @@ import {
   withStudioPickLine,
   withStudioRestoreLine,
 } from "./studioManifest";
-import type { NewStudioPin, StudioPin } from "./studioPins";
+import { type NewStudioPin, type StudioPin, studioClientPins } from "./studioPins";
 import { type StudioContext, showToast, StudioVariantPreview } from "./StudioVariantPreview";
 import { STUDIO_PAGE_WIDTH } from "./studioZoom";
+import { type StudioClientComments, useStudioClientComments } from "./useStudioClientComments";
 
 function ScaledThumbnail(props: { readonly fit: boolean; readonly children: React.ReactNode }) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
@@ -163,6 +164,7 @@ function StudioFeedback(props: {
   readonly onSend: () => void;
   readonly asking: boolean;
   readonly onAskNow: () => void;
+  readonly clientComments: Pick<StudioClientComments, "watching" | "refreshing" | "refresh">;
 }) {
   const { variant } = props;
   const empty = props.comment.trim().length === 0 && props.pins.length === 0;
@@ -179,16 +181,51 @@ function StudioFeedback(props: {
         )}
       </div>
       {variant.note ? <p className="text-muted-foreground text-xs">{variant.note}</p> : null}
+      {props.clientComments.watching > 0 ? (
+        <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+          <span className="size-2 shrink-0 rounded-full bg-warning" aria-hidden />
+          <span className="min-w-0 flex-1">
+            {props.clientComments.watching === 1
+              ? "1 link from this set takes comments"
+              : `${props.clientComments.watching} links from this set take comments`}
+          </span>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            aria-label="Refresh client comments"
+            title="Refresh client comments"
+            disabled={props.clientComments.refreshing}
+            onClick={props.clientComments.refresh}
+          >
+            {props.clientComments.refreshing ? <Spinner /> : <RefreshCw className="size-3" />}
+          </Button>
+        </div>
+      ) : null}
       {props.pins.length > 0 ? (
         <ul className="flex flex-col gap-1" aria-label={`Pinned comments on option ${variant.id}`}>
           {props.pins.map((pin) => (
             <li key={pin.id} className="flex items-start gap-1.5 text-xs">
-              <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-3xs text-primary-foreground">
-                {pin.number}
+              <span
+                className={cn(
+                  "mt-px flex size-4 shrink-0 items-center justify-center rounded-full font-semibold text-3xs",
+                  pin.author === undefined
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-warning text-white",
+                )}
+              >
+                {pin.author === undefined
+                  ? pin.number
+                  : pin.author.trim().charAt(0).toUpperCase() || "?"}
               </span>
               <span className="min-w-0 flex-1 break-words">
                 {pin.version === null ? null : (
                   <span className="mr-1 text-muted-foreground">v{pin.version}</span>
+                )}
+                {pin.author === undefined ? null : (
+                  <span className="mr-1 font-medium text-warning-foreground">
+                    {pin.author} · via link
+                  </span>
                 )}
                 {pin.comment}
               </span>
@@ -196,7 +233,12 @@ function StudioFeedback(props: {
                 type="button"
                 size="icon-xs"
                 variant="ghost"
-                aria-label={`Remove pin ${pin.number} on option ${variant.id}${pin.version === null ? "" : ` v${pin.version}`}`}
+                aria-label={
+                  pin.author === undefined
+                    ? `Remove pin ${pin.number} on option ${variant.id}${pin.version === null ? "" : ` v${pin.version}`}`
+                    : `Hide ${pin.author}'s comment on option ${variant.id}`
+                }
+                title={pin.author === undefined ? undefined : "Hide here. It stays on the link."}
                 onClick={() => props.onRemovePin(pin.id)}
               >
                 <X className="size-3" />
@@ -268,6 +310,7 @@ function StudioSet(
     props.readRevision,
   );
   const writeFile = useAtomCommand(projectEnvironment.writeFile, { reportFailure: false });
+  const clientComments = useStudioClientComments(props.environmentId, props.setPath);
 
   if (file.data === null) {
     return file.error === null ? (
@@ -281,6 +324,25 @@ function StudioSet(
   if (manifest === null) {
     return <FileSurfaceFailure message={`${manifestPath} is not a valid Studio file.`} />;
   }
+
+  const clientPins = studioClientPins(
+    clientComments.comments,
+    manifest.variants,
+    props.setPath,
+    clientComments.dismissed,
+  );
+  const allPins = [...pins, ...clientPins];
+  // Client pins are hidden here, never deleted from the link.
+  const forgetPins = (sent: readonly StudioPin[]) => {
+    const local = new Set(
+      sent.filter((pin) => pin.clientCommentId === undefined).map((pin) => pin.id),
+    );
+    setPins((current) => current.filter((pin) => !local.has(pin.id)));
+    clientComments.dismiss(
+      sent.flatMap((pin) => (pin.clientCommentId === undefined ? [] : [pin.clientCommentId])),
+    );
+  };
+  const removePin = (id: number) => forgetPins(allPins.filter((pin) => pin.id === id));
 
   const viewedVersion = (variant: StudioVariant) =>
     studioViewedVersion(variant, versions[variant.id]);
@@ -357,7 +419,7 @@ function StudioSet(
     ]);
   };
   const sendFeedback = (variant: StudioVariant) => {
-    const own = pins.filter((pin) => pin.variantId === variant.id);
+    const own = allPins.filter((pin) => pin.variantId === variant.id);
     updatePrompt((prompt) =>
       withStudioFeedback(prompt, manifest, props.setPath, variant, {
         comment: comments[variant.id] ?? "",
@@ -365,7 +427,7 @@ function StudioSet(
         pins: own,
       }),
     );
-    setPins((current) => current.filter((pin) => pin.variantId !== variant.id));
+    forgetPins(own);
     setComments((current) => ({ ...current, [variant.id]: "" }));
     showToast(
       "success",
@@ -379,7 +441,7 @@ function StudioSet(
       sendFeedback(variant);
       return;
     }
-    const own = pins.filter((pin) => pin.variantId === variant.id);
+    const own = allPins.filter((pin) => pin.variantId === variant.id);
     const comment = comments[variant.id] ?? "";
     const text = withStudioFeedback("", manifest, props.setPath, variant, {
       comment,
@@ -400,8 +462,7 @@ function StudioSet(
       return;
     }
     setAskingId(null);
-    const sent = new Set(own.map((pin) => pin.id));
-    setPins((current) => current.filter((pin) => !sent.has(pin.id)));
+    forgetPins(own);
     setComments((current) =>
       current[variant.id] === comment ? { ...current, [variant.id]: "" } : current,
     );
@@ -437,7 +498,7 @@ function StudioSet(
       onTogglePick: (variant: StudioVariant) => void togglePick(variant),
       pinMode,
       onPinModeChange: setPinMode,
-      pins,
+      pins: allPins,
       onAddPin: addPin,
     };
     const feedbackVariants =
@@ -517,14 +578,15 @@ function StudioSet(
               variant={variant}
               version={viewedVersion(variant)}
               comment={comments[variant.id] ?? ""}
-              pins={pins.filter((pin) => pin.variantId === variant.id)}
+              pins={allPins.filter((pin) => pin.variantId === variant.id)}
               onCommentChange={(comment) =>
                 setComments((current) => ({ ...current, [variant.id]: comment }))
               }
-              onRemovePin={(id) => setPins((current) => current.filter((pin) => pin.id !== id))}
+              onRemovePin={removePin}
               onSend={() => sendFeedback(variant)}
               asking={askingId === variant.id}
               onAskNow={() => void askNow(variant)}
+              clientComments={clientComments}
             />
           ))}
         </div>

@@ -4,7 +4,9 @@ import {
   STUDIO_SCROLL_MESSAGE,
 } from "@t3tools/shared/studioZoom";
 
-import type { StudioPinNote } from "./studioManifest";
+import type { StudioShareComment } from "@t3tools/contracts";
+
+import type { StudioPinNote, StudioVariant, StudioViewedVersion } from "./studioManifest";
 
 export interface Size {
   readonly width: number;
@@ -22,6 +24,8 @@ export interface StudioPin extends StudioPinNote {
   readonly variantId: string;
   /** The zoom it was placed at; a page that reflows at another zoom may no longer line up. */
   readonly zoom: number;
+  /** Set on a pin a client left through a share link; its comment id on the website. */
+  readonly clientCommentId?: string | undefined;
 }
 
 /** Where the design page is scrolled, as reported by the injected bridge. */
@@ -118,14 +122,18 @@ export function pickPointFractions(
  * scrolled out of view; pins without a scroll report stay at their place in the visible area.
  */
 export function pinOverlayPoint(
-  pin: Pick<StudioPinNote, "fx" | "fy" | "page">,
+  pin: Pick<StudioPinNote, "fx" | "fy" | "page"> & Pick<StudioPin, "clientCommentId">,
   view: { readonly zoom: number; readonly box: Size; readonly scroll: StudioScroll | null },
 ): Point | null {
   if (pin.page === null || view.scroll === null) {
     return { x: pin.fx * view.box.width, y: pin.fy * view.box.height };
   }
-  const x = (pin.page.x - view.scroll.scrollX) * view.zoom;
-  const y = (pin.page.y - view.scroll.scrollY) * view.zoom;
+  // A client's page was laid out at their screen width, so place it at the same share of this one.
+  const client = pin.clientCommentId !== undefined;
+  const pageX = client ? (pin.page.x / pin.page.width) * view.scroll.scrollWidth : pin.page.x;
+  const pageY = client ? (pin.page.y / pin.page.height) * view.scroll.scrollHeight : pin.page.y;
+  const x = (pageX - view.scroll.scrollX) * view.zoom;
+  const y = (pageY - view.scroll.scrollY) * view.zoom;
   return x < 0 || y < 0 || x > view.box.width || y > view.box.height ? null : { x, y };
 }
 
@@ -171,4 +179,57 @@ export type NewStudioPin = Omit<StudioPin, "id" | "number">;
 export interface StudioPinDraft extends Pick<StudioPinNote, "fx" | "fy" | "page" | "video"> {
   /** Which compare pane it was placed in. */
   readonly pane: 0 | 1;
+}
+
+/** Which option and version a shared file is, or null when the set no longer has it. */
+export function studioSharedFileVersion(
+  variants: readonly StudioVariant[],
+  setPath: string,
+  relativePath: string,
+): { readonly variantId: string; readonly version: StudioViewedVersion } | null {
+  const prefix = `${setPath.replace(/\/+$/, "")}/`;
+  if (!relativePath.startsWith(prefix)) return null;
+  const file = relativePath.slice(prefix.length);
+  for (const variant of variants) {
+    if (variant.file === file) return { variantId: variant.id, version: null };
+    const index = variant.revisions?.findIndex((revision) => revision.file === file) ?? -1;
+    if (index >= 0) return { variantId: variant.id, version: index + 1 };
+  }
+  return null;
+}
+
+/**
+ * Client comments as pins on the option and version that was shared, numbered per version in the
+ * order they arrived. Ids are negative so they never meet a local pin's; dismissed ones are left out.
+ */
+export function studioClientPins(
+  comments: readonly StudioShareComment[],
+  variants: readonly StudioVariant[],
+  setPath: string,
+  dismissed: ReadonlySet<string>,
+): StudioPin[] {
+  const counts = new Map<string, number>();
+  return comments.flatMap((comment, index) => {
+    if (dismissed.has(comment.id)) return [];
+    const target = studioSharedFileVersion(variants, setPath, comment.relativePath);
+    if (target === null) return [];
+    const key = `${target.variantId}@${target.version ?? "latest"}`;
+    const number = (counts.get(key) ?? 0) + 1;
+    counts.set(key, number);
+    return [
+      {
+        id: -(index + 1),
+        number,
+        variantId: target.variantId,
+        version: target.version,
+        comment: comment.comment,
+        author: comment.name,
+        fx: comment.fx,
+        fy: comment.fy,
+        page: comment.page,
+        zoom: 1,
+        clientCommentId: comment.id,
+      },
+    ];
+  });
 }

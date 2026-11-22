@@ -13,6 +13,7 @@ import { useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Spinner } from "~/components/ui/spinner";
+import { Switch } from "~/components/ui/switch";
 import { useServerConfigs } from "~/state/entities";
 import { serverEnvironment } from "~/state/server";
 import { useAtomCommand } from "~/state/use-atom-command";
@@ -37,6 +38,8 @@ function SharePanel(props: {
   readonly relativePath: string;
   readonly defaultTitle: string;
   readonly native: boolean;
+  /** The server can show client comments as pins, so offer the switch. */
+  readonly commentsSupported: boolean;
   readonly onClose: () => void;
 }) {
   const { environmentId } = props;
@@ -50,6 +53,7 @@ function SharePanel(props: {
   });
   const [title, setTitle] = useState(props.defaultTitle);
   const [days, setDays] = useState<StudioShareExpiryDays>(7);
+  const [allowComments, setAllowComments] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<StudioShareEntry | null>(null);
@@ -66,6 +70,7 @@ function SharePanel(props: {
         relativePath: props.relativePath,
         title: title.trim(),
         expiresInDays: days,
+        ...(props.commentsSupported && allowComments ? { allowComments: true } : {}),
       },
     }).finally(() => setCreating(false));
     if (result._tag === "Success") {
@@ -153,7 +158,10 @@ function SharePanel(props: {
             </Button>
           </div>
           <span className="text-muted-foreground text-xs">
-            Anyone with this link can see this version.{" "}
+            Anyone with this link can see this version
+            {created.commentsEnabled === true
+              ? " and pin comments, which show up here as pins."
+              : "."}{" "}
             {created.expiresAt === null
               ? "It never expires."
               : `It stops working on ${new Date(created.expiresAt).toLocaleDateString()}.`}{" "}
@@ -197,6 +205,22 @@ function SharePanel(props: {
             ))}
           </div>
         </div>
+        {props.commentsSupported ? (
+          <label className="flex items-start justify-between gap-3 text-xs">
+            <span className="flex flex-col gap-0.5">
+              Allow comments
+              <span className="text-muted-foreground">
+                Viewers can pin comments with their name. They show up here as pins.
+              </span>
+            </span>
+            <Switch
+              size="sm"
+              aria-label="Allow comments"
+              checked={allowComments}
+              onCheckedChange={setAllowComments}
+            />
+          </label>
+        ) : null}
         <Button type="submit" size="xs" disabled={creating || !allowed}>
           {creating && <Spinner size="sm" />}
           {creating ? "Creating…" : "Create link"}
@@ -245,8 +269,8 @@ export function StudioShareButton(props: {
   readonly optionLabel?: string | undefined;
   readonly native: boolean;
 }) {
-  const supported =
-    useServerConfigs().get(props.environmentId)?.environment.capabilities.studioShare === true;
+  const capabilities = useServerConfigs().get(props.environmentId)?.environment.capabilities;
+  const supported = capabilities?.studioShare === true;
   const [open, setOpen] = useState(false);
   if (!supported) return null;
   const shareable = STUDIO_SHARE_FILE_PATTERN.test(props.variant.file);
@@ -281,6 +305,7 @@ export function StudioShareButton(props: {
           relativePath={`${props.setPath}/${props.variant.file}`}
           defaultTitle={`${props.variant.id}: ${props.variant.title}`}
           native={props.native}
+          commentsSupported={capabilities?.studioShareComments === true}
           onClose={() => setOpen(false)}
         />
       ) : null}

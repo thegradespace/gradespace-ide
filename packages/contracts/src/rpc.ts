@@ -87,6 +87,8 @@ import {
 import { ClientActivityReportInput } from "./background.ts";
 import { BackupError, BackupRestoreInput, BackupStatus } from "./backups.ts";
 import {
+  StudioShareComments,
+  StudioShareCommentsInput,
   StudioShareCreateInput,
   StudioShareEntry,
   StudioShareError,
@@ -546,6 +548,7 @@ export const WS_METHODS = {
   studioShareCreate: "studioShare.create",
   studioShareList: "studioShare.list",
   studioShareRevoke: "studioShare.revoke",
+  studioShareComments: "studioShare.comments",
   skillPacksStatus: "skillPacks.status",
   skillPacksInstall: "skillPacks.install",
   skillPacksUpdate: "skillPacks.update",
@@ -929,6 +932,12 @@ const WsStudioShareListRpc = Rpc.make(WS_METHODS.studioShareList, {
 const WsStudioShareRevokeRpc = Rpc.make(WS_METHODS.studioShareRevoke, {
   payload: StudioShareRevokeInput,
   success: StudioShareList,
+  error: StudioShareRpcError,
+});
+
+const WsStudioShareCommentsRpc = Rpc.make(WS_METHODS.studioShareComments, {
+  payload: StudioShareCommentsInput,
+  success: StudioShareComments,
   error: StudioShareRpcError,
 });
 
@@ -2314,6 +2323,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsStudioShareCreateRpc,
   WsStudioShareListRpc,
   WsStudioShareRevokeRpc,
+  WsStudioShareCommentsRpc,
   WsSkillPacksStatusRpc,
   WsSkillPacksInstallRpc,
   WsSkillPacksUpdateRpc,

@@ -29,6 +29,8 @@ export const StudioShareCreateInput = Schema.Struct({
   relativePath: TrimmedNonEmptyString,
   title: Schema.optional(Schema.String.check(Schema.isMaxLength(STUDIO_SHARE_MAX_TITLE_LENGTH))),
   expiresInDays: StudioShareExpiryDays,
+  /** Viewers may pin comments on the link. Off when left out, as older clients do. */
+  allowComments: Schema.optional(Schema.Boolean),
 });
 export type StudioShareCreateInput = typeof StudioShareCreateInput.Type;
 
@@ -45,11 +47,53 @@ export const StudioShareEntry = Schema.Struct({
   createdAt: Schema.String,
   expiresAt: Schema.NullOr(Schema.String),
   revoked: Schema.Boolean,
+  /** Left out by older servers, which means off. */
+  commentsEnabled: Schema.optional(Schema.Boolean),
 });
 export type StudioShareEntry = typeof StudioShareEntry.Type;
 
 export const StudioShareList = Schema.Struct({ shares: Schema.Array(StudioShareEntry) });
 export type StudioShareList = typeof StudioShareList.Type;
+
+/** Polled from Studio, so kept small: comments arrive only for links shared from this set. */
+export const StudioShareCommentsInput = Schema.Struct({ setPath: TrimmedNonEmptyString });
+export type StudioShareCommentsInput = typeof StudioShareCommentsInput.Type;
+
+const Fraction = Schema.Number.check(Schema.isBetween({ minimum: 0, maximum: 1 }));
+const PagePixels = Schema.Number.check(Schema.isGreaterThanOrEqualTo(0));
+
+/** The same form as a Studio pin's `page`: the spot in page pixels, the page's size and what was there. */
+export const StudioShareCommentPage = Schema.Struct({
+  x: PagePixels,
+  y: PagePixels,
+  width: PagePixels,
+  height: PagePixels,
+  selector: Schema.String,
+  text: Schema.String,
+});
+export type StudioShareCommentPage = typeof StudioShareCommentPage.Type;
+
+/** A comment a viewer pinned through a share link. */
+export const StudioShareComment = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  shareId: TrimmedNonEmptyString,
+  /** The shared file, relative to the project, which names the option and version. */
+  relativePath: TrimmedNonEmptyString,
+  name: Schema.String,
+  comment: Schema.String,
+  fx: Fraction,
+  fy: Fraction,
+  page: Schema.NullOr(StudioShareCommentPage),
+  createdAt: Schema.String,
+});
+export type StudioShareComment = typeof StudioShareComment.Type;
+
+export const StudioShareComments = Schema.Struct({
+  comments: Schema.Array(StudioShareComment),
+  /** Live links from this set that take comments, so Studio knows whether to offer Refresh. */
+  watching: NonNegativeInt,
+});
+export type StudioShareComments = typeof StudioShareComments.Type;
 
 export class StudioShareError extends Schema.TaggedError<StudioShareError>()("StudioShareError", {
   reason: Schema.Literals([

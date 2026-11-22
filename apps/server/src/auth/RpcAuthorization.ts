@@ -96,6 +96,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.studioShareCreate]: AuthEnvironmentMaintainScope,
   [WS_METHODS.studioShareList]: AuthEnvironmentMaintainScope,
   [WS_METHODS.studioShareRevoke]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.studioShareComments]: AuthEnvironmentMaintainScope,
   [WS_METHODS.skillPacksStatus]: AuthEnvironmentMaintainScope,
   [WS_METHODS.skillPacksInstall]: AuthEnvironmentMaintainScope,
   [WS_METHODS.skillPacksUpdate]: AuthEnvironmentMaintainScope,

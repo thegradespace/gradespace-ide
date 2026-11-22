@@ -108,6 +108,8 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   databaseStorage: Schema.optionalKey(Schema.Boolean),
   backups: Schema.optionalKey(Schema.Boolean),
   studioShare: Schema.optionalKey(Schema.Boolean),
+  /** Serves `studioShare.comments`; Studio shows no client pins without it. */
+  studioShareComments: Schema.optionalKey(Schema.Boolean),
   skillPacks: Schema.optionalKey(Schema.Boolean),
   /** Serves `emailConnections.status`; clients show unknown email status without it. */
   emailConnections: Schema.optionalKey(Schema.Boolean),

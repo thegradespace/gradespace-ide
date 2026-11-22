@@ -6,6 +6,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import * as TestClock from "effect/testing/TestClock";
 import {
   HttpClient,
   HttpClientError,
@@ -138,6 +139,14 @@ it.effect("uploads the file with the key and the form fields the website expects
     expect(yield* Effect.promise(() => (file as File).text())).toBe("<h1>Hi</h1>");
     expect(body.formData.get("title")).toBe("A: Bold");
     expect(body.formData.get("expiresInDays")).toBe("7");
+    // Comments stay off unless asked for; the path lets Studio match comments to the option.
+    expect(body.formData.get("allowComments")).toBeNull();
+    expect(body.formData.get("sourcePath")).toBe("design/a.html");
+
+    yield* share.create({ ...input(cwd), allowComments: true });
+    const second = requests[1]?.body;
+    if (second?._tag !== "FormData") throw new Error("expected a multipart body");
+    expect(second.formData.get("allowComments")).toBe("true");
   }).pipe(
     Effect.provide(layerFor(requests, created, { studioShareBaseUrl: "http://share.test/" })),
   );
@@ -204,6 +213,8 @@ it.effect("stays off the network in offline mode", () => {
     expect(yield* failure(share.create(input(cwd)))).toBe("offline");
     expect(yield* failure(share.list)).toBe("offline");
     expect(yield* failure(share.revoke("abc123"))).toBe("offline");
+    // Studio polls comments in the background, so offline just means none.
+    expect(yield* share.comments(".gradespace/studio/set")).toEqual({ comments: [], watching: 0 });
     expect(requests).toHaveLength(0);
   }).pipe(Effect.provide(layerFor(requests, created, { offlineMode: true })));
 });
@@ -229,6 +240,109 @@ it.effect("lists shares and turns one off", () => {
           return new Response(null, { status: 204 });
         }
         return new Response(JSON.stringify({ shares: [shareJson({ revoked: deleted })] }));
+      }),
+    ),
+  );
+});
+
+it.effect("fetches comments only for live links from the set that have some", () => {
+  const requests: HttpClientRequest.HttpClientRequest[] = [];
+  const set = ".gradespace/studio/2026-11-22-test";
+  const comment = (id: string, createdAt: string, overrides: Record<string, unknown> = {}) => ({
+    id,
+    name: "Ada",
+    comment: "Bigger logo",
+    fx: 0.25,
+    fy: 0.5,
+    page: { x: 100, y: 800, width: 1280, height: 3000, selector: "h1", text: "Welcome" },
+    createdAt,
+    ...overrides,
+  });
+  return Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-11-22T12:00:00.000Z"));
+    const share = yield* StudioShare.StudioShare;
+    expect(yield* share.comments(set)).toEqual({ comments: [], watching: 0 });
+    expect(requests).toHaveLength(0);
+    yield* share.setToken(KEY);
+
+    const result = yield* share.comments(`${set}/`);
+
+    expect(result.watching).toBe(4);
+    expect(result.comments.map((entry) => [entry.id, entry.shareId, entry.relativePath])).toEqual([
+      ["c2", "b", `${set}/b.v1.html`],
+      ["c1", "a", `${set}/a.html`],
+    ]);
+    expect(result.comments[0]?.page).toBeNull();
+    expect(result.comments[1]).toMatchObject({
+      name: "Ada",
+      comment: "Bigger logo",
+      page: { x: 100, y: 800, width: 1280, height: 3000, selector: "h1", text: "Welcome" },
+    });
+    const fetched = requests
+      .map((request) => request.url)
+      .filter((url) => url.endsWith("/comments"))
+      .toSorted();
+    expect(fetched).toEqual([
+      "https://thegradespace.com/api/studio-shares/a/comments",
+      "https://thegradespace.com/api/studio-shares/b/comments",
+      "https://thegradespace.com/api/studio-shares/gone/comments",
+    ]);
+    expect(requests.every((request) => request.headers.authorization === `Bearer ${KEY}`)).toBe(
+      true,
+    );
+  }).pipe(
+    Effect.provide(
+      layerFor(requests, (request) => {
+        const live = { commentsEnabled: true, expiresAt: "2026-11-29T10:00:00.000Z" };
+        if (request.url.endsWith("/api/studio-shares")) {
+          return new Response(
+            JSON.stringify({
+              shares: [
+                shareJson({ id: "a", ...live, commentCount: 1, sourcePath: `${set}/a.html` }),
+                shareJson({ id: "b", ...live, commentCount: 2, sourcePath: `${set}/b.v1.html` }),
+                shareJson({ id: "gone", ...live, commentCount: 1, sourcePath: `${set}/c.html` }),
+                shareJson({ id: "quiet", ...live, commentCount: 0, sourcePath: `${set}/d.html` }),
+                shareJson({ id: "off", commentCount: 3, sourcePath: `${set}/a.html` }),
+                shareJson({
+                  id: "old",
+                  ...live,
+                  commentCount: 3,
+                  sourcePath: `${set}/a.html`,
+                  expiresAt: "2026-11-21T10:00:00.000Z",
+                }),
+                shareJson({
+                  id: "revoked",
+                  ...live,
+                  revoked: true,
+                  commentCount: 3,
+                  sourcePath: `${set}/a.html`,
+                }),
+                shareJson({
+                  id: "other",
+                  ...live,
+                  commentCount: 3,
+                  sourcePath: ".gradespace/studio/2026-11-22-test-2/a.html",
+                }),
+                shareJson({ id: "legacy" }),
+              ],
+            }),
+          );
+        }
+        if (request.url.includes("/gone/")) return new Response("", { status: 404 });
+        if (request.url.includes("/a/")) {
+          return new Response(
+            JSON.stringify({ comments: [comment("c1", "2026-11-22T11:00:00.000Z")] }),
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            comments: [
+              comment("c2", "2026-11-22T10:00:00.000Z", { page: null }),
+              // Blank after trimming, so dropped.
+              comment("c3", "2026-11-22T10:30:00.000Z", { name: "   " }),
+            ],
+          }),
+        );
       }),
     ),
   );
