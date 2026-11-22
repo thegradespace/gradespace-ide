@@ -99,6 +99,11 @@ function commandArgs(command: ChildProcess.Command): ReadonlyArray<string> {
 }
 
 const ARCHIVE = { archiveVersion: "1.2.3-preview.20260911.4" } as const;
+// Gradespace publishes no remote CLI builds, so archive download paths need an explicit source.
+const CONFIGURED_ARCHIVE = {
+  ...ARCHIVE,
+  releaseBaseUrl: "https://releases.example.com/t3",
+} as const;
 
 // Emulates `t3 serve`: it takes the home owner lock at startup, then binds
 // once a second server has tried the same home (or after 2s), so a concurrent
@@ -378,7 +383,7 @@ describe("ssh tunnel scripts", () => {
           { mode: 0o755 },
         );
         const runner = NodePath.join(root, "run-t3.sh");
-        NodeFS.writeFileSync(runner, SshTunnel.buildRemoteT3RunnerScript(ARCHIVE));
+        NodeFS.writeFileSync(runner, SshTunnel.buildRemoteT3RunnerScript(CONFIGURED_ARCHIVE));
         const result = NodeChildProcess.spawnSync("sh", [runner, "serve"], {
           encoding: "utf8",
           env: { HOME: NodePath.join(root, "home"), PATH: `${bin}:${process.env.PATH ?? ""}` },
@@ -493,7 +498,7 @@ describe("ssh tunnel scripts", () => {
         { mode: 0o755 },
       );
       const runner = NodePath.join(root, "run-t3.sh");
-      NodeFS.writeFileSync(runner, SshTunnel.buildRemoteT3RunnerScript(ARCHIVE));
+      NodeFS.writeFileSync(runner, SshTunnel.buildRemoteT3RunnerScript(CONFIGURED_ARCHIVE));
       const result = NodeChildProcess.spawnSync(NodePath.join(bin, "sh"), [runner, "--version"], {
         encoding: "utf8",
         env: { HOME: home, PATH: bin },
@@ -1536,7 +1541,7 @@ server.listen(Number(flag("--port") ?? 0), "127.0.0.1", () => {
       const error = yield* Effect.flip(launch);
       assert.include(
         error.message,
-        `The previous remote T3 server (PID ${pid}) is still shutting down.`,
+        `The previous remote GS server (PID ${pid}) is still shutting down.`,
       );
       assert.isTrue(yield* isRunning(pid), "the launcher signalled the stopping server");
     }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),

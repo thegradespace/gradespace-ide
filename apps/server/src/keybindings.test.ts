@@ -523,7 +523,8 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       const keybindings = yield* Keybindings.Keybindings;
       yield* writeKeybindingsConfig(
         keybindingsConfigPath,
-        Array.from({ length: 210 }, (_, index) => ({
+        // 16 fewer than upstream: Gradespace adds 16 workspaces.* defaults after chat.new.
+        Array.from({ length: 194 }, (_, index) => ({
           key: "mod+alt+f1",
           command: `script.filler-${index}.run` as const,
         })),
@@ -556,7 +557,8 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
         const keybindings = yield* Keybindings.Keybindings;
         yield* writeKeybindingsConfig(
           keybindingsConfigPath,
-          Array.from({ length: 209 }, (_, index) => ({
+          // 16 fewer than upstream: Gradespace adds 16 workspaces.* defaults after chat.new.
+          Array.from({ length: 193 }, (_, index) => ({
             key: "mod+alt+f1",
             command: `script.filler-${index}.run` as const,
           })),
