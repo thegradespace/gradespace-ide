@@ -1064,7 +1064,9 @@ export function resolveWindowsServerAsarIgnoreGlobs(arch: typeof BuildArch.Type)
   ];
 }
 
-export const WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT = 80;
+// Gradespace ships a few more resources than upstream (83 files at v0.1.20), so the
+// limit sits a little above upstream's 80 while still catching a runaway payload.
+export const WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT = 96;
 export const WINDOWS_SERVER_RESOURCE_SOURCE_DIR = "apps/desktop/prod-resources/windows-server";
 export const WINDOWS_SERVER_EXTRA_RESOURCES = [
   {

@@ -62,13 +62,17 @@ jobs:
       # A failure on one Mac usually hits both; stopping early saves build minutes.
       fail-fast: true
       matrix:
-        include: ${{ fromJSON(inputs.arm64_only && '[{"arch":"arm64","runner":"macos-15"}]' || '[{"arch":"arm64","runner":"macos-15"},{"arch":"x64","runner":"macos-15-intel"}]') }}
+        # macOS 26: Apple Speech dictation needs the macOS 26 SDK. Upstream builds both
+        # arches on macOS 26 Apple Silicon; the x64 app is cross-built there.
+        include: ${{ fromJSON(inputs.arm64_only && '[{"arch":"arm64","runner":"macos-26"}]' || '[{"arch":"arm64","runner":"macos-26"},{"arch":"x64","runner":"macos-26"}]') }}
     steps:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-ci-deps
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.arch == 'x64' && 'x86_64-apple-darwin' || 'aarch64-apple-darwin' }}
 
       - name: Align package versions to the release version
         run: node scripts/update-release-package-versions.ts "${{ needs.prepare.outputs.version }}"
