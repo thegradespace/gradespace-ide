@@ -57,7 +57,7 @@ import {
 } from "./studioManifest";
 import type { NewStudioPin, StudioPin } from "./studioPins";
 import { type StudioContext, showToast, StudioVariantPreview } from "./StudioVariantPreview";
-import { STUDIO_PAGE_WIDTH } from "./studioZoom";
+import { STUDIO_PAGE_WIDTH, type StudioWidthMode } from "./studioZoom";
 
 function ScaledThumbnail(props: { readonly fit: boolean; readonly children: React.ReactNode }) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
@@ -243,6 +243,8 @@ function StudioSet(
   const [comments, setComments] = useState<Readonly<Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
   const [zoom, setZoom] = useState<number | null>(null);
+  const [pageWidth, setPageWidth] = useState<StudioWidthMode>("desktop");
+  const [sliders, setSliders] = useState<Readonly<Record<string, number>>>({});
   const [comparing, setComparing] = useState(false);
   const [compareId, setCompareId] = useState<string | null>(null);
   const [versions, setVersions] = useState<Readonly<Record<string, number>>>({});
@@ -428,6 +430,15 @@ function StudioSet(
       onCompareChange: setComparing,
       zoom,
       onZoomChange: setZoom,
+      pageWidth,
+      onPageWidthChange: setPageWidth,
+      sliders,
+      onSliderChange: (variantId: string, version: number | null) =>
+        setSliders((current) => {
+          const rest = { ...current };
+          delete rest[variantId];
+          return version === null ? rest : { ...rest, [variantId]: version };
+        }),
       saving,
       onSelect: setFocusedId,
       onSelectCompare: setCompareId,
@@ -490,6 +501,7 @@ function StudioSet(
                 onPress={() => {
                   setFocusedId(null);
                   setVersions({});
+                  setSliders({});
                 }}
               >
                 <ArrowLeft className="size-3.5" />

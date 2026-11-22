@@ -4,6 +4,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { shortcutLabelForCommand } from "~/keybindings";
 
 import {
+  fitAllSizesZoom,
+  fitDeviceZoom,
   fitImageZoom,
   fitPageZoom,
   parseStudioKeyZoomMessage,
@@ -31,6 +33,10 @@ describe("studio zoom", () => {
     expect(fitPageZoom(10_000)).toBe(3);
     expect(fitImageZoom({ width: 400, height: 300 }, { width: 800, height: 400 })).toBe(0.5);
     expect(zoomPercent(0.675)).toBe("68%");
+    expect(fitDeviceZoom(1000, 390)).toBe(1);
+    expect(fitDeviceZoom(195, 390)).toBe(0.5);
+    expect(fitAllSizesZoom(2490 + 48, 48)).toBe(1);
+    expect(fitAllSizesZoom(1245 + 48, 48)).toBe(0.5);
   });
 
   it("maps wheel deltas continuously, capped per event and clamped overall", () => {

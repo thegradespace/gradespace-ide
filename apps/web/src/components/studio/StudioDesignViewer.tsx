@@ -1,10 +1,14 @@
 import {
   Columns2,
+  Columns3,
   Crosshair,
   Maximize2,
   Minus,
+  Monitor,
   Plus,
+  Smartphone,
   SquareArrowOutUpRight,
+  Tablet,
   X,
 } from "lucide-react";
 import { useAtomValue } from "@effect/atom-react";
@@ -38,12 +42,24 @@ import {
   type StudioPinDraft,
   videoPictureFractions,
 } from "./studioPins";
+import {
+  ALL_SIZES_CHROME,
+  STUDIO_WIDTH_LABELS,
+  StudioAllSizes,
+  StudioScaledPage,
+  StudioVersionSlider,
+} from "./StudioPageFrame";
 import { StudioPinLayer } from "./StudioPinLayer";
 import { StudioShareButton } from "./StudioShareButton";
 import {
+  fitAllSizesZoom,
+  fitDeviceZoom,
   fitImageZoom,
   fitPageZoom,
   parseStudioKeyZoomMessage,
+  STUDIO_PAGE_WIDTHS,
+  type StudioPageWidth,
+  type StudioWidthMode,
   parseStudioWheelZoomMessage,
   stepZoom,
   studioZoomForKey,
@@ -146,13 +162,58 @@ function StudioZoomControls(props: {
   );
 }
 
+const WIDTH_ICONS = { phone: Smartphone, tablet: Tablet, desktop: Monitor } as const;
+
+function StudioWidthControl(props: {
+  readonly value: StudioWidthMode;
+  readonly allSizes: boolean;
+  readonly native: boolean;
+  readonly onChange: (width: StudioWidthMode) => void;
+}) {
+  return (
+    <div role="group" aria-label="Page width" className="flex items-center gap-0.5">
+      {(Object.keys(WIDTH_ICONS) as StudioPageWidth[]).map((name) => {
+        const Icon = WIDTH_ICONS[name];
+        return (
+          <StudioAction
+            key={name}
+            label={
+              name === "desktop"
+                ? STUDIO_WIDTH_LABELS[name]
+                : `${STUDIO_WIDTH_LABELS[name]} (${STUDIO_PAGE_WIDTHS[name]}px)`
+            }
+            native={props.native}
+            pressed={props.value === name}
+            onPress={() => props.onChange(name)}
+          >
+            <Icon className="size-3.5" />
+          </StudioAction>
+        );
+      })}
+      <StudioAction
+        label="All sizes"
+        native={props.native}
+        pressed={props.value === "all"}
+        disabled={!props.allSizes}
+        onPress={() => props.onChange("all")}
+      >
+        <Columns3 className="size-3.5" />
+      </StudioAction>
+    </div>
+  );
+}
+
 type PaneFrame = ReturnType<typeof usePaneFrame>;
 
 /**
  * Sizing for one design. `zoom` is null while fitting, so Fit follows the container as it
  * resizes; a number is a fixed browser-style zoom owned by the caller so it survives remounts.
  */
-function usePaneFrame(variant: StudioVariant | null, zoomSetting: number | null) {
+function usePaneFrame(
+  variant: StudioVariant | null,
+  zoomSetting: number | null,
+  width: StudioWidthMode,
+) {
   const file = variant?.file ?? "";
   const kind = variant === null ? "other" : studioVariantKind(file);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
@@ -166,7 +227,11 @@ function usePaneFrame(variant: StudioVariant | null, zoomSetting: number | null)
         ? imageSize === null
           ? 1
           : fitImageZoom(size, imageSize)
-        : fitPageZoom(size.width);
+        : width === "desktop"
+          ? fitPageZoom(size.width)
+          : width === "all"
+            ? fitAllSizesZoom(size.width, ALL_SIZES_CHROME)
+            : fitDeviceZoom(size.width, STUDIO_PAGE_WIDTHS[width]);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- measures the frame element, which may live in another window
   useEffect(() => {
     if (frame === null) return;
@@ -197,6 +262,9 @@ type VersionProps = {
   readonly versions: Readonly<Record<string, number>>;
   readonly onVersionChange: (variantId: string, version: StudioViewedVersion) => void;
   readonly onRestore: (variant: StudioVariant, version: number) => void;
+  /** Earlier versions laid over the latest with a divider, by option id. */
+  readonly sliders: Readonly<Record<string, number>>;
+  readonly onSliderChange: (variantId: string, version: number | null) => void;
 };
 
 /** Switches an option between its versions; older ones are read-only and can be restored. */
@@ -205,11 +273,44 @@ function StudioVersionBar(
     readonly variant: StudioVariant;
     readonly version: StudioViewedVersion;
     readonly onVersionChange: (version: StudioViewedVersion) => void;
+    readonly slider: number | null;
+    /** The option's kind can be compared with a divider. */
+    readonly canCompare: boolean;
+    readonly onSliderChange: (version: number | null) => void;
   },
 ) {
-  const { variant, version } = props;
+  const { variant, version, slider } = props;
   const latest = studioLatestVersion(variant);
   if (latest === 1) return null;
+  if (slider !== null) {
+    return (
+      <div
+        role="group"
+        aria-label={`Compare versions of option ${variant.id}`}
+        className="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1"
+      >
+        <span className="text-muted-foreground text-xs">Compare</span>
+        {Array.from({ length: latest - 1 }, (_, index) => index + 1).map((number) => (
+          <Button
+            key={number}
+            type="button"
+            size="xs"
+            variant={slider === number ? "secondary" : "ghost"}
+            aria-pressed={slider === number}
+            title={variant.revisions?.[number - 1]?.note}
+            onClick={() => props.onSliderChange(number)}
+          >
+            v{number}
+          </Button>
+        ))}
+        <span className="text-muted-foreground text-xs">with v{latest} (latest)</span>
+        <div className="min-w-0 flex-1" />
+        <Button type="button" size="xs" variant="ghost" onClick={() => props.onSliderChange(null)}>
+          Stop comparing
+        </Button>
+      </div>
+    );
+  }
   return (
     <div
       role="group"
@@ -233,6 +334,19 @@ function StudioVersionBar(
           </Button>
         );
       })}
+      {version === null && props.canCompare ? (
+        <>
+          <div className="min-w-0 flex-1" />
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() => props.onSliderChange(latest - 1)}
+          >
+            Compare with…
+          </Button>
+        </>
+      ) : null}
       {version === null ? null : (
         <>
           <span className="text-muted-foreground text-xs">
@@ -279,6 +393,11 @@ function StudioPane(
       readonly variant: StudioVariant;
       readonly version: StudioViewedVersion;
       readonly onVersionChange: (version: StudioViewedVersion) => void;
+      readonly slider: number | null;
+      readonly canCompare: boolean;
+      readonly onSliderChange: (version: number | null) => void;
+      readonly width: StudioWidthMode;
+      readonly showPins: boolean;
       readonly paneFrame: PaneFrame;
       readonly pane: 0 | 1;
       readonly header?: ReactNode;
@@ -286,14 +405,33 @@ function StudioPane(
     },
 ) {
   const { size, zoom, kind, view, setFrame } = props.paneFrame;
-  const preview = (
+  const shown = (version: StudioViewedVersion, paneView: StudioView | undefined) => (
     <StudioVariantPreview
       {...props}
-      variant={studioShownVariant(props.variant, props.version)}
+      variant={studioShownVariant(props.variant, version)}
       thumbnail={false}
-      view={view}
+      view={paneView}
     />
   );
+  const page = (node: ReactNode) =>
+    kind !== "html" ? (
+      node
+    ) : size === null ? null : props.width === "all" ? (
+      <StudioAllSizes size={size} zoom={zoom}>
+        {node}
+      </StudioAllSizes>
+    ) : (
+      <StudioScaledPage
+        size={size}
+        zoom={zoom}
+        width={props.width === "desktop" ? null : STUDIO_PAGE_WIDTHS[props.width]}
+      >
+        {node}
+      </StudioScaledPage>
+    );
+  const preview = shown(props.version, view);
+  // The earlier layer must not overwrite the measured size of the latest image.
+  const beforeView = view === undefined ? undefined : { ...view, onImageSize: () => {} };
   return (
     <div
       className={cn(
@@ -308,40 +446,40 @@ function StudioPane(
         version={props.version}
         onVersionChange={props.onVersionChange}
         onRestore={props.onRestore}
+        slider={props.slider}
+        canCompare={props.canCompare}
+        onSliderChange={props.onSliderChange}
       />
       <div
         ref={setFrame}
         className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
       >
-        {kind === "html" ? (
-          size === null ? null : (
-            <div
-              className="absolute top-0 left-0 flex origin-top-left flex-col"
-              style={{
-                width: size.width / zoom,
-                height: size.height / zoom,
-                transform: `scale(${zoom})`,
-              }}
-            >
-              {preview}
-            </div>
-          )
+        {props.slider === null ? (
+          page(preview)
         ) : (
-          preview
+          <StudioVersionSlider
+            key={props.slider}
+            before={page(shown(props.slider, beforeView))}
+            after={page(preview)}
+            beforeLabel={`v${props.slider}`}
+            afterLabel={`v${studioLatestVersion(props.variant)} (latest)`}
+          />
         )}
-        <StudioPinLayer
-          key={`${props.variant.id}:${props.version ?? "latest"}`}
-          pins={props.pins}
-          size={size}
-          zoom={zoom}
-          pinMode={props.pinMode}
-          pane={props.pane}
-          draft={props.pinDraft}
-          onDraft={props.onDraft}
-          onSubmit={props.onSubmitDraft}
-          onCancel={props.onCancelDraft}
-          onEscape={props.onEscape}
-        />
+        {props.showPins ? (
+          <StudioPinLayer
+            key={`${props.variant.id}:${props.version ?? "latest"}`}
+            pins={props.pins}
+            size={size}
+            zoom={zoom}
+            pinMode={props.pinMode}
+            pane={props.pane}
+            draft={props.pinDraft}
+            onDraft={props.onDraft}
+            onSubmit={props.onSubmitDraft}
+            onCancel={props.onCancelDraft}
+            onEscape={props.onEscape}
+          />
+        ) : null}
       </div>
       {props.variant.timeline !== undefined && props.version === null ? (
         <StudioTimelineCard {...props} timeline={props.variant.timeline} />
@@ -394,6 +532,8 @@ function StudioPaneHeader(props: {
   );
 }
 
+const sliderKinds = new Set(["html", "image"]);
+
 // Side by side needs room for two readable pages.
 const STACK_BELOW_WIDTH = 640;
 
@@ -412,6 +552,8 @@ export function StudioDesignStage(
       readonly onCompareChange: (on: boolean) => void;
       readonly zoom: number | null;
       readonly onZoomChange: (zoom: number | null) => void;
+      readonly pageWidth: StudioWidthMode;
+      readonly onPageWidthChange: (width: StudioWidthMode) => void;
       readonly saving: boolean;
       readonly onSelect: (id: string) => void;
       readonly onSelectCompare: (id: string) => void;
@@ -437,11 +579,29 @@ export function StudioDesignStage(
   const leadVersion = studioViewedVersion(props.variant, props.versions[props.variant.id]);
   const compareVersion =
     compare === null ? null : studioViewedVersion(compare, props.versions[compare.id]);
-  const lead = usePaneFrame(studioShownVariant(props.variant, leadVersion), props.zoom);
-  const second = usePaneFrame(
-    compare === null ? null : studioShownVariant(compare, compareVersion),
-    props.zoom,
-  );
+  const leadShown = studioShownVariant(props.variant, leadVersion);
+  const compareShown = compare === null ? null : studioShownVariant(compare, compareVersion);
+  const sliderFor = (variant: StudioVariant, version: StudioViewedVersion, shown: StudioVariant) =>
+    version === null && sliderKinds.has(studioVariantKind(shown.file))
+      ? studioViewedVersion(variant, props.sliders[variant.id])
+      : null;
+  const leadSlider = sliderFor(props.variant, leadVersion, leadShown);
+  const compareSlider =
+    compare === null || compareShown === null
+      ? null
+      : sliderFor(compare, compareVersion, compareShown);
+  // Three widths across two options, or under a divider, is too much to read.
+  const allSizes = compare === null && leadSlider === null;
+  const width = props.pageWidth === "all" && !allSizes ? "desktop" : props.pageWidth;
+  const lead = usePaneFrame(leadShown, props.zoom, width);
+  const second = usePaneFrame(compareShown, props.zoom, width);
+  // Pins hold page coordinates at the desktop layout, so other widths and the divider hide them.
+  const pinnable = (kind: string, slider: number | null) =>
+    slider === null && (kind !== "html" || width === "desktop");
+  const leadPins = pinnable(lead.kind, leadSlider);
+  const comparePins = compare !== null && pinnable(second.kind, compareSlider);
+  const canPin = leadPins || comparePins;
+  const showWidths = lead.kind === "html" || (compare !== null && second.kind === "html");
   const zoomed = lead.zoomable ? lead : compare !== null && second.zoomable ? second : null;
   const zoom = zoomed?.zoom ?? 1;
   const latestZoom = useRef(zoom);
@@ -574,7 +734,22 @@ export function StudioDesignStage(
   };
   const changeVersion = (variantId: string, version: StudioViewedVersion) => {
     setDraft(null);
+    props.onSliderChange(variantId, null);
     props.onVersionChange(variantId, version);
+  };
+  const changeSlider = (variantId: string, version: number | null) => {
+    if (version !== null) {
+      setDraft(null);
+      props.onPinModeChange(false);
+    }
+    props.onSliderChange(variantId, version);
+  };
+  const changeWidth = (next: StudioWidthMode) => {
+    if (next !== "desktop") {
+      setDraft(null);
+      props.onPinModeChange(false);
+    }
+    props.onPageWidthChange(next);
   };
   const paneContext = {
     environmentId: props.environmentId,
@@ -626,10 +801,19 @@ export function StudioDesignStage(
             ))
           : null}
         <div className="min-w-0 flex-1" />
+        {showWidths ? (
+          <StudioWidthControl
+            value={width}
+            allSizes={allSizes}
+            native={native}
+            onChange={changeWidth}
+          />
+        ) : null}
         <StudioAction
-          label="Comment on a spot"
+          label={canPin ? "Comment on a spot" : "Comment on a spot (Desktop width only)"}
           native={native}
-          pressed={props.pinMode}
+          pressed={props.pinMode && canPin}
+          disabled={!canPin}
           onPress={() => props.onPinModeChange(!props.pinMode)}
         >
           <Crosshair className="size-3.5" />
@@ -691,6 +875,11 @@ export function StudioDesignStage(
           version={leadVersion}
           onVersionChange={(version) => changeVersion(props.variant.id, version)}
           onRestore={props.onRestore}
+          slider={leadSlider}
+          canCompare={sliderKinds.has(lead.kind)}
+          onSliderChange={(version) => changeSlider(props.variant.id, version)}
+          width={width}
+          showPins={leadPins}
           paneFrame={lead}
           pane={0}
           pins={props.pins.filter(
@@ -725,6 +914,11 @@ export function StudioDesignStage(
             version={compareVersion}
             onVersionChange={(version) => changeVersion(compare.id, version)}
             onRestore={props.onRestore}
+            slider={compareSlider}
+            canCompare={sliderKinds.has(second.kind)}
+            onSliderChange={(version) => changeSlider(compare.id, version)}
+            width={width}
+            showPins={comparePins}
             paneFrame={second}
             pane={1}
             separator={stacked ? "top" : "left"}
