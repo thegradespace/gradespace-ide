@@ -77,6 +77,15 @@ jobs:
       - name: Align package versions to the release version
         run: node scripts/update-release-package-versions.ts "${{ needs.prepare.outputs.version }}"
 
+      # The x64 build runs the packaged x64 app to prepare its bytecode, which needs
+      # Rosetta on an Apple Silicon runner (as upstream's release-desktop.yml does).
+      - name: Ensure Rosetta for the x64 build
+        if: matrix.arch == 'x64'
+        run: |
+          if [[ "$(uname -m)" == "arm64" ]] && ! /usr/bin/arch -x86_64 /usr/bin/true; then
+            sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+          fi
+
       - name: Build the app
         env:
           T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ env.RELEASE_REPO }}
