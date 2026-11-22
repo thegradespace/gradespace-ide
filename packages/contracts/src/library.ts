@@ -31,11 +31,15 @@ export const LibraryItem = Schema.Struct({
   sizeBytes: Schema.Number,
   threadId: Schema.NullOr(Schema.String),
   threadTitle: Schema.NullOr(Schema.String),
+  /** Hidden from Studio's set list; the set's studio.json says `"archived": true`. */
+  archived: Schema.optionalKey(Schema.Boolean),
 });
 export type LibraryItem = typeof LibraryItem.Type;
 
 export const LibraryTrashItem = Schema.Struct({
   id: Schema.String,
+  /** The `LibraryItem` id it had before it was deleted, so a client can undo its own delete. */
+  itemId: Schema.optionalKey(Schema.String),
   title: Schema.String,
   category: LibraryCategory,
   deletedAt: Schema.String,

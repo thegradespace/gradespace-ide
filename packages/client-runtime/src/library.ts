@@ -1,4 +1,4 @@
-import type { LibraryCategory, LibraryItem } from "@t3tools/contracts";
+import type { LibraryCategory, LibraryItem, LibraryTrashItem } from "@t3tools/contracts";
 
 import type { WorkspaceId } from "./workspaces.ts";
 
@@ -90,4 +90,37 @@ export function libraryReuse(item: LibraryItem): { workspace: WorkspaceId; promp
   const picked = item.picked ? ` (option ${item.picked} was picked)` : "";
   const request = `Use the ${what} "${item.title}" at ${item.path}${picked} as a starting point. `;
   return { workspace, prompt: skill ? `$${skill} ${request}` : request };
+}
+
+/**
+ * The Library id of the Studio set at `setPath` in the workspace `cwd`, as the server names it.
+ * The server resolves the folder, so separators and a trailing slash on `cwd` don't matter.
+ */
+export function studioLibraryItemId(cwd: string, setPath: string): string {
+  return `studio:${cwd.replace(/[\\/]+$/u, "")}/${setPath.replace(/^[\\/]+/u, "")}`;
+}
+
+/**
+ * The Recently deleted entries for items just deleted, to restore on Undo: by the id each had,
+ * or, from a server that does not say, the newest entry with its title.
+ */
+export function libraryUndoIds(
+  trash: ReadonlyArray<LibraryTrashItem>,
+  deleted: ReadonlyArray<Pick<LibraryItem, "id" | "title">>,
+): string[] {
+  const newestFirst = [...trash].sort((left, right) =>
+    right.deletedAt.localeCompare(left.deletedAt),
+  );
+  const ids: string[] = [];
+  for (const item of deleted) {
+    const entry = newestFirst.find(
+      (candidate) =>
+        !ids.includes(candidate.id) &&
+        (candidate.itemId === undefined
+          ? candidate.title === item.title
+          : candidate.itemId === item.id),
+    );
+    if (entry !== undefined) ids.push(entry.id);
+  }
+  return ids;
 }
