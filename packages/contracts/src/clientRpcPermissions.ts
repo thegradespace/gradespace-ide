@@ -35,6 +35,8 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.studioShareSetToken]: AuthEnvironmentMaintainScope,
   [WS_METHODS.studioShareCreate]: AuthEnvironmentMaintainScope,
   [WS_METHODS.studioShareRevoke]: AuthEnvironmentMaintainScope,
+  // Client comments come back with the server's share key, like the list does.
+  [WS_METHODS.studioShareComments]: AuthEnvironmentMaintainScope,
   // Skills are instructions every agent on the machine follows. Status is a query; the server
   // still requires the same scope for it.
   [WS_METHODS.skillPacksInstall]: AuthEnvironmentMaintainScope,

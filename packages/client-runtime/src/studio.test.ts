@@ -250,6 +250,12 @@ describe("pinned comments", () => {
     );
   });
 
+  it("names the client who left a pin through a share link", () => {
+    expect(studioPinLine(b!, { ...anchored, number: 1, author: " Ada\n" })).toBe(
+      `Option B, client pin 1 via share link (near "Get 'started'" (main > a.cta), about 30% from the left and 15% from the top of the page): Ada (client): make this bigger`,
+    );
+  });
+
   it("falls back to the visible area without a bridge", () => {
     expect(studioPinLine(b!, { ...anchored, page: null, fx: 0.304, fy: 1.2 })).toBe(
       "Option B, pin 2 (about 30% from the left and 100% from the top of the visible area): make this bigger",

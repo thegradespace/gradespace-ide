@@ -30,7 +30,29 @@ export function PinMarker(props: {
   readonly point?: Point;
   readonly kind: StudioPinKind;
   readonly dim?: boolean;
+  /** The name a client gave when they left it through a share link. */
+  readonly author?: string | undefined;
+  /** Near the right edge the name goes on the left of the pin, so it stays readable. */
+  readonly labelLeft?: boolean;
 }) {
+  if (props.author !== undefined && props.point !== undefined) {
+    return (
+      <span
+        className={cn(
+          "absolute flex -translate-y-1/2 items-center gap-1",
+          props.labelLeft && "-translate-x-full flex-row-reverse",
+        )}
+        style={{ left: props.point.x + (props.labelLeft ? 10 : -10), top: props.point.y }}
+      >
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-warning font-semibold text-3xs text-white shadow-md ring-2 ring-background">
+          {props.author.trim().charAt(0).toUpperCase() || "?"}
+        </span>
+        <span className="max-w-40 truncate rounded-full bg-warning px-1.5 py-px font-medium text-3xs text-white shadow-md">
+          {props.author} · via link
+        </span>
+      </span>
+    );
+  }
   return (
     <span
       className={cn(
@@ -214,7 +236,13 @@ export function StudioPinLayer(props: {
                 label={pin.number}
                 point={point}
                 kind={pin.kind}
-                dim={pin.page !== null && Math.abs(pin.zoom - props.zoom) > 0.01}
+                author={pin.author}
+                labelLeft={point.x > view.box.width - 160}
+                dim={
+                  pin.clientCommentId === undefined &&
+                  pin.page !== null &&
+                  Math.abs(pin.zoom - props.zoom) > 0.01
+                }
               />
             );
           })}

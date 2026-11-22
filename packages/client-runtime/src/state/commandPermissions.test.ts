@@ -180,6 +180,7 @@ describe("command permissions", () => {
     WS_METHODS.studioShareSetToken,
     WS_METHODS.studioShareCreate,
     WS_METHODS.studioShareRevoke,
+    WS_METHODS.studioShareComments,
     WS_METHODS.skillPacksInstall,
     WS_METHODS.skillPacksUpdate,
     WS_METHODS.skillPacksRemove,

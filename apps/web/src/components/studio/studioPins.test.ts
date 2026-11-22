@@ -8,6 +8,8 @@ import {
   pickPointFractions,
   pinOverlayPoint,
   popoverOrigin,
+  studioClientPins,
+  studioSharedFileVersion,
   videoPictureFractions,
 } from "./studioPins";
 
@@ -128,6 +130,20 @@ describe("pin coordinates", () => {
     expect(pinOverlayPoint(pin, { zoom: 1.5, box, scroll: { ...scroll, scrollY: 0 } })).toBeNull();
   });
 
+  it("places a client's pin at the same share of the page, whatever width they viewed it at", () => {
+    // Left on a phone: 390 wide, 6000 tall. Shown on a 1280 by 3000 page.
+    const pin = {
+      fx: 0,
+      fy: 0,
+      page: { x: 195, y: 1200, width: 390, height: 6000, selector: "", text: "" },
+      clientCommentId: "c1",
+    };
+    expect(pinOverlayPoint(pin, { zoom: 0.5, box, scroll: { ...scroll, scrollY: 400 } })).toEqual({
+      x: 320,
+      y: 100,
+    });
+  });
+
   it("keeps unanchored pins where they were placed, whatever the page does", () => {
     const pin = { fx: 0.5, fy: 0.25, page: null };
     expect(pinOverlayPoint(pin, { zoom: 2, box, scroll: null })).toEqual({ x: 320, y: 100 });
@@ -155,5 +171,66 @@ describe("pin coordinates", () => {
       x: 0,
       y: 0,
     });
+  });
+});
+
+describe("client comments as pins", () => {
+  const setPath = ".gradespace/studio/2026-11-22-test";
+  const variants = [
+    { id: "A", title: "Bold", file: "a.html" },
+    { id: "B", title: "Calm", file: "b.html", revisions: [{ file: "b.v1.html" }] },
+  ];
+  const comment = (id: string, file: string, name = "Ada") => ({
+    id,
+    shareId: `share-${file}`,
+    relativePath: `${setPath}/${file}`,
+    name,
+    comment: `About ${file}`,
+    fx: 0.5,
+    fy: 0.5,
+    page: null,
+    createdAt: "2026-11-22T10:00:00.000Z",
+  });
+
+  it("finds the option and version a shared file is", () => {
+    expect(studioSharedFileVersion(variants, setPath, `${setPath}/a.html`)).toEqual({
+      variantId: "A",
+      version: null,
+    });
+    expect(studioSharedFileVersion(variants, `${setPath}/`, `${setPath}/b.v1.html`)).toEqual({
+      variantId: "B",
+      version: 1,
+    });
+    expect(studioSharedFileVersion(variants, setPath, `${setPath}/gone.html`)).toBeNull();
+    expect(studioSharedFileVersion(variants, setPath, `${setPath}-2/a.html`)).toBeNull();
+  });
+
+  it("numbers pins per version, keeps ids apart from local pins and leaves out dismissed ones", () => {
+    const pins = studioClientPins(
+      [
+        comment("c1", "a.html"),
+        comment("c2", "b.v1.html", "Ben"),
+        comment("c3", "a.html"),
+        comment("c4", "gone.html"),
+        comment("c5", "a.html"),
+      ],
+      variants,
+      setPath,
+      new Set(["c3"]),
+    );
+    expect(
+      pins.map((pin) => [
+        pin.id,
+        pin.clientCommentId,
+        pin.variantId,
+        pin.version,
+        pin.number,
+        pin.author,
+      ]),
+    ).toEqual([
+      [-1, "c1", "A", null, 1, "Ada"],
+      [-2, "c2", "B", 1, 1, "Ben"],
+      [-5, "c5", "A", null, 2, "Ada"],
+    ]);
   });
 });

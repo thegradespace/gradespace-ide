@@ -73,6 +73,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.studioShareCreate]: "server",
   [WS_METHODS.studioShareList]: "server",
   [WS_METHODS.studioShareRevoke]: "server",
+  [WS_METHODS.studioShareComments]: "server",
   [WS_METHODS.skillPacksStatus]: "server",
   [WS_METHODS.skillPacksInstall]: "server",
   [WS_METHODS.skillPacksUpdate]: "server",

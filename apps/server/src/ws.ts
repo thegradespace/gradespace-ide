@@ -2717,6 +2717,7 @@ export const layerWsRpc = (
         [WS_METHODS.studioShareCreate]: (input) => studioShare.create(input),
         [WS_METHODS.studioShareList]: () => studioShare.list,
         [WS_METHODS.studioShareRevoke]: ({ id }) => studioShare.revoke(id),
+        [WS_METHODS.studioShareComments]: ({ setPath }) => studioShare.comments(setPath),
         [WS_METHODS.skillPacksStatus]: () => skillPacks.status,
         [WS_METHODS.skillPacksInstall]: ({ names }) => skillPacks.install(names),
         [WS_METHODS.skillPacksUpdate]: ({ names }) => skillPacks.update(names),

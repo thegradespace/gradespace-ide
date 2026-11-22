@@ -756,14 +756,14 @@ export function StudioDesignStage(
   const changeSlider = (variantId: string, version: number | null) => {
     if (version !== null) {
       setDraft(null);
-      props.onPinModeChange(false);
+      props.onPinModeChange(null);
     }
     props.onSliderChange(variantId, version);
   };
   const changeWidth = (next: StudioWidthMode) => {
     if (next !== "desktop") {
       setDraft(null);
-      props.onPinModeChange(false);
+      props.onPinModeChange(null);
     }
     props.onPageWidthChange(next);
   };

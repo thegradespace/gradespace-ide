@@ -342,6 +342,8 @@ export interface StudioPinNote {
   } | null;
   /** Set on a video: the playback time and where on the picture, 0..1. */
   readonly video?: { readonly time: number; readonly x: number; readonly y: number } | undefined;
+  /** Set when a client left it through a share link: the name they gave. */
+  readonly author?: string | undefined;
 }
 
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
@@ -379,7 +381,11 @@ function studioPinSpot(pin: StudioPinNote): string {
 }
 
 export function studioPinLine(variant: StudioVariant, pin: StudioPinNote): string {
-  return `Option ${studioOptionLabel(variant, pin.version)}, pin ${pin.number} (${studioPinSpot(pin)}): ${oneLine(pin.comment)}`;
+  const option = `Option ${studioOptionLabel(variant, pin.version)}`;
+  const spot = studioPinSpot(pin);
+  return pin.author === undefined
+    ? `${option}, pin ${pin.number} (${spot}): ${oneLine(pin.comment)}`
+    : `${option}, client pin ${pin.number} via share link (${spot}): ${oneLine(pin.author)} (client): ${oneLine(pin.comment)}`;
 }
 
 /**

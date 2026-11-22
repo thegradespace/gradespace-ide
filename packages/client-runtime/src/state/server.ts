@@ -1415,6 +1415,15 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:server:revoke-studio-share",
       tag: WS_METHODS.studioShareRevoke,
     }),
+    // A command, not a query: Studio polls it only while open and focused, and on Refresh.
+    fetchStudioShareComments: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:studio-share-comments",
+      tag: WS_METHODS.studioShareComments,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => `${environmentId}:${input.setPath}`,
+      },
+    }),
     skillPacksStatus: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:skill-packs-status",
       tag: WS_METHODS.skillPacksStatus,

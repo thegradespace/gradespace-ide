@@ -239,6 +239,7 @@ export const make = Effect.gen(function* () {
       databaseStorage: true,
       backups: true,
       studioShare: true,
+      studioShareComments: true,
       skillPacks: true,
       emailConnections: true,
       career: true,
