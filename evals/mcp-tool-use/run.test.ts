@@ -1222,7 +1222,7 @@ it.effect("reads the branch's PR only once the agent has opened it", () =>
     const world = { ...childCase.setup.world, branch: "feature", prs: [] };
     const sample = makeSample({ ...childCase, setup: { ...childCase.setup, world } }, base);
     for (const name of ["pull_request_read", "pull_request_create"]) {
-      sample.tools.push({ name: `mcp__t3-code__${name}` });
+      sample.tools.push({ name: `mcp__gradespace__${name}` });
     }
     const config = {
       apiKey: "",
@@ -1235,11 +1235,11 @@ it.effect("reads the branch's PR only once the agent has opened it", () =>
       answerToolCall(sample, config, {
         type: "tool_use",
         id,
-        name: `mcp__t3-code__${name}`,
+        name: `mcp__gradespace__${name}`,
         input,
       });
     assert.isTrue((yield* call("a", "pull_request_read", {})).is_error);
-    sample.tools.push({ name: "mcp__t3-code__ci_logs" });
+    sample.tools.push({ name: "mcp__gradespace__ci_logs" });
     assert.isTrue((yield* call("a2", "ci_logs", {})).is_error);
     yield* call("b", "pull_request_create", { title: "Feature", body: "Body" });
     assert.isNotTrue((yield* call("c", "pull_request_read", {})).is_error);
@@ -1290,7 +1290,7 @@ it.effect("reads the branch's PR only once the agent has opened it", () =>
       answerToolCall(mockedSample, config, {
         type: "tool_use",
         id,
-        name: `mcp__t3-code__${name}`,
+        name: `mcp__gradespace__${name}`,
         input: name === "pull_request_create" ? { title: "Feature", body: "Body" } : {},
       });
     yield* mockedCall("d", "pull_request_create");
@@ -1305,7 +1305,7 @@ it.effect("reads the branch's PR only once the agent has opened it", () =>
     const linkedRead = yield* answerToolCall(linkedOnly, config, {
       type: "tool_use",
       id: "f",
-      name: "mcp__t3-code__pull_request_read",
+      name: "mcp__gradespace__pull_request_read",
       input: {},
     });
     assert.isTrue(linkedRead.is_error);
@@ -1316,11 +1316,11 @@ it.effect("reads the branch's PR only once the agent has opened it", () =>
       { ...childCase, setup: { ...childCase.setup, world: ciWorld } },
       base,
     );
-    ciSample.tools.push({ name: "mcp__t3-code__ci_logs" });
+    ciSample.tools.push({ name: "mcp__gradespace__ci_logs" });
     const unknown = yield* answerToolCall(ciSample, config, {
       type: "tool_use",
       id: "g",
-      name: "mcp__t3-code__ci_logs",
+      name: "mcp__gradespace__ci_logs",
       input: { number: 7, check: "Tests" },
     });
     assert.isTrue(unknown.is_error);
@@ -1509,10 +1509,10 @@ it.effect("the raw arm drops T3's forge tools and text; both arms meet T3's refu
       arm: "raw",
     });
     const names = (base: typeof tools) => base.t3.map((tool) => tool.name);
-    assert.include(names(tools), "mcp__t3-code__pull_request_read");
-    assert.notInclude(names(raw), "mcp__t3-code__pull_request_read");
-    assert.notInclude(names(raw), "mcp__t3-code__link_issue");
-    assert.include(names(raw), "mcp__t3-code__delegate_task");
+    assert.include(names(tools), "mcp__gradespace__pull_request_read");
+    assert.notInclude(names(raw), "mcp__gradespace__pull_request_read");
+    assert.notInclude(names(raw), "mcp__gradespace__link_issue");
+    assert.include(names(raw), "mcp__gradespace__delegate_task");
     assert.include(JSON.stringify(tools.system), "<pull_request_linking>");
     assert.notInclude(JSON.stringify(raw.system), "<pull_request_linking>");
 
@@ -1527,7 +1527,7 @@ it.effect("the raw arm drops T3's forge tools and text; both arms meet T3's refu
     const setup = { ...childCase.setup, role: "top" as const, priorTurns: [], world, mocks };
     const sample = makeSample({ ...childCase, setup }, tools);
     for (const name of ["pull_request_create", "pull_request_merge", "ci_rerun"]) {
-      sample.tools.push({ name: `mcp__t3-code__${name}` });
+      sample.tools.push({ name: `mcp__gradespace__${name}` });
     }
     const config = {
       apiKey: "",
@@ -1540,7 +1540,7 @@ it.effect("the raw arm drops T3's forge tools and text; both arms meet T3's refu
       answerToolCall(sample, config, {
         type: "tool_use",
         id,
-        name: `mcp__t3-code__${name}`,
+        name: `mcp__gradespace__${name}`,
         input,
       });
     const create = { title: "Feature", body: "Body" };
@@ -1582,12 +1582,12 @@ it.effect("the raw arm drops T3's forge tools and text; both arms meet T3's refu
       },
     };
     const own = makeSample({ ...childCase, setup: ownSetup }, tools);
-    own.tools.push({ name: "mcp__t3-code__pull_request_merge" });
+    own.tools.push({ name: "mcp__gradespace__pull_request_merge" });
     const merge = (id: string, expectedHeadSha: string) =>
       answerToolCall(own, config, {
         type: "tool_use",
         id,
-        name: "mcp__t3-code__pull_request_merge",
+        name: "mcp__gradespace__pull_request_merge",
         input: { number: 8, expectedHeadSha },
       });
     assert.isTrue((yield* merge("o1", "fff0000")).is_error);
@@ -1631,7 +1631,7 @@ it.effect("saves a new secret file for each request and tells the shell simulato
       const refused = yield* answerToolCall(sample, config, {
         type: "tool_use",
         id: "f",
-        name: "mcp__t3-code__request_secret",
+        name: "mcp__gradespace__request_secret",
         input: { label: "Login", fields: [{ name: "password", label: "Password" }], ...extra },
       });
       assert.isTrue(refused.is_error);
@@ -1647,7 +1647,7 @@ it.effect("saves a new secret file for each request and tells the shell simulato
     const login = yield* answerToolCall(sample, config, {
       type: "tool_use",
       id: "g",
-      name: "mcp__t3-code__request_secret",
+      name: "mcp__gradespace__request_secret",
       input: {
         label: "Login",
         fields: [
