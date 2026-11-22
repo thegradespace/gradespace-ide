@@ -39,6 +39,8 @@ const StudioManifest = Schema.Struct({
   title: Schema.String,
   recommended: Schema.optional(Schema.String),
   picked: Schema.optional(Schema.String),
+  /** Hidden from Studio's set list until "Show archived"; Library still lists it. */
+  archived: Schema.optional(Schema.Literal(true)),
   variants: Schema.Array(StudioVariant),
 });
 export type StudioManifest = typeof StudioManifest.Type;
@@ -109,7 +111,10 @@ function cleanTimeline(value: unknown): StudioTimeline | null {
   return Object.keys(clean).length === 0 ? null : clean;
 }
 
-function withCleanExtras(manifest: Record<string, unknown>): Record<string, unknown> {
+function withCleanExtras(input: Record<string, unknown>): Record<string, unknown> {
+  // Like revisions, an odd archived value is ignored rather than failing the set.
+  const { archived, ...manifest } = input;
+  if (archived === true) manifest.archived = true;
   if (!Array.isArray(manifest.variants)) return manifest;
   return {
     ...manifest,
@@ -157,6 +162,38 @@ export function withStudioPicked(contents: string, picked: string | null): strin
   if (manifest === null) return null;
   const { picked: _previous, ...rest } = manifest;
   return `${JSON.stringify(picked === null ? rest : { ...rest, picked }, null, 2)}\n`;
+}
+
+/** Keeps unknown fields, like `withStudioPicked`; unarchiving removes the flag. */
+export function withStudioArchived(contents: string, archived: boolean): string | null {
+  const manifest = parseJsonObject(contents);
+  if (manifest === null) return null;
+  const { archived: _previous, ...rest } = manifest;
+  return `${JSON.stringify(archived ? { ...rest, archived: true } : rest, null, 2)}\n`;
+}
+
+export interface StudioSetSummary {
+  readonly path: string;
+  /** Null while the set's studio.json is loading or cannot be read. */
+  readonly title: string | null;
+  readonly archived: boolean;
+}
+
+/**
+ * Sets matching every word of the query in their title or folder name, keeping their order.
+ * Archived sets are left out unless `showArchived`; `archivedCount` counts them all.
+ */
+export function filterStudioSets(
+  sets: ReadonlyArray<StudioSetSummary>,
+  filter: { readonly query: string; readonly showArchived: boolean },
+): { readonly shown: ReadonlyArray<StudioSetSummary>; readonly archivedCount: number } {
+  const words = filter.query.toLowerCase().split(/\s+/u).filter(Boolean);
+  const shown = sets.filter((set) => {
+    if (set.archived && !filter.showArchived) return false;
+    const haystack = `${set.title ?? ""} ${set.path.split("/").at(-1) ?? ""}`.toLowerCase();
+    return words.every((word) => haystack.includes(word));
+  });
+  return { shown, archivedCount: sets.filter((set) => set.archived).length };
 }
 
 export type StudioVariantKind = "html" | "pdf" | "image" | "video" | "text" | "other";

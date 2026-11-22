@@ -1,7 +1,14 @@
 import type { LibraryItem } from "@t3tools/contracts";
 import { expect, it } from "vite-plus/test";
 
-import { filterLibrary, formatBytes, libraryCounts, libraryReuse } from "./library.ts";
+import {
+  filterLibrary,
+  formatBytes,
+  libraryCounts,
+  libraryReuse,
+  libraryUndoIds,
+  studioLibraryItemId,
+} from "./library.ts";
 
 const item = (id: string, fields: Partial<LibraryItem> = {}): LibraryItem => ({
   id,
@@ -47,4 +54,47 @@ it("formats sizes and starts reuse in the item's workspace", () => {
     prompt:
       '$gs-present Use the deck "deck" at /work/.gradespace/studio/deck (option C was picked) as a starting point. ',
   });
+});
+
+it("names a Studio set's Library item from the workspace and set folder", () => {
+  expect(studioLibraryItemId("/work/app", ".gradespace/studio/2026-11-01-logo")).toBe(
+    "studio:/work/app/.gradespace/studio/2026-11-01-logo",
+  );
+  expect(studioLibraryItemId("/work/app/", ".gradespace/studio/x")).toBe(
+    "studio:/work/app/.gradespace/studio/x",
+  );
+  expect(studioLibraryItemId("C:\\work\\app\\", ".gradespace/studio/x")).toBe(
+    "studio:C:\\work\\app/.gradespace/studio/x",
+  );
+});
+
+it("finds the Recently deleted entries to undo, by item id or else the newest with the title", () => {
+  const trash = (id: string, deletedAt: string, title: string, itemId?: string) => ({
+    id,
+    title,
+    category: "design" as const,
+    deletedAt,
+    sizeBytes: 1,
+    ...(itemId === undefined ? {} : { itemId }),
+  });
+  expect(
+    libraryUndoIds(
+      [
+        trash("t-old", "2026-11-01", "Logo", "studio:/a"),
+        trash("t-new", "2026-11-02", "Logo", "studio:/b"),
+        trash("t-other", "2026-11-02", "Deck", "studio:/c"),
+      ],
+      [{ id: "studio:/a", title: "Logo" }],
+    ),
+  ).toEqual(["t-old"]);
+  expect(
+    libraryUndoIds(
+      [trash("t1", "2026-11-01", "Logo"), trash("t2", "2026-11-02", "Logo")],
+      [
+        { id: "x", title: "Logo" },
+        { id: "y", title: "Logo" },
+        { id: "z", title: "Gone" },
+      ],
+    ),
+  ).toEqual(["t2", "t1"]);
 });

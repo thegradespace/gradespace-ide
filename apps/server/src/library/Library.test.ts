@@ -169,3 +169,69 @@ it.effect("lists, deletes, restores and empties Studio sets and applications", (
     expect(yield* fs.exists(path.join(career, "applications", "job-1"))).toBe(false);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
+
+it.effect("deletes a set Library does not list by its folder, and marks archived sets", () =>
+  Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-11-08T12:00:00.000Z"));
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-library-" });
+    const writeSet = (root: string, name: string, manifest: object) =>
+      Effect.gen(function* () {
+        const folder = path.join(root, ".gradespace", "studio", name);
+        yield* fs.makeDirectory(folder, { recursive: true });
+        yield* fs.writeFileString(path.join(folder, "studio.json"), JSON.stringify(manifest));
+        return folder;
+      });
+    const project = path.join(home, "project");
+    const archived = yield* writeSet(project, "2026-11-08-a", {
+      title: "Old",
+      archived: true,
+      variants: [{ file: "a.html" }],
+    });
+    // A chat's worktree, which Library does not scan, with a set named like the project's.
+    const worktree = path.join(home, "worktree");
+    const unlisted = yield* writeSet(worktree, "2026-11-08-a", {
+      title: "Worktree set",
+      variants: [{ file: "a.html" }],
+    });
+    yield* fs.makeDirectory(path.join(worktree, "not-a-set"));
+    const index = Layer.succeed(
+      Library.LibraryIndex,
+      Library.LibraryIndex.of({
+        projects: Effect.succeed([{ id: "p1", title: "Project", workspaceRoot: project }]),
+        studioMentions: Effect.succeed([]),
+        threads: () => Effect.succeed([]),
+        scratchRoot: Effect.succeedNone,
+      }),
+    );
+    const run = <A, E>(use: (library: Library.Library["Service"]) => Effect.Effect<A, E>) =>
+      Effect.gen(function* () {
+        return yield* use(yield* Library.Library);
+      }).pipe(
+        Effect.provide(Library.layer.pipe(Layer.provide(index))),
+        Effect.provideService(HostProcess.HomeDirectory, home),
+      );
+
+    const listed = yield* run((library) => library.list);
+    expect(listed.items.map((item) => [item.title, item.archived])).toEqual([["Old", true]]);
+
+    for (const id of [`studio:${path.join(worktree, "not-a-set")}`, `studio:${worktree}`]) {
+      const failure = yield* run((library) => library.remove({ ids: [id] })).pipe(Effect.flip);
+      expect(failure.reason).toBe("unknownItem");
+    }
+
+    const deleted = yield* run((library) =>
+      library.remove({ ids: [`studio:${archived}`, `studio:${unlisted}/`] }),
+    );
+    expect(yield* fs.exists(unlisted)).toBe(false);
+    expect(deleted.trash.map((item) => [item.title, item.itemId]).sort()).toEqual([
+      ["Old", `studio:${archived}`],
+      ["Worktree set", `studio:${unlisted}`],
+    ]);
+    expect(new Set(deleted.trash.map((item) => item.id)).size).toBe(2);
+
+    yield* run((library) => library.restore({ ids: deleted.trash.map((item) => item.id) }));
+    expect(yield* fs.exists(path.join(unlisted, "studio.json"))).toBe(true);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);

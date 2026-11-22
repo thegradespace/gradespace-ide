@@ -1,19 +1,10 @@
 import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
 import { resolvePathLinkTarget } from "@t3tools/shared/fileLinks";
-import {
-  ArrowLeft,
-  Check,
-  ChevronDown,
-  DownloadIcon,
-  PencilLine,
-  RefreshCw,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Check, DownloadIcon, PencilLine, RefreshCw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "~/components/ui/menu";
 import { Spinner } from "~/components/ui/spinner";
 import { Textarea } from "~/components/ui/textarea";
 import { useStableCallback } from "~/hooks/useStableCallback";
@@ -56,6 +47,8 @@ import {
   withStudioRestoreLine,
 } from "./studioManifest";
 import type { NewStudioPin, StudioPin } from "./studioPins";
+import { StudioSetPicker } from "./StudioSetPicker";
+import { useStudioSetSummaries } from "./studioSetSummaries";
 import { type StudioContext, showToast, StudioVariantPreview } from "./StudioVariantPreview";
 import { STUDIO_PAGE_WIDTH } from "./studioZoom";
 
@@ -599,6 +592,7 @@ export default function StudioPanel(props: {
   readonly onSendMessage?: ((text: string) => Promise<void>) | undefined;
 }) {
   const [selected, setSelected] = useState<{ path: string; requestId: number } | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [focusCount, setFocusCount] = useState(0);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- rereads the set when the window regains focus, since files can change outside agent turns
   useEffect(() => {
@@ -609,13 +603,14 @@ export default function StudioPanel(props: {
   const readRevision = `${props.workspaceMutationId ?? ""}:${focusCount}`;
   const entries = useProjectEntriesQuery(props.environmentId, props.cwd, STUDIO_ROOT, readRevision);
   const sets = studioSetPaths(entries.data?.entries ?? []);
+  const summaries = useStudioSetSummaries(props.environmentId, props.cwd, sets, readRevision);
   const target = props.target;
   const setPath =
     target !== undefined && (selected === null || target.requestId > selected.requestId)
       ? target.setPath
       : selected !== null && sets.includes(selected.path)
         ? selected.path
-        : sets[0];
+        : (summaries.find((set) => showArchived || !set.archived)?.path ?? sets[0]);
   const context = {
     environmentId: props.environmentId,
     cwd: props.cwd,
@@ -632,22 +627,29 @@ export default function StudioPanel(props: {
           <span className="min-w-0 flex-1 px-1 font-medium text-xs">Studio</span>
         ) : (
           <div className="min-w-0 flex-1">
-            <Menu>
-              <MenuTrigger render={<Button type="button" size="xs" variant="ghost" />}>
-                <span className="max-w-64 truncate">{setPath.split("/").at(-1)}</span>
-                <ChevronDown />
-              </MenuTrigger>
-              <MenuPopup align="start" side="bottom" sideOffset={6} className="max-w-80">
-                {sets.map((path) => (
-                  <MenuItem
-                    key={path}
-                    onClick={() => setSelected({ path, requestId: target?.requestId ?? 0 })}
-                  >
-                    <span className="min-w-0 truncate">{path.split("/").at(-1)}</span>
-                  </MenuItem>
-                ))}
-              </MenuPopup>
-            </Menu>
+            <StudioSetPicker
+              environmentId={props.environmentId}
+              cwd={props.cwd}
+              sets={summaries}
+              setPath={setPath}
+              showArchived={showArchived}
+              onShowArchivedChange={setShowArchived}
+              onSelect={(path) => setSelected({ path, requestId: target?.requestId ?? 0 })}
+              onChanged={(gone) => {
+                if (gone === setPath) {
+                  const next = summaries.find(
+                    (set) => set.path !== gone && (showArchived || !set.archived),
+                  );
+                  // Pinned to the request, so a chat card's set does not take over again.
+                  setSelected(
+                    next === undefined
+                      ? null
+                      : { path: next.path, requestId: target?.requestId ?? 0 },
+                  );
+                }
+                setFocusCount((count) => count + 1);
+              }}
+            />
           </div>
         )}
         <FileSurfaceAction label="Refresh" onPress={() => setFocusCount((count) => count + 1)}>

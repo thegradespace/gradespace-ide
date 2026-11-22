@@ -27,6 +27,7 @@ const StudioManifestFile = Schema.fromJsonString(
     title: Schema.String,
     picked: Schema.optional(Schema.NullOr(Schema.String)),
     variants: Schema.Array(Schema.Struct({ file: Schema.String })),
+    archived: Schema.optional(Schema.Unknown),
   }),
 );
 const decodeManifest = Schema.decodeUnknownOption(StudioManifestFile);
@@ -178,6 +179,14 @@ const parseObject = (text: string): JsonObject | null => {
   }
 };
 
+interface StudioSetInfo {
+  readonly title: string;
+  readonly picked: string | null;
+  readonly kinds: string[];
+  readonly optionCount: number;
+  readonly archived: boolean;
+}
+
 const prettyJson = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
 const make = Effect.gen(function* () {
@@ -251,39 +260,91 @@ const make = Effect.gen(function* () {
   const careerRoot = (home: string) => path.join(home, ".gradespace", "career");
   const trashRoot = (home: string) => path.join(home, ".gradespace", "library-trash");
 
+  const readSet = Effect.fn("Library.readSet")(function* (
+    folder: string,
+  ): Effect.fn.Return<StudioSetInfo | null> {
+    const manifest = Option.flatMap(
+      yield* readText(path.join(folder, "studio.json")),
+      decodeManifest,
+    );
+    if (Option.isNone(manifest)) return null;
+    return {
+      title: manifest.value.title,
+      picked: manifest.value.picked ?? null,
+      kinds: [...new Set(manifest.value.variants.map((variant) => fileKind(variant.file)))],
+      optionCount: manifest.value.variants.length,
+      archived: manifest.value.archived === true,
+    };
+  });
+
+  const studioItem = Effect.fn("Library.studioItem")(function* (
+    set: StudioSetInfo & {
+      folder: string;
+      root: string;
+      projectId: string | null;
+      projectTitle: string | null;
+    },
+    thread: { id: string; title: string; workspace: string | null } | undefined,
+  ) {
+    const { size, modified } = yield* measure(set.folder);
+    return {
+      id: `studio:${set.folder}`,
+      source: "studio",
+      category: libraryCategory({ workspace: thread?.workspace ?? null, kinds: set.kinds }),
+      title: set.title,
+      path: set.folder,
+      projectId: set.projectId,
+      projectTitle: set.projectTitle,
+      setPath: path.relative(set.root, set.folder),
+      optionCount: set.optionCount,
+      picked: set.picked,
+      kinds: set.kinds,
+      updatedAt: DateTime.formatIso(DateTime.makeUnsafe(modified)),
+      sizeBytes: size,
+      threadId: thread?.id ?? null,
+      threadTitle: thread?.title ?? null,
+      ...(set.archived ? { archived: true } : {}),
+    } satisfies LibraryItem;
+  });
+
+  /**
+   * A Studio set Library does not list, such as one in a chat's worktree, named by its
+   * `studio:<folder>` id. Only a folder directly under a Studio root with a valid studio.json.
+   */
+  const unlistedStudioSet = Effect.fn("Library.unlistedStudioSet")(function* (id: string) {
+    if (!id.startsWith("studio:")) return null;
+    const folder = path.resolve(id.slice("studio:".length));
+    const studio = path.dirname(folder);
+    const root = path.dirname(path.dirname(studio));
+    if (path.join(root, STUDIO_ROOT) !== studio || path.basename(folder).startsWith(".")) {
+      return null;
+    }
+    const set = yield* readSet(folder);
+    if (set === null) return null;
+    return yield* studioItem(
+      { ...set, folder, root, projectId: null, projectTitle: null },
+      undefined,
+    );
+  });
+
   const collect = Effect.gen(function* () {
     const { roots: projectRoots, home } = yield* roots;
-    const sets: Array<{
-      folder: string;
-      name: string;
-      root: string;
-      projectId: string;
-      projectTitle: string;
-      title: string;
-      picked: string | null;
-      kinds: string[];
-      optionCount: number;
-    }> = [];
+    const sets: Array<
+      StudioSetInfo & {
+        folder: string;
+        name: string;
+        root: string;
+        projectId: string;
+        projectTitle: string;
+      }
+    > = [];
     for (const { root, projectId, projectTitle } of projectRoots) {
       const studio = path.join(root, STUDIO_ROOT);
       for (const name of yield* listDirectory(studio)) {
         const folder = path.join(studio, name);
-        const manifest = Option.flatMap(
-          yield* readText(path.join(folder, "studio.json")),
-          decodeManifest,
-        );
-        if (Option.isNone(manifest)) continue;
-        sets.push({
-          folder,
-          name,
-          root,
-          projectId,
-          projectTitle,
-          title: manifest.value.title,
-          picked: manifest.value.picked ?? null,
-          kinds: [...new Set(manifest.value.variants.map((variant) => fileKind(variant.file)))],
-          optionCount: manifest.value.variants.length,
-        });
+        const set = yield* readSet(folder);
+        if (set === null) continue;
+        sets.push({ ...set, folder, name, root, projectId, projectTitle });
       }
     }
     const threadBySet = matchSetThreads(
@@ -298,25 +359,7 @@ const make = Effect.gen(function* () {
     );
     const items: LibraryItem[] = [];
     for (const set of sets) {
-      const { size, modified } = yield* measure(set.folder);
-      const thread = threads.get(threadBySet.get(set.name) ?? "");
-      items.push({
-        id: `studio:${set.folder}`,
-        source: "studio",
-        category: libraryCategory({ workspace: thread?.workspace ?? null, kinds: set.kinds }),
-        title: set.title,
-        path: set.folder,
-        projectId: set.projectId,
-        projectTitle: set.projectTitle,
-        setPath: path.relative(set.root, set.folder),
-        optionCount: set.optionCount,
-        picked: set.picked,
-        kinds: set.kinds,
-        updatedAt: DateTime.formatIso(DateTime.makeUnsafe(modified)),
-        sizeBytes: size,
-        threadId: thread?.id ?? null,
-        threadTitle: thread?.title ?? null,
-      });
+      items.push(yield* studioItem(set, threads.get(threadBySet.get(set.name) ?? "")));
     }
 
     const applications = Option.flatMap(
@@ -374,6 +417,7 @@ const make = Effect.gen(function* () {
     entries
       .map(({ folder, meta }): LibraryTrashItem => ({
         id: path.basename(folder),
+        itemId: meta.id,
         title: meta.title,
         category: meta.category,
         deletedAt: meta.deletedAt,
@@ -424,18 +468,26 @@ const make = Effect.gen(function* () {
 
   const remove = Effect.fn("Library.remove")(function* (input: LibraryIdsInput) {
     const { items, home } = yield* collect;
-    const chosen = input.ids.map((id) => items.find((item) => item.id === id));
-    if (chosen.some((item) => item === undefined)) {
+    const chosen: Array<LibraryItem | null> = [];
+    for (const id of input.ids) {
+      chosen.push(items.find((item) => item.id === id) ?? (yield* unlistedStudioSet(id)));
+    }
+    if (chosen.some((item) => item === null)) {
       return yield* new LibraryError({ reason: "unknownItem" });
     }
     const now = DateTime.formatIso(yield* DateTime.now);
     for (const item of chosen) {
-      if (item === undefined) continue;
+      if (item === null) continue;
       const slug = path
         .basename(item.path)
         .replace(/[^\w.-]+/gu, "-")
         .slice(0, 60);
-      const folder = path.join(trashRoot(home), `${now.replace(/[:.]/gu, "-")}-${slug}`);
+      const stamp = `${now.replace(/[:.]/gu, "-")}-${slug}`;
+      // Sets from different projects can share a folder name and go in one delete.
+      let folder = path.join(trashRoot(home), stamp);
+      for (let copy = 2; yield* fs.exists(folder).pipe(Effect.orElseSucceed(() => false)); copy++) {
+        folder = path.join(trashRoot(home), `${stamp}-${copy}`);
+      }
       yield* fs
         .makeDirectory(folder, { recursive: true })
         .pipe(Effect.mapError(() => new LibraryError({ reason: "moveFailed" })));

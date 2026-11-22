@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  filterStudioSets,
   parseStudioManifest,
   studioCompareDefault,
   studioDownloadFileName,
@@ -10,6 +11,7 @@ import {
   studioShownVariant,
   studioVariantKind,
   studioViewedVersion,
+  withStudioArchived,
   withStudioComment,
   withStudioFeedback,
   withStudioPicked,
@@ -347,5 +349,45 @@ describe("studioSetPaths", () => {
         { path: ".gradespace/other", kind: "directory" },
       ]),
     ).toEqual([".gradespace/studio/2026-03-01-deck", ".gradespace/studio/2026-01-02-logo"]);
+  });
+});
+
+describe("archived sets", () => {
+  it("reads the archived flag and ignores an odd value without failing the set", () => {
+    expect(parseStudioManifest(manifestJson([variant("A")], { archived: true }))?.archived).toBe(
+      true,
+    );
+    for (const archived of [false, "yes", 1, null]) {
+      const parsed = parseStudioManifest(manifestJson([variant("A")], { archived }));
+      expect(parsed).not.toBeNull();
+      expect(parsed).not.toHaveProperty("archived");
+    }
+  });
+
+  it("archives and unarchives, keeping unknown fields", () => {
+    const original = manifestJson([variant("A")], { skill: "gs-design", picked: "A" });
+    const archived = withStudioArchived(original, true)!;
+    expect(JSON.parse(archived)).toMatchObject({ archived: true, skill: "gs-design", picked: "A" });
+    const restored = JSON.parse(withStudioArchived(archived, false)!);
+    expect(restored).not.toHaveProperty("archived");
+    expect(restored.skill).toBe("gs-design");
+    expect(withStudioArchived("{", true)).toBeNull();
+  });
+
+  it("filters by every word of the title or folder name and hides archived sets", () => {
+    const sets = [
+      { path: ".gradespace/studio/2026-11-03-logo", title: "Bakery logo", archived: false },
+      { path: ".gradespace/studio/2026-11-02-deck", title: "Sunday deck", archived: true },
+      { path: ".gradespace/studio/2026-11-01-poster", title: null, archived: false },
+    ];
+    const paths = (query: string, showArchived = false) =>
+      filterStudioSets(sets, { query, showArchived }).shown.map((set) => set.path.slice(19));
+    expect(paths("")).toEqual(["2026-11-03-logo", "2026-11-01-poster"]);
+    expect(paths("", true)).toEqual(["2026-11-03-logo", "2026-11-02-deck", "2026-11-01-poster"]);
+    expect(paths("BAKERY logo")).toEqual(["2026-11-03-logo"]);
+    expect(paths("poster")).toEqual(["2026-11-01-poster"]);
+    expect(paths("sunday")).toEqual([]);
+    expect(paths("sunday", true)).toEqual(["2026-11-02-deck"]);
+    expect(filterStudioSets(sets, { query: "logo", showArchived: false }).archivedCount).toBe(1);
   });
 });

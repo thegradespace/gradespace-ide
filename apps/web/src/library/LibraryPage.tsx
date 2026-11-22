@@ -8,6 +8,7 @@ import {
   libraryCounts,
   libraryReuse,
   type LibrarySort,
+  libraryUndoIds,
 } from "@t3tools/client-runtime/library";
 import {
   isAtomCommandInterrupted,
@@ -33,7 +34,9 @@ import {
 import { useState } from "react";
 
 import { AppRouteModal, AppRouteModalClose } from "../components/AppRouteModal";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import { CheckboxMark } from "../components/ui/checkbox";
 import {
   Dialog,
   DialogDescription,
@@ -190,6 +193,8 @@ function LibraryBody(props: {
 }) {
   const [category, setCategory] = useState<LibraryCategory | "all">("all");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const remove = useAtomCommand(serverEnvironment.deleteLibraryItems, { reportFailure: false });
   const restore = useAtomCommand(serverEnvironment.restoreLibraryItems, { reportFailure: false });
   const empty = useAtomCommand(serverEnvironment.emptyLibraryTrash, { reportFailure: false });
@@ -204,6 +209,19 @@ function LibraryBody(props: {
   });
   const open = props.report.items.find((item) => item.id === openId) ?? null;
   const trashBytes = props.report.trash.reduce((total, item) => total + item.sizeBytes, 0);
+  // Only what is still listed and shown counts, so a filter or a delete elsewhere never deletes unseen items.
+  const selected = shown.filter((item) => picked.has(item.id));
+  const selectedBytes = selected.reduce((total, item) => total + item.sizeBytes, 0);
+  const stopSelecting = () => {
+    setSelecting(false);
+    setPicked(new Set());
+  };
+  const togglePicked = (id: string) =>
+    setPicked((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
 
   const onRestore = async (ids: ReadonlyArray<string>) => {
     const result = await restore({ environmentId: props.environmentId, input: { ids } });
@@ -217,27 +235,35 @@ function LibraryBody(props: {
     }
   };
 
-  const onDelete = async (item: LibraryItem) => {
+  const onDelete = async (items: ReadonlyArray<LibraryItem>) => {
+    if (items.length === 0) return;
     setOpenId(null);
-    const result = await remove({ environmentId: props.environmentId, input: { ids: [item.id] } });
+    const result = await remove({
+      environmentId: props.environmentId,
+      input: { ids: items.map((item) => item.id) },
+    });
     if (result._tag !== "Success") {
       if (!isAtomCommandInterrupted(result)) {
         toastManager.add({
           type: "error",
-          title: "Could not delete it",
+          title: items.length === 1 ? "Could not delete it" : "Could not delete them",
           description: failureText(result),
         });
       }
       return;
     }
+    stopSelecting();
     props.onChanged();
-    const trashId = result.value.trash.find((entry) => entry.title === item.title)?.id;
+    const undo = libraryUndoIds(result.value.trash, items);
     toastManager.add({
       type: "success",
-      title: `Moved “${item.title}” to Recently deleted`,
-      description: "Restore it within 30 days, or empty Recently deleted to free the space now.",
-      ...(trashId
-        ? { actionProps: { children: "Undo", onClick: () => void onRestore([trashId]) } }
+      title:
+        items.length === 1
+          ? `Moved “${items[0]?.title}” to Recently deleted`
+          : `Moved ${items.length} items to Recently deleted`,
+      description: `Restore ${items.length === 1 ? "it" : "them"} within 30 days, or empty Recently deleted to free the space now.`,
+      ...(undo.length > 0
+        ? { actionProps: { children: "Undo", onClick: () => void onRestore(undo) } }
         : {}),
     });
   };
@@ -259,22 +285,59 @@ function LibraryBody(props: {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Show">
-        {[{ id: "all" as const, label: "All" }, ...LIBRARY_CATEGORIES].map((entry) =>
-          entry.id !== "all" && counts[entry.id] === 0 ? null : (
+    <div
+      className="flex flex-col gap-4"
+      onKeyDown={(event) => {
+        if (selecting && event.key === "Escape") {
+          // Leave select mode first; the Library itself closes on the next Esc.
+          event.stopPropagation();
+          stopSelecting();
+        }
+      }}
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-[1_1_16rem] flex-wrap gap-1.5" role="group" aria-label="Show">
+          {[{ id: "all" as const, label: "All" }, ...LIBRARY_CATEGORIES].map((entry) =>
+            entry.id !== "all" && counts[entry.id] === 0 ? null : (
+              <Button
+                key={entry.id}
+                type="button"
+                size="xs"
+                variant={category === entry.id ? "secondary" : "ghost-muted"}
+                aria-pressed={category === entry.id}
+                onClick={() => setCategory(entry.id)}
+              >
+                {entry.label} {counts[entry.id]}
+              </Button>
+            ),
+          )}
+        </div>
+        {selecting ? (
+          <div className="flex items-center gap-1.5" role="group" aria-label="Selection">
+            <span className="text-xs text-muted-foreground" aria-live="polite">
+              {selected.length === 0
+                ? "Tick the items to delete"
+                : `${selected.length} selected · ${formatBytes(selectedBytes)}`}
+            </span>
             <Button
-              key={entry.id}
               type="button"
               size="xs"
-              variant={category === entry.id ? "secondary" : "ghost-muted"}
-              aria-pressed={category === entry.id}
-              onClick={() => setCategory(entry.id)}
+              variant="destructive"
+              disabled={selected.length === 0 || !canChange}
+              onClick={() => void onDelete(selected)}
             >
-              {entry.label} {counts[entry.id]}
+              <Trash2Icon aria-hidden />
+              Delete {selected.length}
             </Button>
-          ),
-        )}
+            <Button type="button" size="xs" variant="ghost" onClick={stopSelecting}>
+              Cancel
+            </Button>
+          </div>
+        ) : canChange && shown.length > 0 ? (
+          <Button type="button" size="xs" variant="ghost-muted" onClick={() => setSelecting(true)}>
+            Select
+          </Button>
+        ) : null}
       </div>
       {shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">
@@ -286,7 +349,14 @@ function LibraryBody(props: {
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3">
           {shown.map((item) => (
             <li key={item.id}>
-              <LibraryCard item={item} onOpen={() => setOpenId(item.id)} />
+              <LibraryCard
+                item={item}
+                selecting={selecting}
+                selected={picked.has(item.id)}
+                canDelete={canChange}
+                onOpen={() => (selecting ? togglePicked(item.id) : setOpenId(item.id))}
+                onDelete={() => void onDelete([item])}
+              />
             </li>
           ))}
         </ul>
@@ -337,13 +407,20 @@ function LibraryBody(props: {
         environmentId={props.environmentId}
         canDelete={canChange}
         onClose={() => setOpenId(null)}
-        onDelete={(item) => void onDelete(item)}
+        onDelete={(item) => void onDelete([item])}
       />
     </div>
   );
 }
 
-function LibraryCard(props: { item: LibraryItem; onOpen: () => void }) {
+function LibraryCard(props: {
+  item: LibraryItem;
+  selecting: boolean;
+  selected: boolean;
+  canDelete: boolean;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
   const { item } = props;
   const look = CATEGORY_LOOK[item.category];
   const Icon = look.icon;
@@ -353,29 +430,60 @@ function LibraryCard(props: { item: LibraryItem; onOpen: () => void }) {
     dateLabel(item.updatedAt),
   ].filter(Boolean);
   return (
-    <button
-      type="button"
-      onClick={props.onOpen}
-      aria-label={`Open ${item.title}`}
-      className="flex w-full flex-col overflow-hidden rounded-xl border border-border bg-card/70 text-left outline-hidden ring-ring hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-inset"
-    >
-      <span className={cn("flex h-20 items-center justify-center", look.tile)}>
-        <Icon aria-hidden className="size-6" />
-      </span>
-      <span className="flex flex-col gap-0.5 p-2.5">
-        <span className="truncate text-sm font-medium text-foreground">{item.title}</span>
-        <span className="truncate text-xs text-muted-foreground">{details.join(" · ")}</span>
-        <span className="text-xs text-muted-foreground">
-          {item.source === "career"
-            ? `${item.optionCount} file${item.optionCount === 1 ? "" : "s"}`
-            : item.picked
-              ? `Picked ${item.picked} of ${item.optionCount}`
-              : `${item.optionCount} option${item.optionCount === 1 ? "" : "s"}`}
-          {" · "}
-          {formatBytes(item.sizeBytes)}
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={props.onOpen}
+        aria-label={props.selecting ? `Select ${item.title}` : `Open ${item.title}`}
+        aria-pressed={props.selecting ? props.selected : undefined}
+        className={cn(
+          "flex w-full flex-col overflow-hidden rounded-xl border border-border bg-card/70 text-left outline-hidden ring-ring hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-inset",
+          props.selected && "border-primary ring-1 ring-primary",
+        )}
+      >
+        <span className={cn("relative flex h-20 items-center justify-center", look.tile)}>
+          <Icon aria-hidden className="size-6" />
+          {props.selecting ? (
+            <span className="absolute top-2 left-2 flex">
+              <CheckboxMark checked={props.selected} variant="contrast" />
+            </span>
+          ) : null}
         </span>
-      </span>
-    </button>
+        <span className="flex flex-col gap-0.5 p-2.5">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-sm font-medium text-foreground">{item.title}</span>
+            {item.archived ? (
+              <Badge variant="outline" size="sm">
+                Archived
+              </Badge>
+            ) : null}
+          </span>
+          <span className="truncate text-xs text-muted-foreground">{details.join(" · ")}</span>
+          <span className="text-xs text-muted-foreground">
+            {item.source === "career"
+              ? `${item.optionCount} file${item.optionCount === 1 ? "" : "s"}`
+              : item.picked
+                ? `Picked ${item.picked} of ${item.optionCount}`
+                : `${item.optionCount} option${item.optionCount === 1 ? "" : "s"}`}
+            {" · "}
+            {formatBytes(item.sizeBytes)}
+          </span>
+        </span>
+      </button>
+      {props.selecting || !props.canDelete ? null : (
+        <span className="absolute top-2 right-2 flex opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="glass"
+            aria-label={`Delete ${item.title}`}
+            onClick={props.onDelete}
+          >
+            <Trash2Icon aria-hidden />
+          </Button>
+        </span>
+      )}
+    </div>
   );
 }
 
