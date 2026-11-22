@@ -6,13 +6,13 @@ export const STUDIO_PICK_POINT_MESSAGE = "gradespace:studio-pick-point";
 export const STUDIO_PIN_MODE_MESSAGE = "gradespace:studio-pin-mode";
 export const STUDIO_PIN_EXIT_MESSAGE = "gradespace:studio-pin-exit";
 export const STUDIO_SCROLL_TO_MESSAGE = "gradespace:studio-scroll-to";
+export const STUDIO_HIGHLIGHT_MESSAGE = "gradespace:studio-highlight";
 export const STUDIO_MAX_HTML_BYTES = 5 * 1024 * 1024;
 
 /**
- * Sandboxed designs live in a cross-origin frame, so pinch, Ctrl/Cmd+wheel and the zoom keys
- * never reach Studio; the script forwards them in the bubble phase so pages that handle them win.
- * It reports scroll, the element under a pin-mode click, and scrolls where Studio asks after a
- * reload. Nothing else leaves the frame.
+ * Sandboxed designs live in a cross-origin frame, so the script forwards zoom gestures, reports
+ * scroll and pin-mode clicks, scrolls where Studio asks after a reload, and outlines an element
+ * Studio names. Nothing else leaves the frame.
  */
 export function injectStudioZoomBridge(html: string): string {
   const script = `<script>
@@ -101,6 +101,31 @@ export function injectStudioZoomBridge(html: string): string {
   const textOf = (element) =>
     String(element.innerText || element.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 80);
 
+  let highlightBox = null;
+  let highlightTimer = 0;
+  const highlight = (selector) => {
+    let target = null;
+    try {
+      target = document.querySelector(selector);
+    } catch {}
+    if (highlightBox) highlightBox.remove();
+    clearTimeout(highlightTimer);
+    if (!target) return;
+    target.scrollIntoView({ block: "center", inline: "nearest" });
+    const rect = target.getBoundingClientRect();
+    highlightBox = document.createElement("div");
+    highlightBox.style.cssText =
+      "position:absolute;z-index:2147483647;pointer-events:none;border-radius:4px;" +
+      "outline:3px solid #f59e0b;outline-offset:2px;box-shadow:0 0 0 9999px rgba(0,0,0,.18);" +
+      "left:" + (rect.left + scrollX) + "px;top:" + (rect.top + scrollY) + "px;" +
+      "width:" + rect.width + "px;height:" + rect.height + "px;";
+    document.documentElement.appendChild(highlightBox);
+    highlightTimer = setTimeout(() => {
+      if (highlightBox) highlightBox.remove();
+      highlightBox = null;
+    }, 2500);
+  };
+
   let pinMode = false;
   let pinStyle = null;
   const setPinMode = (on) => {
@@ -123,6 +148,10 @@ export function injectStudioZoomBridge(html: string): string {
     }
     if (data.type === ${JSON.stringify(STUDIO_PIN_MODE_MESSAGE)} && typeof data.on === "boolean") {
       setPinMode(data.on);
+      return;
+    }
+    if (data.type === ${JSON.stringify(STUDIO_HIGHLIGHT_MESSAGE)} && typeof data.selector === "string") {
+      highlight(data.selector);
     }
   });
   for (const name of ["pointerdown", "pointerup", "mousedown", "mouseup", "dblclick", "auxclick"]) {

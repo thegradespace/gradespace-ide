@@ -1,6 +1,8 @@
+import { STUDIO_HIGHLIGHT_MESSAGE } from "@t3tools/shared/studioZoom";
 import {
   Columns2,
   Columns3,
+  Combine,
   Crosshair,
   Maximize2,
   Minus,
@@ -24,6 +26,8 @@ import { cn } from "~/lib/utils";
 import { primaryServerKeybindingsAtom } from "~/state/server";
 
 import { FileSurfaceAction } from "../files/fileSurfaceChrome";
+import type { StudioCheckIssue } from "./studioChecks";
+import { StudioChecksBadge } from "./StudioChecksBadge";
 import { StudioDownloadButton } from "./StudioDownloadButton";
 import { StudioTimelineCard } from "./StudioTimelineCard";
 import {
@@ -40,6 +44,7 @@ import {
   type Size,
   type StudioPin,
   type StudioPinDraft,
+  type StudioPinKind,
   videoPictureFractions,
 } from "./studioPins";
 import {
@@ -378,6 +383,7 @@ function StudioVersionBar(
 type PinProps = {
   readonly pins: readonly StudioPin[];
   readonly pinMode: boolean;
+  readonly pinKind: StudioPinKind;
   readonly pinDraft: StudioPinDraft | null;
   readonly onDraft: (draft: StudioPinDraft) => void;
   readonly onSubmitDraft: (comment: string) => void;
@@ -472,6 +478,7 @@ function StudioPane(
             size={size}
             zoom={zoom}
             pinMode={props.pinMode}
+            pinKind={props.pinKind}
             pane={props.pane}
             draft={props.pinDraft}
             onDraft={props.onDraft}
@@ -558,10 +565,16 @@ export function StudioDesignStage(
       readonly onSelect: (id: string) => void;
       readonly onSelectCompare: (id: string) => void;
       readonly onTogglePick: (variant: StudioVariant) => void;
-      readonly pinMode: boolean;
-      readonly onPinModeChange: (on: boolean) => void;
+      /** What clicks on a design place, or null when they work the page as usual. */
+      readonly pinMode: StudioPinKind | null;
+      readonly onPinModeChange: (mode: StudioPinKind | null) => void;
       readonly pins: readonly StudioPin[];
       readonly onAddPin: (pin: NewStudioPin) => void;
+      readonly onAskToFix: (
+        variant: StudioVariant,
+        version: StudioViewedVersion,
+        issues: readonly StudioCheckIssue[],
+      ) => void;
       readonly leading?: ReactNode;
       readonly trailing?: ReactNode;
       readonly onFullscreen?: () => void;
@@ -671,15 +684,16 @@ export function StudioDesignStage(
     };
   }, [root, zoomed, zoomBy, zoomByKey]);
 
-  const activeDraft = props.pinMode && (draft?.pane !== 1 || compare !== null) ? draft : null;
+  const activeDraft =
+    props.pinMode !== null && (draft?.pane !== 1 || compare !== null) ? draft : null;
   const escapePin = useStableCallback(() => {
     if (activeDraft !== null) setDraft(null);
-    else props.onPinModeChange(false);
+    else props.onPinModeChange(null);
   });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Esc leaves pin mode; the listener lives on the window that owns this element
   useEffect(() => {
     const owner = root?.ownerDocument.defaultView;
-    if (!owner || !props.pinMode) return;
+    if (!owner || props.pinMode === null) return;
     // Capture and stop it, or the app's own Esc handling also closes the side panel.
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -692,10 +706,11 @@ export function StudioDesignStage(
   }, [root, props.pinMode, escapePin]);
 
   const submitDraft = (comment: string) => {
-    if (activeDraft === null) return;
+    if (activeDraft === null || props.pinMode === null) return;
     const variant = activeDraft.pane === 0 ? props.variant : compare;
     if (variant === null) return;
     props.onAddPin({
+      kind: props.pinMode,
       variantId: variant.id,
       version: activeDraft.pane === 0 ? leadVersion : compareVersion,
       comment,
@@ -726,7 +741,8 @@ export function StudioDesignStage(
     setDraft({ ...next, video: { time: video.currentTime, ...spot } });
   };
   const pinProps = {
-    pinMode: props.pinMode,
+    pinMode: props.pinMode !== null,
+    pinKind: props.pinMode ?? "comment",
     onDraft: placeDraft,
     onSubmitDraft: submitDraft,
     onCancelDraft: () => setDraft(null),
@@ -781,6 +797,22 @@ export function StudioDesignStage(
     />
   );
 
+  // Base UI portals the issue list into the main window, so a popped-out window goes without.
+  const checksBadge = (variant: StudioVariant, version: StudioViewedVersion, pane: PaneFrame) =>
+    native ? null : (
+      <StudioChecksBadge
+        {...paneContext}
+        variant={studioShownVariant(variant, version)}
+        optionLabel={version === null ? variant.id : `${variant.id} v${version}`}
+        onHighlight={(selector) =>
+          pane.frame
+            ?.querySelector("iframe")
+            ?.contentWindow?.postMessage({ type: STUDIO_HIGHLIGHT_MESSAGE, selector }, "*")
+        }
+        onAskToFix={(issues) => props.onAskToFix(variant, version, issues)}
+      />
+    );
+
   return (
     // Focusable so a click on the design area puts focus, and the zoom keys, in Studio.
     <div ref={setRoot} tabIndex={-1} className="flex min-h-0 flex-1 flex-col outline-none">
@@ -812,11 +844,20 @@ export function StudioDesignStage(
         <StudioAction
           label={canPin ? "Comment on a spot" : "Comment on a spot (Desktop width only)"}
           native={native}
-          pressed={props.pinMode && canPin}
+          pressed={props.pinMode === "comment" && canPin}
           disabled={!canPin}
-          onPress={() => props.onPinModeChange(!props.pinMode)}
+          onPress={() => props.onPinModeChange(props.pinMode === "comment" ? null : "comment")}
         >
           <Crosshair className="size-3.5" />
+        </StudioAction>
+        <StudioAction
+          label={canPin ? "Keep a part for a mix" : "Keep a part for a mix (Desktop width only)"}
+          native={native}
+          pressed={props.pinMode === "keep" && canPin}
+          disabled={!canPin || props.manifest.variants.length < 2}
+          onPress={() => props.onPinModeChange(props.pinMode === "keep" ? null : "keep")}
+        >
+          <Combine className="size-3.5" />
         </StudioAction>
         <StudioAction
           label="Compare side by side"
@@ -835,6 +876,7 @@ export function StudioDesignStage(
             onZoomChange={props.onZoomChange}
           />
         ) : null}
+        {compare === null ? checksBadge(props.variant, leadVersion, lead) : null}
         {compare === null ? downloadButton(props.variant, leadVersion) : null}
         {compare === null ? shareButton(props.variant, leadVersion) : null}
         {compare === null ? (
@@ -895,6 +937,7 @@ export function StudioDesignStage(
                 label="Left option"
                 share={
                   <>
+                    {checksBadge(props.variant, leadVersion, lead)}
                     {downloadButton(props.variant, leadVersion)}
                     {shareButton(props.variant, leadVersion)}
                   </>
@@ -934,6 +977,7 @@ export function StudioDesignStage(
                 label="Right option"
                 share={
                   <>
+                    {checksBadge(compare, compareVersion, second)}
                     {downloadButton(compare, compareVersion)}
                     {shareButton(compare, compareVersion)}
                   </>

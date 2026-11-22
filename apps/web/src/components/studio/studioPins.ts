@@ -16,9 +16,13 @@ export interface Point {
   readonly y: number;
 }
 
+/** A comment asks for a change; a kept part marks something to carry into a mix of options. */
+export type StudioPinKind = "comment" | "keep";
+
 /** UI-only pin: the note that reaches the agent plus what is needed to draw and remove it. */
 export interface StudioPin extends StudioPinNote {
   readonly id: number;
+  readonly kind: StudioPinKind;
   readonly variantId: string;
   /** The zoom it was placed at; a page that reflows at another zoom may no longer line up. */
   readonly zoom: number;
