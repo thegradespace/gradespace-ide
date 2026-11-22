@@ -21,6 +21,28 @@ export function fitPageZoom(containerWidth: number): number {
   return clamp(containerWidth / STUDIO_PAGE_WIDTH, MIN_FIT_ZOOM);
 }
 
+export type StudioPageWidth = "phone" | "tablet" | "desktop";
+/** A page width, or every width side by side. */
+export type StudioWidthMode = StudioPageWidth | "all";
+
+export const STUDIO_PAGE_WIDTHS: Readonly<Record<StudioPageWidth, number>> = {
+  phone: 390,
+  tablet: 820,
+  desktop: STUDIO_PAGE_WIDTH,
+};
+const ALL_SIZES_TOTAL =
+  STUDIO_PAGE_WIDTHS.phone + STUDIO_PAGE_WIDTHS.tablet + STUDIO_PAGE_WIDTHS.desktop;
+
+/** A phone or tablet page fits the container but never grows past its real size. */
+export function fitDeviceZoom(containerWidth: number, pageWidth: number): number {
+  return clamp(Math.min(1, containerWidth / pageWidth), MIN_FIT_ZOOM);
+}
+
+/** One zoom for all three widths in a row, after `chrome` pixels of gaps and padding. */
+export function fitAllSizesZoom(containerWidth: number, chrome: number): number {
+  return clamp(Math.min(1, (containerWidth - chrome) / ALL_SIZES_TOTAL), MIN_FIT_ZOOM);
+}
+
 export function fitImageZoom(
   container: { readonly width: number; readonly height: number },
   image: { readonly width: number; readonly height: number },
