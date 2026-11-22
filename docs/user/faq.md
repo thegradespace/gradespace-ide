@@ -71,7 +71,7 @@ Yes. Once a day the server copies its state database to a `backups` folder in it
 
 ## Is there voice input?
 
-Yes. Dictate into the composer on web and desktop after choosing an environment to transcribe on. The transcript goes into your draft for review. See [Voice input](./voice-input.md).
+Yes. On iPhone and Android, dictation uses on-device speech by default, with the option to use a paired environment. On macOS 26 or later, desktop users can choose Apple Speech directly under **On this Mac** or choose an environment. Web and other desktop users can enable dictation by choosing an environment. The transcript goes into your draft for review. See [Voice input](./voice-input.md).
 
 ## Does it work on Windows, Mac, and Linux?
 

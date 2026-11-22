@@ -5,8 +5,9 @@ import {
   createCloudAccountService,
   planCloudAccountStep,
 } from "./cloudAccountService.ts";
+import { createOwnerCredential, OWNER_ACCOUNT_ID } from "./ownerCredential.ts";
 
-type Emit = (user: { readonly id: string } | null | undefined) => void;
+type Emit = (user: { readonly id: string } | null | undefined, clientId?: string) => void;
 
 function makeSource() {
   let listener: Parameters<CloudAccountSource["addListener"]>[0] | null = null;
@@ -18,7 +19,8 @@ function makeSource() {
       };
     },
   };
-  const emit: Emit = (user) => listener?.({ user });
+  const emit: Emit = (user, clientId = "client_1") =>
+    listener?.({ user, client: { id: clientId } });
   return { source, emit, isSubscribed: () => listener !== null };
 }
 
@@ -154,6 +156,32 @@ describe("createCloudAccountService", () => {
     expect(log).toEqual(["signOutTransition", "deactivate", "cleanUp:a:true"]);
   });
 
+  it("waits for Clerk's API to confirm a signed-out launch before cleaning up", async () => {
+    const { service, log, nextActivation, nextCleanUp } = makeService();
+    const { source, emit } = makeSource();
+    service.attach(source);
+
+    // Offline: an id-less client, or the placeholder built from the session cookie.
+    emit(null, "");
+    emit(null, "client_init");
+    expect(service.getState()).toEqual({ _tag: "Unobserved" });
+    expect(log).toEqual([]);
+
+    const cleanUp = nextCleanUp();
+    emit(null);
+    await cleanUp;
+    expect(log).toEqual(["deactivate", "cleanUp:null:false"]);
+
+    const activation = nextActivation();
+    emit({ id: "a" });
+    await activation;
+    log.length = 0;
+    const signOut = nextCleanUp();
+    emit(null, "client_init");
+    await signOut;
+    expect(log).toEqual(["signOutTransition", "deactivate", "cleanUp:a:true"]);
+  });
+
   it("never activates an account that signed out while it was activating", async () => {
     const { service, log, nextCleanUp, gate } = makeService();
     const { source, emit } = makeSource();
@@ -240,5 +268,80 @@ describe("createCloudAccountService", () => {
     expect(isSubscribed()).toBe(false);
     expect(service.getState()).toEqual({ _tag: "Unobserved" });
     expect(log).toEqual(["prepare:a", "activate:a:false", "detach"]);
+  });
+});
+
+describe("createOwnerCredential", () => {
+  function makeStorage(initial: string | null) {
+    const state = { token: initial, failReads: 0 };
+    const credential = createOwnerCredential({
+      read: async () => {
+        if (state.failReads > 0) {
+          state.failReads -= 1;
+          throw new Error("Keychain locked.");
+        }
+        return state.token;
+      },
+      write: async (token) => {
+        state.token = token;
+      },
+      remove: async () => {
+        state.token = null;
+      },
+    });
+    return { state, credential };
+  }
+
+  it("signs the owner in from a stored or saved token and out when it is removed", async () => {
+    const { service, log, nextActivation, nextCleanUp } = makeService();
+    const { state, credential } = makeStorage("stored-token");
+    service.attach(credential);
+    expect(credential.getStatus()).toBe("loading");
+    expect(service.getState()).toEqual({ _tag: "Unobserved" });
+
+    const loaded = nextActivation();
+    await credential.load();
+    await loaded;
+    expect(service.getState()).toEqual({ _tag: "Active", accountId: OWNER_ACCOUNT_ID });
+    expect(await credential.readToken()).toBe("stored-token");
+
+    const removed = nextCleanUp();
+    await credential.remove();
+    await removed;
+    expect(state.token).toBeNull();
+    expect(credential.getStatus()).toBe("missing");
+    expect(await credential.readToken()).toBeNull();
+
+    const saved = nextActivation();
+    await credential.save("pasted-token");
+    await saved;
+    expect(credential.getStatus()).toBe("stored");
+    expect(await credential.readToken()).toBe("pasted-token");
+    expect(log).toEqual([
+      "prepare:owner",
+      "activate:owner:false",
+      "signOutTransition",
+      "deactivate",
+      "cleanUp:owner:true",
+      "prepare:owner",
+      "activate:owner:true",
+    ]);
+  });
+
+  it("stays unobserved when storage cannot be read, then loads on the next try", async () => {
+    const { service, log, nextActivation } = makeService();
+    const { state, credential } = makeStorage("stored-token");
+    state.failReads = 1;
+    service.attach(credential);
+
+    await expect(credential.load()).rejects.toThrow("Keychain locked.");
+    expect(credential.getStatus()).toBe("loading");
+    expect(service.getState()).toEqual({ _tag: "Unobserved" });
+    expect(log).toEqual([]);
+
+    const loaded = nextActivation();
+    await credential.load();
+    await loaded;
+    expect(service.getState()).toEqual({ _tag: "Active", accountId: OWNER_ACCOUNT_ID });
   });
 });

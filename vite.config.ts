@@ -157,6 +157,7 @@ export default defineConfig({
       NodeURL.fileURLToPath(
         new URL("./packages/shared/src/testing/providerEnv.ts", import.meta.url),
       ),
+      NodeURL.fileURLToPath(new URL("./packages/shared/src/testing/gitEnv.ts", import.meta.url)),
     ],
     ...(isRepoRootTestRun
       ? {
@@ -591,6 +592,41 @@ export default defineConfig({
           ],
         },
       },
+      // Registered always so a disable comment for intentional English counts as used.
+      // `vp run i18n:untranslated` counts what it flags.
+      {
+        files: ["apps/web/src/**", "apps/mobile/src/**", "packages/client-runtime/src/**"],
+        excludeFiles: [
+          "**/*.{test,spec,bench}.{ts,tsx}",
+          "**/{test,testkit,testing,fixtures}/**",
+          "**/*.test-fixtures.ts",
+          "**/{test-fixtures,*TestFixtures}.ts",
+          "apps/mobile/src/features/development/**",
+          "packages/client-runtime/src/rpc/**",
+        ],
+        rules: { "t3code/no-untranslated-copy": "error" },
+      },
+      {
+        // Gradespace-only screens predate the translation rule and are still English-only.
+        // Warn there so `vp run i18n:untranslated` keeps counting them; wrap as they change.
+        files: [
+          "apps/web/src/workspaces/**",
+          "apps/web/src/library/**",
+          "apps/web/src/quickActions/**",
+          "apps/web/src/components/studio/**",
+          "apps/web/src/components/settings/{Backups,MessageDevices,QuickActions,ShareLinks,Skills}Settings.tsx",
+          "apps/web/src/components/sidebar/{SidebarCollapsedRail,SidebarCompactFilterTabs,SidebarWorkingDock}.tsx",
+          "apps/web/src/components/chat/{MessageDevice,ThreadFilesPanel}.tsx",
+          "apps/web/src/components/usage/UsageApiKeySpend.tsx",
+          "apps/web/src/components/GradespaceLogo.tsx",
+          "apps/mobile/src/features/gs-workspaces/**",
+          "apps/mobile/src/features/studio/**",
+          "apps/mobile/src/features/home/ThreadListDeviceItems.tsx",
+          "apps/mobile/src/features/settings/appearance/sections/ThreadListAppearanceSection.tsx",
+          "packages/client-runtime/src/{workspaces,career,mailHome,library,studio}.ts",
+        ],
+        rules: { "t3code/no-untranslated-copy": "warn" },
+      },
       {
         // React Compiler owns memoization; upstream rules do not ban redundant useMemo/useCallback.
         files: ["apps/web/src/**/*.{ts,tsx}"],
@@ -655,6 +691,7 @@ export default defineConfig({
           "apps/mobile/src/features/review/useNativeReviewDiffBridge.ts",
           "apps/mobile/src/features/settings/SettingsEnvironmentsRouteScreen.tsx",
           "apps/mobile/src/features/threads/ThreadComposer.tsx",
+          "apps/mobile/src/components/ComposerSurface.tsx",
           "apps/mobile/src/features/threads/ThreadFeed.tsx",
           "apps/mobile/src/features/threads/ThreadQueueControl.tsx",
           "apps/mobile/src/features/review/ReviewCommentCard.tsx",

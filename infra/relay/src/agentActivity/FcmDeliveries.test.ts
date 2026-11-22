@@ -73,9 +73,12 @@ const config = {
     bundleId: "unused",
     privateKey: Redacted.make("unused"),
   },
-  clerkSecretKey: Redacted.make("unused"),
-  clerkPublishableKey: "unused",
-  clerkJwtAudience: "unused",
+  auth: {
+    mode: "clerk",
+    secretKey: Redacted.make("unused"),
+    publishableKey: "unused",
+    jwtAudience: "unused",
+  },
   apnsDeliveryJobSigningSecret: Redacted.make("unused"),
   cloudMintPrivateKey: Redacted.make("unused"),
   cloudMintPublicKey: "unused",
@@ -171,6 +174,7 @@ function harness() {
         ),
       listForUser: () => Effect.succeed([]),
       findActiveManagedForEnvironment: () => Effect.succeed([]),
+      updateLiveActivityPreference: () => Effect.die("unexpected Live Activity preference update"),
       setHoldWebhooksWhileOffline: () => Effect.void,
       revokeForUser: () => Effect.succeed(false),
       getForUser: (input) =>

@@ -129,6 +129,16 @@ const PersistedToken = Schema.Struct({
 });
 export type PersistedToken = typeof PersistedToken.Type;
 
+// The largest valid Date, so the refresh check never comes due.
+const OWNER_TOKEN_EXPIRES_AT_EPOCH_MS = 8_640_000_000_000_000;
+
+/** An owner-mode relay credential: sent as is, never refreshed, replaced only by storing another. */
+export const makeOwnerToken = (accessToken: string): PersistedToken => ({
+  accessToken,
+  refreshToken: "",
+  expiresAtEpochMs: OWNER_TOKEN_EXPIRES_AT_EPOCH_MS,
+});
+
 const PersistedTokenJson = Schema.fromJsonString(PersistedToken);
 const decodePersistedToken = Schema.decodeUnknownEffect(PersistedTokenJson);
 const encodePersistedToken = Schema.encodeEffect(PersistedTokenJson);
@@ -404,10 +414,10 @@ const pollDeviceToken = Effect.fn("cloud.cli_token.poll_device_token")(function*
     const response = yield* HttpClientRequest.post(metadata.tokenEndpoint).pipe(
       HttpClientRequest.bodyUrlParams(params),
       httpClient.execute,
-      Effect.asSome,
+      Effect.timeoutOption(OAUTH_REQUEST_TIMEOUT),
       Effect.catchIf(isTransportError, () => Effect.succeedNone),
     );
-    // Retry transport errors and 5xx while the device code is valid, backing off per RFC 8628 §3.5. Drain bodies to reuse connections.
+    // Retry transport errors, timeouts and 5xx while the device code is valid, backing off per RFC 8628 §3.5. Drain bodies to reuse connections.
     if (Option.isNone(response) || response.value.status >= 500) {
       if (Option.isSome(response)) yield* Effect.ignore(response.value.text);
       interval = Duration.sum(interval, DEVICE_AUTHORIZATION_SLOW_DOWN_INCREMENT);

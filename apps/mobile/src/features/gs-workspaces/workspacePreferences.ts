@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomValue } from "@effect/atom-react";
 import {
   assignThreadWorkspace,
   DEFAULT_WORKSPACE_ID,
@@ -21,7 +21,8 @@ import { useMemo } from "react";
 import * as Dialog from "../../components/ui/Dialog";
 import type * as MobilePreferences from "../../persistence/mobile-preferences";
 import { appAtomRegistry } from "../../state/atom-registry";
-import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
+import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
+import { useAtomCommand } from "../../state/use-atom-command";
 import { environmentThreadShells, threadEnvironment } from "../../state/threads";
 import {
   getComposerDraftSnapshot,
@@ -54,12 +55,14 @@ function readPreferences(): MobilePreferences.Preferences {
 
 export function useWorkspacePreferences() {
   const result = useAtomValue(mobilePreferencesAtom);
-  const save = useAtomSet(updateMobilePreferencesAtom);
+  const save = useAtomCommand(saveMobilePreferences, { reportFailure: false });
   const preferences = AsyncResult.isSuccess(result) ? result.value : {};
   return {
     active: activeWorkspaceOf(preferences),
     seedSettings: seedSettingsOf(preferences),
-    setActive: (workspace: WorkspaceId) => save({ activeWorkspace: workspace }),
+    setActive: (workspace: WorkspaceId) => {
+      void save({ activeWorkspace: workspace });
+    },
   };
 }
 
@@ -98,7 +101,7 @@ export function installThreadWorkspaceSync(): () => void {
       );
     }
     if (plan.drop.length === 0) return;
-    appAtomRegistry.set(updateMobilePreferencesAtom, {
+    void runAtomCommand(appAtomRegistry, saveMobilePreferences, {
       transform: (current) => {
         const tags = current.threadWorkspaces ?? EMPTY_TAGS;
         const next = withoutThreadWorkspaces(tags, plan.drop);
@@ -151,7 +154,7 @@ export function readActiveWorkspace(): WorkspaceId {
 }
 
 export function recordThreadWorkspace(threadId: string, workspace: WorkspaceId): void {
-  appAtomRegistry.set(updateMobilePreferencesAtom, {
+  void runAtomCommand(appAtomRegistry, saveMobilePreferences, {
     transform: (current) => {
       const tags = current.threadWorkspaces ?? EMPTY_TAGS;
       const next = assignThreadWorkspace(tags, threadId, workspace);
@@ -230,7 +233,7 @@ export function updateWorkspaceSeedSettings(
   patch: Partial<WorkspaceSeedSettings>,
   draft: { readonly key: string; readonly providers: Providers } | null,
 ): void {
-  appAtomRegistry.set(updateMobilePreferencesAtom, patch);
+  void runAtomCommand(appAtomRegistry, saveMobilePreferences, patch);
   if (draft === null) return;
   const prompt = getComposerDraftSnapshot(draft.key).text;
   if (prompt.trim() !== "" && !isWorkspaceSeedPrompt(prompt)) return;

@@ -65,8 +65,12 @@ function recoveryHint(error: RelayProtectedError): string {
       return "Unlink an unused environment in Gradespace Connect, then restart Gradespace IDE on this machine.";
     case "RelayAuthInvalidError":
       return "Run `gs connect login` to check this machine's authorization. If the stored credential was revoked, sign out with `gs connect logout`, then run `gs connect` again. Restart Gradespace IDE after signing in.";
-    case "RelayEnvironmentLinkProofExpiredError":
     case "RelayEnvironmentLinkProofInvalidError":
+      if (error.reason === "environment_key_mismatch") {
+        return "Gradespace Connect already has this environment linked with a different key. Unlink it in Gradespace Connect, then restart Gradespace IDE on this machine.";
+      }
+      return "Check this machine's date and time, update Gradespace IDE, then restart it.";
+    case "RelayEnvironmentLinkProofExpiredError":
       return "Check this machine's date and time, update Gradespace IDE, then restart it.";
     default:
       return "Retry when the relay is available. If this continues, include the trace ID when reporting it.";

@@ -68,9 +68,12 @@ const settings = RelayConfiguration.RelayConfiguration.of({
     bundleId: "com.t3tools.t3code.dev",
   },
   apnsDeliveryJobSigningSecret: Redacted.make("job-secret"),
-  clerkSecretKey: Redacted.make("clerk-secret"),
-  clerkPublishableKey: "pk_test_test",
-  clerkJwtAudience: "t3-code-relay",
+  auth: {
+    mode: "clerk",
+    secretKey: Redacted.make("clerk-secret"),
+    publishableKey: "pk_test_test",
+    jwtAudience: "t3-code-relay",
+  },
   cloudMintPrivateKey: Redacted.make(cloudKeyPair.privateKey),
   cloudMintPublicKey: cloudKeyPair.publicKey,
   managedEndpointBaseDomain: "example.test",
@@ -229,6 +232,7 @@ function makeLinks(
         ...overrides,
       }),
     findActiveManagedForEnvironment: () => Effect.succeed([]),
+    updateLiveActivityPreference: () => Effect.die("unexpected Live Activity preference update"),
     setHoldWebhooksWhileOffline: () => Effect.void,
     revokeForUser: () => Effect.succeed(false),
   };

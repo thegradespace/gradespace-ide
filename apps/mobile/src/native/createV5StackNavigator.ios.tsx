@@ -186,6 +186,9 @@ export function V5CardStackView(
                 });
               }}
               onDidAppear={() => {
+                // The root's own events can arrive out of order when a link opens a card, leaving
+                // the dock over the card; a card that finished appearing always covers the root.
+                if (index > 0) props.onRootVisibilityChange?.(false);
                 const source = nativePopSource.current;
                 if (source === route.key) {
                   setNativePopSource(null);

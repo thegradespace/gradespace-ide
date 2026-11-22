@@ -1,14 +1,13 @@
 import {
   AuthRelayReadScope,
   AuthRelayWriteScope,
-  type AuthEnvironmentScope,
   type EnvironmentConnectReachability,
-  EnvironmentHttpApi,
   formatConnectReachable,
   type RelayClientInstallProgressEvent,
   type RelayClientInstallProgressStage,
 } from "@t3tools/contracts";
 import { RelayOkResponse } from "@t3tools/contracts/relay";
+import { parseOwnerToken } from "@t3tools/shared/relayAuth";
 import * as RelayClient from "@t3tools/shared/relayClient";
 import { withRelayClientTracing } from "@t3tools/shared/relayTracing";
 import * as Cause from "effect/Cause";
@@ -23,11 +22,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Redacted from "effect/Redacted";
 import * as References from "effect/References";
 import * as Schema from "effect/Schema";
+import * as Stdio from "effect/Stdio";
+import * as Stream from "effect/Stream";
 import { Command, Flag, GlobalFlag, Prompt } from "effect/cli";
+import * as CliError from "effect/cli/CliError";
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
-import * as HttpApiClient from "effect/http-api/HttpApiClient";
 
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
 import * as ManagedLimits from "../policy/managedLimits.ts";
@@ -37,15 +39,17 @@ import * as BootService from "../cloud/bootService.ts";
 import * as CliState from "../cloud/CliState.ts";
 import * as CliTokenManager from "../cloud/CliTokenManager.ts";
 import { formatReachabilityFailure } from "../cloud/ConnectReachability.ts";
-import { filterRelayResponse } from "../cloud/relayResponse.ts";
+import { filterRelayResponse, relayRequestError } from "../cloud/relayResponse.ts";
 import {
+  CLOUD_ENDPOINT_RUNTIME_CONFIG,
   CLOUD_LINK_REVOKED,
   CLOUD_LINKED_USER_ID,
   isAgentActivityPublishingEnabledValue,
   PUBLISH_AGENT_ACTIVITY_SECRET,
+  RELAY_ENVIRONMENT_CREDENTIAL_SECRET,
   RELAY_URL_SECRET,
 } from "../cloud/config.ts";
-import { relayUrlConfig } from "../cloud/publicConfig.ts";
+import { cloudAuthMode, hasManagedTunnelConfig, relayUrlConfig } from "../cloud/publicConfig.ts";
 import * as RelayTracing from "../cloud/relayTracing.ts";
 import * as ServerConfig from "../config.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
@@ -56,6 +60,7 @@ import {
   readPersistedServerRuntimeState,
 } from "../serverRuntimeState.ts";
 import { projectLocationFlags, resolveCliAuthConfig } from "./config.ts";
+import * as RunningServer from "./runningServer.ts";
 import { resolveHostCliHint } from "./invocation.ts";
 import * as CliService from "./service.ts";
 
@@ -100,9 +105,88 @@ function formatDeviceAuthorizationPrompt(
   ].join("\n");
 }
 
+export const OWNER_RELAY_ALERTS_ONLY =
+  "This relay sends alerts only, with no remote access. Run `gs connect link --publish-only`.";
+
+const OWNER_TOKEN_ENV = "GRADESPACE_CONNECT_OWNER_TOKEN";
+const ownerTokenConfig = Config.Redacted(OWNER_TOKEN_ENV).pipe(Config.option);
+
+const ownerTokenError = (userMessage: string) =>
+  new CliError.UserError({ cause: "owner-token", userMessage });
+
+/**
+ * Never read from an argument: arguments show in the process list and shell history.
+ * The variable replaces a stored token; otherwise a stored one is kept and nothing is read.
+ */
+const readOwnerToken = Effect.fn("cloud.cli.read_owner_token")(function* (
+  stored: Option.Option<string>,
+) {
+  const fromEnv = yield* ownerTokenConfig;
+  if (Option.isSome(fromEnv)) {
+    return {
+      token:
+        parseOwnerToken(Redacted.value(fromEnv.value)) ??
+        (yield* ownerTokenError(`${OWNER_TOKEN_ENV} is not a valid owner token.`)),
+      entered: true,
+    };
+  }
+  if (Option.isSome(stored)) return { token: stored.value, entered: false };
+  const entered = process.stdin.isTTY
+    ? Redacted.value(
+        yield* Prompt.run(Prompt.Hidden({ message: "Gradespace Connect owner token" })),
+      )
+    : yield* Stdio.Stdio.pipe(
+        Effect.flatMap((stdio) => stdio.stdin.pipe(Stream.decodeText(), Stream.mkString)),
+      );
+  return {
+    token:
+      parseOwnerToken(entered) ??
+      (yield* ownerTokenError(
+        `No owner token. Set ${OWNER_TOKEN_ENV}, or pipe the token to this command.`,
+      )),
+    entered: true,
+  };
+});
+
+const OWNER_TOKEN_CHECK_TIMEOUT = Duration.seconds(10);
+
+/** A wrong token would otherwise only show as a link that never provisions after the next start. */
+const checkOwnerToken = Effect.fn("cloud.cli.check_owner_token")(function* (token: string) {
+  const relayUrl = yield* relayUrlConfig;
+  const httpClient = yield* HttpClient.HttpClient;
+  yield* HttpClientRequest.get(`${relayUrl}/v1/environments`).pipe(
+    HttpClientRequest.bearerToken(token),
+    httpClient.execute,
+    Effect.flatMap(filterRelayResponse),
+    Effect.timeout(OWNER_TOKEN_CHECK_TIMEOUT),
+    withRelayClientTracing,
+    Effect.catch((cause) => {
+      const { rejection } = relayRequestError(cause);
+      return ownerTokenError(
+        rejection === "unauthorized" || rejection === "forbidden"
+          ? `The relay at ${relayUrl} rejected this owner token. Set ${OWNER_TOKEN_ENV} to the relay's RELAY_OWNER_TOKEN and try again.`
+          : `Could not check the owner token with the relay at ${relayUrl}. Check that the relay is running and reachable, then try again.`,
+      );
+    }),
+  );
+});
+
+export const authorizeOwnerCli = Effect.fn("cloud.cli.authorize_owner")(function* () {
+  const tokens = yield* CliTokenManager.CloudCliTokenManager;
+  // A credential left by a Clerk build cannot refresh here, so it counts as none.
+  const stored = yield* tokens.getExisting.pipe(Effect.orElseSucceed(() => Option.none()));
+  const { token, entered } = yield* readOwnerToken(
+    Option.map(stored, (credential) => credential.accessToken),
+  );
+  yield* checkOwnerToken(token);
+  if (entered) yield* tokens.store(CliTokenManager.makeOwnerToken(token));
+  return null;
+});
+
 const authorizeCli = Effect.fn("cloud.cli.authorize")(function* (options: {
   readonly headless: boolean;
 }) {
+  if (cloudAuthMode === "owner") return yield* authorizeOwnerCli();
   const tokens = yield* CliTokenManager.CloudCliTokenManager;
   // Without a terminal, no key press can open a browser, so sign in with a code.
   const useOutOfBandOAuth =
@@ -203,17 +287,19 @@ function formatCloudStatus(
         ? "pending server startup"
         : "not provisioned";
   const publishOnly = status.desired && status.linkMode === "publish_only";
-  const nextStep = !status.authenticated
-    ? `Run \`${commands.link}\` to authorize and enable Gradespace Connect.`
-    : status.revoked
-      ? `Run \`${commands.link}\` to link this environment again.`
-      : !status.desired
-        ? `Run \`${commands.link}\` to enable Gradespace Connect.`
-        : !status.linked
-          ? publishOnly
-            ? "Start Gradespace to provision the environment link."
-            : "Start Gradespace to provision the environment link and launch its managed tunnel."
-          : undefined;
+  // An app-made link needs no CLI credential once provisioned.
+  const nextStep =
+    status.desired && status.linked && !status.revoked
+      ? undefined
+      : !status.authenticated
+        ? `Run \`${commands.link}\` to authorize and enable Gradespace Connect.`
+        : status.revoked
+          ? `Run \`${commands.link}\` to link this environment again.`
+          : !status.desired
+            ? `Run \`${commands.link}\` to enable Gradespace Connect.`
+            : publishOnly
+              ? "Start Gradespace to provision the environment link."
+              : "Start Gradespace to provision the environment link and launch its managed tunnel.";
 
   return [
     "Gradespace Connect",
@@ -299,21 +385,6 @@ export const acquireRelayClientForLink = Effect.fn("cloud.cli.acquire_relay_clie
   },
 );
 
-const withCloudCliSessionToken = <A, E, R>(
-  environmentAuth: EnvironmentAuth.EnvironmentAuth["Service"],
-  scope: AuthEnvironmentScope,
-  run: (token: string) => Effect.Effect<A, E, R>,
-) =>
-  Effect.acquireUseRelease(
-    environmentAuth.issueSession({
-      scopes: [scope],
-      subject: "cloud-cli",
-      label: "gs connect cli",
-    }),
-    (issued) => run(issued.token),
-    (issued) => environmentAuth.revokeSession(issued.sessionId).pipe(Effect.ignore({ log: true })),
-  );
-
 type LiveCloudActionResult =
   | { readonly status: "not-running" }
   | { readonly status: "server-gone" }
@@ -331,17 +402,11 @@ const runLiveCloudUnlink = Effect.fn("cloud.cli.run_live_unlink")(function* () {
     return { status: "server-gone" } satisfies LiveCloudActionResult;
   }
 
-  const environmentAuth = yield* EnvironmentAuth.EnvironmentAuth;
   const result = yield* Effect.exit(
-    withCloudCliSessionToken(environmentAuth, AuthRelayWriteScope, (token) =>
-      HttpApiClient.make(EnvironmentHttpApi, {
-        baseUrl: runtimeState.value.origin,
-      }).pipe(
-        Effect.flatMap((client) =>
-          client.connect.unlink({ headers: { authorization: `Bearer ${token}` } }),
-        ),
-        Effect.timeout(CLOUD_CLI_LIVE_SERVER_TIMEOUT),
-      ),
+    RunningServer.serverClient(runtimeState.value.origin, [AuthRelayWriteScope]).pipe(
+      Effect.flatMap((client) => client.connect.unlink({ headers: {} })),
+      Effect.timeout(CLOUD_CLI_LIVE_SERVER_TIMEOUT),
+      Effect.scoped,
     ),
   );
   return Exit.isSuccess(result)
@@ -359,15 +424,12 @@ const checkLiveReachability = Effect.fn("cloud.cli.check_live_reachability")(fun
   const config = yield* ServerConfig.ServerConfig;
   const runtimeState = yield* readLiveServerRuntimeState(config.serverRuntimeStatePath);
   if (Option.isNone(runtimeState)) return null;
-  const environmentAuth = yield* EnvironmentAuth.EnvironmentAuth;
-  return yield* withCloudCliSessionToken(environmentAuth, AuthRelayReadScope, (token) =>
-    HttpApiClient.make(EnvironmentHttpApi, { baseUrl: runtimeState.value.origin }).pipe(
-      Effect.flatMap((client) =>
-        client.connect.checkReachability({ headers: { authorization: `Bearer ${token}` } }),
-      ),
-      Effect.timeout(CLOUD_CLI_REACHABILITY_TIMEOUT),
-    ),
-  ).pipe(Effect.orElseSucceed(() => null));
+  return yield* RunningServer.serverClient(runtimeState.value.origin, [AuthRelayReadScope]).pipe(
+    Effect.flatMap((client) => client.connect.checkReachability({ headers: {} })),
+    Effect.timeout(CLOUD_CLI_REACHABILITY_TIMEOUT),
+    Effect.scoped,
+    Effect.orElseSucceed(() => null),
+  );
 });
 
 function formatAlertBox(text: string): string {
@@ -552,6 +614,7 @@ export const runCloudCommand = Effect.fn("cloud.cli.run_cloud_command")(function
     | Path.Path
     | HttpClient.HttpClient
     | Prompt.Environment
+    | Stdio.Stdio
     | ServerConfig.ServerConfig
     | ServerEnvironment.ServerEnvironmentIdentity
     | ManagedPolicy.ManagedPolicy
@@ -602,6 +665,12 @@ const linkEnvironmentForConnect = Effect.fn("cloud.cli.link_environment")(functi
   readonly installRelayClient?: boolean;
 }) {
   const publishOnly = options.publishOnly ?? false;
+  if (!publishOnly && !hasManagedTunnelConfig) {
+    return yield* new CliError.UserError({
+      cause: "owner-relay",
+      userMessage: OWNER_RELAY_ALERTS_ONLY,
+    });
+  }
   if (!publishOnly) {
     const relayClient = yield* RelayClient.RelayClient;
     const installed = yield* acquireRelayClientForLink(
@@ -700,8 +769,10 @@ const connectStatusCommand = Command.make("status", {
         const relayClient = yield* RelayClient.RelayClient;
         const tokens = yield* CliTokenManager.CloudCliTokenManager;
         const [
-          desired,
-          authenticated,
+          cliDesired,
+          managedTunnel,
+          cliAuthenticated,
+          relayCredential,
           cloudUserId,
           relayUrl,
           publishAgentActivity,
@@ -711,7 +782,9 @@ const connectStatusCommand = Command.make("status", {
         ] = yield* Effect.all(
           [
             CliState.readCliDesiredCloudLink,
+            secrets.get(CLOUD_ENDPOINT_RUNTIME_CONFIG),
             tokens.hasCredential,
+            secrets.get(RELAY_ENVIRONMENT_CREDENTIAL_SECRET),
             secrets.get(CLOUD_LINKED_USER_ID),
             secrets.get(RELAY_URL_SECRET),
             secrets.get(PUBLISH_AGENT_ACTIVITY_SECRET),
@@ -721,6 +794,10 @@ const connectStatusCommand = Command.make("status", {
           ],
           { concurrency: "unbounded" },
         );
+        // A link made in the desktop, web, or mobile app saves the tunnel config but no CLI marker.
+        const desired = cliDesired || Option.isSome(managedTunnel);
+        // Such a link authorizes the environment with its relay credential, not a CLI sign-in.
+        const authenticated = cliAuthenticated || Option.isSome(relayCredential);
         // A publish-only link has no tunnel for other devices to reach.
         const reachability =
           desired && linkMode === "managed" ? yield* checkLiveReachability() : null;

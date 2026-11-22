@@ -66,13 +66,47 @@ if (process.argv.includes("--write")) {
   process.exit(0);
 }
 
+// Catalogs are keyed by their English, which the source scan already covers. A translation
+// may still name T3 after its English was reworded, so compare each entry with en.json.
+const CATALOG_DIRS = ["apps/web", "apps/mobile", "apps/desktop"].map((app) =>
+  NodePath.join(ROOT, app, "src/i18n/translations"),
+);
+const T3_NAME = /T3|`t3 /;
+const staleTranslations = CATALOG_DIRS.flatMap((directory) => {
+  if (!NodeFS.existsSync(directory)) return [];
+  const read = (name: string): Record<string, unknown> =>
+    JSON.parse(NodeFS.readFileSync(NodePath.join(directory, name), "utf8"));
+  const english = read("en.json");
+  return NodeFS.readdirSync(directory)
+    .filter((name) => name.endsWith(".json") && name !== "en.json")
+    .flatMap((name) =>
+      Object.entries(read(name))
+        .filter(
+          ([key, text]) =>
+            T3_NAME.test(JSON.stringify(text)) && !/t3/i.test(JSON.stringify(english[key] ?? "")),
+        )
+        .map(
+          ([key, text]) =>
+            `${NodePath.relative(ROOT, directory)}/${name} ${key}: ${JSON.stringify(text).slice(0, 120)}`,
+        ),
+    );
+});
+
 const baseline: Record<string, number> = JSON.parse(NodeFS.readFileSync(BASELINE_PATH, "utf8"));
 const over = Array.from(found).filter(([path, hits]) => hits.length > (baseline[path] ?? 0));
 
-if (over.length === 0) {
+if (staleTranslations.length > 0) {
+  process.stderr.write(
+    `${staleTranslations.join("\n")}\n\nThese translations name T3 where their English names Gradespace. Reword them to match.\n`,
+  );
+}
+
+if (over.length === 0 && staleTranslations.length === 0) {
   process.stdout.write("Gradespace wording: no new T3 wording.\n");
   process.exit(0);
 }
+
+if (over.length === 0) process.exit(1);
 
 const report = over.flatMap(([path, hits]) => [
   `\n${path}: ${hits.length} T3 mentions, ${baseline[path] ?? 0} allowed`,

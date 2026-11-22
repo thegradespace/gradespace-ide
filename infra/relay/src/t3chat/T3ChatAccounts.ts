@@ -116,11 +116,15 @@ export const make = Effect.gen(function* () {
   const lookupClerkPrimaryEmail = Effect.fn("relay.t3chat.lookup_clerk_primary_email")(function* (
     userId: string,
   ) {
+    const auth = config.auth;
+    if (auth.mode !== "clerk") {
+      return yield* new ClerkUserLookupFailed({ cause: "relay does not use Clerk accounts" });
+    }
     return yield* Effect.tryPromise({
       try: async () => {
         const user = await createClerkClient({
-          secretKey: Redacted.value(config.clerkSecretKey),
-          publishableKey: config.clerkPublishableKey,
+          secretKey: Redacted.value(auth.secretKey),
+          publishableKey: auth.publishableKey,
         }).users.getUser(userId);
         const email = user.primaryEmailAddress?.emailAddress;
         if (!email) throw new Error("Clerk user has no primary email address.");

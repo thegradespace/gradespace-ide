@@ -65,9 +65,15 @@ jobs:
       - name: Server tests, shard ${{ matrix.shard }} of 3
         run: vp run --filter t3 --ignore-depends-on test --shard=${{ matrix.shard }}/3
 
+  # One runner ran out of room for the whole web suite: the test browser's
+  # connection dropped near the end, in a different file each time.
   web-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v6
 
@@ -78,8 +84,8 @@ jobs:
       - name: Install Chromium for the web browser tests
         run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
 
-      - name: Web tests
-        run: vp run --filter @t3tools/web --ignore-depends-on test
+      - name: Web tests, shard ${{ matrix.shard }} of 3
+        run: vp run --filter @t3tools/web --ignore-depends-on test --shard=${{ matrix.shard }}/3
 
   package-tests:
     runs-on: ubuntu-24.04

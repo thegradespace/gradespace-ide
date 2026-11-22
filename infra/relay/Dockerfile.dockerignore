@@ -1,0 +1,18 @@
+# Only what the relay and its workspace packages need reaches the build.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!.pnpmfile.cjs
+!patches
+!packages
+!infra/relay
+
+**/node_modules
+**/.env*
+**/*.test.ts
+**/*.test.tsx
+**/dist
+**/.alchemy
+**/.turbo
+infra/relay/scripts

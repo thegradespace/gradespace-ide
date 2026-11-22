@@ -32,6 +32,8 @@ credential, or authorization behavior.
 
 - [`alchemy.run.ts`](./alchemy.run.ts) defines the deployed Alchemy stack.
 - [`src/worker.ts`](./src/worker.ts) wires Cloudflare bindings, runtime layers, queues, and HTTP APIs.
+- [`src/node`](./src/node) is the self-hosted Node entry point: the same APIs on Postgres, with an
+  in-process push queue and no Cloudflare.
 - [`src/http/Api.ts`](./src/http/Api.ts) contains the relay HTTP handlers and authentication
   boundaries.
 - [`src/environments`](./src/environments) contains environment linking, credentials, endpoint
@@ -73,6 +75,56 @@ vp run typecheck
 
 Backend changes should include tests. Prefer testing the real business logic with external
 dependencies represented at their boundary rather than mocking internal behavior.
+
+## Run the Node relay with Docker
+
+[`src/node/main.ts`](./src/node/main.ts) runs the relay as one Node process beside Postgres, for one
+owner's own devices. It links environments, registers phones, and sends Apple push alerts and Live
+Activity updates. It does not provision tunnels, forward webhooks, send Android (FCM) pushes, or
+keep mobile telemetry: those routes answer but do nothing.
+
+Sign-in is owner mode: one `RELAY_OWNER_TOKEN` is sent wherever the hosted relay expects a Clerk
+token, and everything is stored under `RELAY_OWNER_USER_ID`. Anyone holding the token is the owner.
+Replacing it is the only way to revoke it, and changing the user id orphans existing links and
+devices.
+
+```sh
+cd infra/relay
+cp .env.node.example .env.node   # explains every value and how to generate each secret
+docker compose --env-file .env.node up --detach --build
+curl http://127.0.0.1:8787/health   # {"ok":true,"service":"relay"}
+```
+
+The image is built from the repository root and is large (about 2 GB), because the relay imports
+workspace packages whose dependencies come along. Database migrations apply on every start.
+
+Both published ports bind to `127.0.0.1`. Put a TLS proxy or tunnel in front of port 8787 and set
+`RELAY_PUBLIC_ORIGIN` to the address clients use. Clients sign that origin into every request proof,
+so a wrong value makes token exchange and device registration fail with 401 while `/health` still
+answers.
+
+Pushes wait in memory and each failed job is retried five times, 30 seconds apart. A restart drops
+the waiting jobs, which are at most ten minutes old, and the next published update repairs the Live
+Activity.
+
+To check a build end to end without an Apple key, run the smoke test. It starts the Compose stack
+with throwaway keys and a local stand-in for Apple's push server, plays a server and a phone, checks
+that an alert and a Live Activity push arrive, and removes the stack:
+
+```sh
+node scripts/owner-mode-smoke.ts
+```
+
+The smoke test plays the server itself. To check the real server against the relay, run the
+end-to-end test instead. It builds the server CLI, links it with `gs connect link --publish-only`
+through a local TLS proxy, runs free replayed agent turns through `gs serve`, and checks that their
+alert and Live Activity pushes arrive:
+
+```sh
+node scripts/owner-mode-e2e.ts
+```
+
+Delivery to real devices through Apple has not been exercised by either test.
 
 ## Deployment
 

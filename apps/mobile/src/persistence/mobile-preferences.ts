@@ -5,9 +5,13 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
+import { SavedViewIdentity } from "@t3tools/client-runtime/saved-views";
 import {
   EnvironmentId,
   PresentationStyleChoice,
+  IssueInvolvement,
+  IssueListSort,
+  IssueListState,
   PullRequestInvolvement,
   PullRequestListFilters,
   PullRequestListState,
@@ -48,6 +52,29 @@ export const PullRequestListControls = Schema.Struct({
 });
 export type PullRequestListControls = typeof PullRequestListControls.Type;
 
+export const PullRequestSavedView = Schema.Struct({
+  ...SavedViewIdentity.fields,
+  environmentId: Schema.NullOr(Schema.String),
+  controls: PullRequestListControls,
+  query: Schema.String,
+});
+export type PullRequestSavedView = typeof PullRequestSavedView.Type;
+const isPullRequestSavedView = Schema.is(PullRequestSavedView);
+
+export const IssueSavedView = Schema.Struct({
+  ...SavedViewIdentity.fields,
+  query: Schema.String,
+  state: IssueListState,
+  involvement: IssueInvolvement,
+  sort: IssueListSort,
+  labels: Schema.Array(Schema.String),
+  assignee: Schema.NullOr(
+    Schema.Struct({ login: Schema.String, name: Schema.NullOr(Schema.String) }),
+  ),
+});
+export type IssueSavedView = typeof IssueSavedView.Type;
+const isIssueSavedView = Schema.is(IssueSavedView);
+
 const ThreadListFilters = Schema.Struct({
   environmentId: Schema.NullOr(EnvironmentId),
   projectKey: Schema.NullOr(Schema.String),
@@ -82,6 +109,17 @@ const WorkspaceSelections = Schema.Struct({
       key: Schema.optional(Schema.String),
     }),
   ),
+  issues: Schema.optional(
+    Schema.Struct({
+      environmentId: Schema.String,
+      projectId: Schema.String,
+      tracker: Schema.String,
+      host: Schema.optional(Schema.String),
+      scope: Schema.String,
+      issueKey: Schema.String,
+      key: Schema.optional(Schema.String),
+    }),
+  ),
   settings: Schema.optional(Schema.String),
   settingsKey: Schema.optional(Schema.String),
   /** A draft the threads tab showed after its last chat; only meaningful in its session. */
@@ -96,6 +134,15 @@ const PullRequestActivityVisibility = Schema.Struct({
 export type PullRequestActivityVisibility = typeof PullRequestActivityVisibility.Type;
 
 const isThreadListFilters = Schema.is(ThreadListFilters);
+/** How the thread list tells devices apart when threads come from more than one. */
+export const ThreadListDeviceLayout = Schema.Literals([
+  "sections",
+  "filter",
+  "color",
+  "device-project",
+]);
+export type ThreadListDeviceLayout = typeof ThreadListDeviceLayout.Type;
+const isThreadListDeviceLayout = Schema.is(ThreadListDeviceLayout);
 const isPresentationStyleChoice = Schema.is(PresentationStyleChoice);
 const isReviewerStyleId = Schema.is(ReviewerStyleId);
 const isWriteWorkspaceMode = Schema.is(WriteWorkspaceMode);
@@ -112,6 +159,8 @@ const isThreadProject = Schema.is(ThreadProject);
 export interface Preferences {
   readonly navigationTabOrder?: readonly string[];
   readonly hiddenNavigationTabs?: readonly string[];
+  /** Whether pull requests or issues last held the tab bar slot they share. */
+  readonly sharedSlotTab?: "pullRequests" | "issues";
   readonly pullRequestHideTestFiles?: boolean;
   /** Which hidden-by-default PR activity is shown: bot comments and resolved or dismissed ones. */
   readonly pullRequestActivityVisibility?: PullRequestActivityVisibility;
@@ -153,6 +202,9 @@ export interface Preferences {
   readonly threadListSnoozedShelfExpanded?: boolean;
   readonly threadListWorkingShelfExpanded?: boolean;
   readonly threadListFilters?: ThreadListFilters;
+  readonly threadListDeviceLayout?: ThreadListDeviceLayout;
+  /** Device sections folded in the thread list, by environment id. */
+  readonly threadListCollapsedDevices?: ReadonlyArray<string>;
   readonly pullRequestListFilters?: PullRequestListPreferences;
   readonly workspaceSelections?: WorkspaceSelections;
   /** Gradespace workspace the thread list shows; per device, like web's rail. */
@@ -162,6 +214,8 @@ export interface Preferences {
   readonly presentStyle?: PresentationStyleChoice | null;
   readonly writeMode?: WriteWorkspaceMode;
   readonly reviewerStyle?: ReviewerStyleId;
+  readonly pullRequestSavedViews?: ReadonlyArray<PullRequestSavedView>;
+  readonly issueSavedViews?: ReadonlyArray<IssueSavedView>;
 }
 
 export class MobilePreferencesLoadError extends Schema.TaggedError<MobilePreferencesLoadError>()(
@@ -210,6 +264,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   const preferences: {
     navigationTabOrder?: readonly string[];
     hiddenNavigationTabs?: readonly string[];
+    sharedSlotTab?: "pullRequests" | "issues";
     pullRequestHideTestFiles?: boolean;
     pullRequestActivityVisibility?: PullRequestActivityVisibility;
     pullRequestMergeMethod?: PullRequestMergeMethod;
@@ -244,6 +299,8 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     threadListSnoozedShelfExpanded?: boolean;
     threadListWorkingShelfExpanded?: boolean;
     threadListFilters?: ThreadListFilters;
+    threadListDeviceLayout?: ThreadListDeviceLayout;
+    threadListCollapsedDevices?: ReadonlyArray<string>;
     pullRequestListFilters?: PullRequestListPreferences;
     workspaceSelections?: WorkspaceSelections;
     activeWorkspace?: string;
@@ -251,6 +308,8 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     presentStyle?: PresentationStyleChoice | null;
     writeMode?: WriteWorkspaceMode;
     reviewerStyle?: ReviewerStyleId;
+    pullRequestSavedViews?: ReadonlyArray<PullRequestSavedView>;
+    issueSavedViews?: ReadonlyArray<IssueSavedView>;
   } = {};
 
   if (Array.isArray(parsed.hiddenNavigationTabs)) {
@@ -263,6 +322,10 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     preferences.navigationTabOrder = parsed.navigationTabOrder.filter(
       (tab): tab is string => typeof tab === "string",
     );
+  }
+
+  if (parsed.sharedSlotTab === "pullRequests" || parsed.sharedSlotTab === "issues") {
+    preferences.sharedSlotTab = parsed.sharedSlotTab;
   }
 
   if (typeof parsed.pullRequestHideTestFiles === "boolean") {
@@ -400,6 +463,14 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   if (isThreadListFilters(parsed.threadListFilters)) {
     preferences.threadListFilters = parsed.threadListFilters;
   }
+  if (isThreadListDeviceLayout(parsed.threadListDeviceLayout)) {
+    preferences.threadListDeviceLayout = parsed.threadListDeviceLayout;
+  }
+  if (Array.isArray(parsed.threadListCollapsedDevices)) {
+    preferences.threadListCollapsedDevices = parsed.threadListCollapsedDevices.filter(
+      (id): id is string => typeof id === "string",
+    );
+  }
   if (isPullRequestListPreferences(parsed.pullRequestListFilters)) {
     preferences.pullRequestListFilters = parsed.pullRequestListFilters;
   }
@@ -417,6 +488,12 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (isWriteWorkspaceMode(parsed.writeMode)) preferences.writeMode = parsed.writeMode;
   if (isReviewerStyleId(parsed.reviewerStyle)) preferences.reviewerStyle = parsed.reviewerStyle;
+  if (Array.isArray(parsed.pullRequestSavedViews)) {
+    preferences.pullRequestSavedViews = parsed.pullRequestSavedViews.filter(isPullRequestSavedView);
+  }
+  if (Array.isArray(parsed.issueSavedViews)) {
+    preferences.issueSavedViews = parsed.issueSavedViews.filter(isIssueSavedView);
+  }
   return preferences;
 }
 

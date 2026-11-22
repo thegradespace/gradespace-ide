@@ -78,6 +78,7 @@ export function clientPresentationMetadata(input: {
   if (input.desktopBridge !== undefined) {
     const os = clientOsFromElectronPlatform(input.desktopBridge.getClientPlatform());
     return {
+      // oxlint-disable-next-line t3code/no-untranslated-copy -- client label stored on the server
       label: "GS Desktop",
       deviceType: "desktop",
       os,
@@ -90,6 +91,7 @@ export function clientPresentationMetadata(input: {
   const os = browserClientOs(input.identity);
   const browser = browserFamily(input.identity.userAgent);
   return {
+    // oxlint-disable-next-line t3code/no-untranslated-copy -- client label stored on the server
     label: "GS Web",
     deviceType: browserDeviceType(input.identity),
     os,

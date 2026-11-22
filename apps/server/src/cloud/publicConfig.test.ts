@@ -7,6 +7,7 @@ import {
   hostedAppUrlConfig,
   makeCloudCliOAuthConfig,
   makeRelayUrlConfig,
+  resolveCloudAuthMode,
   resolveRelayClientTracingConfig,
 } from "./publicConfig.ts";
 
@@ -19,6 +20,33 @@ it.effect("rejects an insecure runtime relay URL override", () =>
     Effect.flip,
   ),
 );
+
+it.each([
+  { label: "no relay", relayUrl: "", key: "pk_test", clientId: "oauth_client", mode: null },
+  { label: "a relay alone", relayUrl: "https://relay.example.test", mode: "owner" },
+  {
+    label: "a relay with Clerk",
+    relayUrl: "https://relay.example.test",
+    key: "pk_test",
+    clientId: "oauth_client",
+    mode: "clerk",
+  },
+  {
+    label: "a relay with a Clerk key but no CLI client",
+    relayUrl: "https://relay.example.test",
+    key: "pk_test",
+    mode: null,
+  },
+] as const)("picks the Connect auth mode: $label", (input) => {
+  assert.equal(
+    resolveCloudAuthMode({
+      relayUrl: input.relayUrl,
+      clerkPublishableKey: "key" in input ? input.key : "",
+      clerkCliOAuthClientId: "clientId" in input ? input.clientId : "",
+    }),
+    input.mode,
+  );
+});
 
 it.effect("rejects malformed or insecure hosted app URLs", () =>
   Effect.gen(function* () {

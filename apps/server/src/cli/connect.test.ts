@@ -7,22 +7,33 @@ import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as NetService from "@t3tools/shared/Net";
 import * as RelayClient from "@t3tools/shared/relayClient";
 import { assert, it } from "@effect/vitest";
+import * as Cause from "effect/Cause";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as TestConsole from "effect/testing/TestConsole";
 import { Command } from "effect/cli";
+import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientError from "effect/http/HttpClientError";
+import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 import { makeCli } from "../binCli.ts";
 import { CLOUD_CLI_DESIRED_LINK_SECRET } from "../cloud/CliState.ts";
+import * as CliTokenManager from "../cloud/CliTokenManager.ts";
+import {
+  CLOUD_ENDPOINT_RUNTIME_CONFIG,
+  CLOUD_LINKED_USER_ID,
+  RELAY_ENVIRONMENT_CREDENTIAL_SECRET,
+} from "../cloud/config.ts";
 import {
   makePersistedServerRuntimeState,
   persistServerRuntimeState,
 } from "../serverRuntimeState.ts";
-import { acquireRelayClientForLink } from "./connect.ts";
+import { acquireRelayClientForLink, authorizeOwnerCli } from "./connect.ts";
 import { resolveHostCliCommand } from "./invocation.ts";
 
 const managedExecutable = {
@@ -104,6 +115,8 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
         readonly portFreed?: boolean;
         readonly command?: "unlink" | "status";
         readonly linkMode?: "managed" | "publish_only";
+        /** Linked from desktop, web, or mobile: no CLI-desired link is stored. */
+        readonly linkedByApp?: boolean;
       },
     ) =>
       Effect.gen(function* () {
@@ -143,10 +156,25 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
         if (options?.command === "status") {
           // Status asks the server for reachability only for a managed link.
           yield* fs.makeDirectory(`${baseDir}/userdata/secrets`, { recursive: true });
-          yield* fs.writeFileString(
-            `${baseDir}/userdata/secrets/${CLOUD_CLI_DESIRED_LINK_SECRET}.bin`,
-            options.linkMode ?? "managed",
-          );
+          yield* options.linkedByApp
+            ? Effect.all([
+                fs.writeFileString(
+                  `${baseDir}/userdata/secrets/${CLOUD_LINKED_USER_ID}.bin`,
+                  "user_app_linked",
+                ),
+                fs.writeFileString(
+                  `${baseDir}/userdata/secrets/${CLOUD_ENDPOINT_RUNTIME_CONFIG}.bin`,
+                  "{}",
+                ),
+                fs.writeFileString(
+                  `${baseDir}/userdata/secrets/${RELAY_ENVIRONMENT_CREDENTIAL_SECRET}.bin`,
+                  "relay_credential",
+                ),
+              ])
+            : fs.writeFileString(
+                `${baseDir}/userdata/secrets/${CLOUD_CLI_DESIRED_LINK_SECRET}.bin`,
+                options.linkMode ?? "managed",
+              );
         }
 
         yield* Command.runWith(makeCli({ cloudEnabled: true }), { version: "0.0.0" })([
@@ -219,6 +247,20 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
       }),
     );
 
+    it.effect("status checks reachability for an environment linked from the app", () =>
+      Effect.gen(function* () {
+        const { requests, printed } = yield* runConnect(process.pid, {
+          command: "status",
+          linkedByApp: true,
+        });
+
+        assert.deepEqual(requests, ["POST /api/connect/reachability"]);
+        assert.notInclude(printed, "Exposure: disabled");
+        assert.notInclude(printed, "Authorization: missing");
+        assert.notInclude(printed, "Next:");
+      }),
+    );
+
     it.effect("status does not report a publish-only link as exposed", () =>
       Effect.gen(function* () {
         const { printed } = yield* runConnect(process.pid, {
@@ -242,3 +284,81 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
     );
   },
 );
+
+const OWNER_TOKEN = "owner-token-under-test";
+const STORED_OWNER_TOKEN = "stored-owner-token";
+
+it.effect.each([
+  { name: "stores a token the relay accepts", relay: 200, stored: null, fails: null },
+  {
+    name: "does not store a token the relay rejects",
+    relay: 401,
+    stored: null,
+    fails: "rejected this owner token",
+  },
+  {
+    name: "does not store a token while the relay cannot be reached",
+    relay: "unreachable",
+    stored: null,
+    fails: "Could not check the owner token",
+  },
+  {
+    name: "checks a stored token again",
+    relay: 401,
+    stored: STORED_OWNER_TOKEN,
+    fails: "rejected this owner token",
+  },
+] as const)("owner sign-in $name", ({ relay, stored, fails }) => {
+  const saved: Array<string> = [];
+  const sent: Array<string> = [];
+  return Effect.gen(function* () {
+    const result = yield* Effect.exit(authorizeOwnerCli());
+    const token = stored ?? OWNER_TOKEN;
+
+    assert.deepEqual(sent, [`GET https://relay.test/v1/environments Bearer ${token}`]);
+    assert.deepEqual(saved, fails === null ? [OWNER_TOKEN] : []);
+    if (fails === null) return assert.isTrue(Exit.isSuccess(result));
+    const message = Cause.pretty(Exit.isFailure(result) ? result.cause : Cause.empty);
+    assert.include(message, fails);
+    assert.include(message, "https://relay.test");
+    assert.notInclude(message, token);
+  }).pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        NodeServices.layer,
+        ConfigProvider.layer(
+          ConfigProvider.fromEnv({
+            env: {
+              T3CODE_RELAY_URL: "https://relay.test",
+              ...(stored === null ? { GRADESPACE_CONNECT_OWNER_TOKEN: OWNER_TOKEN } : {}),
+            },
+          }),
+        ),
+        Layer.mock(CliTokenManager.CloudCliTokenManager)({
+          getExisting: Effect.succeed(
+            Option.fromNullishOr(stored).pipe(Option.map(CliTokenManager.makeOwnerToken)),
+          ),
+          store: (token) => Effect.sync(() => void saved.push(token.accessToken)),
+        }),
+        Layer.succeed(
+          HttpClient.HttpClient,
+          HttpClient.make((request) => {
+            sent.push(`${request.method} ${request.url} ${request.headers.authorization}`);
+            return relay === "unreachable"
+              ? Effect.fail(
+                  new HttpClientError.HttpClientError({
+                    reason: new HttpClientError.TransportError({ request }),
+                  }),
+                )
+              : Effect.succeed(
+                  HttpClientResponse.fromWeb(
+                    request,
+                    Response.json({ environments: [] }, { status: relay }),
+                  ),
+                );
+          }),
+        ),
+      ),
+    ),
+  );
+});

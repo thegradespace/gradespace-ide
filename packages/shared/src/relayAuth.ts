@@ -87,3 +87,12 @@ export function relayClerkTokenOptions(template: string) {
     skipCache: true,
   } as const;
 }
+
+/**
+ * An owner-mode relay takes one opaque token wherever it took a Clerk JWT. It travels in an
+ * Authorization header, so it must be one run of printable characters.
+ */
+export function parseOwnerToken(input: string): string | null {
+  const token = input.trim();
+  return /^[\x21-\x7e]+$/u.test(token) ? token : null;
+}

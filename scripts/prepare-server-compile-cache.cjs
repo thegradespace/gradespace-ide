@@ -62,7 +62,13 @@ module.exports = async ({ appOutDir, electronPlatformName, arch, packager }) => 
       runner,
       `require(${JSON.stringify(helper)}).generatePreparedServerCache(${JSON.stringify(resources)}).then(()=>process.exit(0),e=>{console.error(e);process.exit(1)})`,
     );
-    result = spawnSync(executable, [runner], { env, encoding: "utf8", timeout: 120000 });
+    // An x64 build on an Apple Silicon runner runs through Rosetta, which is much slower
+    // on small CI machines, so allow up to 10 minutes there instead of 2.
+    result = spawnSync(executable, [runner], {
+      env,
+      encoding: "utf8",
+      timeout: runsWithRosetta ? 600000 : 120000,
+    });
   } finally {
     fs.rmSync(state, { recursive: true, force: true });
   }

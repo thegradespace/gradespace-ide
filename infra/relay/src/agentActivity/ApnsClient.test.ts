@@ -151,13 +151,15 @@ describe("ApnsClient", () => {
       const environmentId = "é".repeat(191);
       const threadId = "t".repeat(512);
       const notification = sanitizeApnsNotificationPayload({
-        title: "界".repeat(120),
+        title: "😀".repeat(120),
         body: "界".repeat(120),
         environmentId,
         threadId,
         deepLink: `/threads/${encodeURIComponent(environmentId)}/${threadId}`,
       });
       const request = apns.makePushNotificationRequest({ token: "push-token", notification });
+
+      expect(notification.title).toBe(`${"😀".repeat(58)}...`);
 
       expect(
         new TextEncoder().encode(JSON.stringify(request.payload)).byteLength,
@@ -245,6 +247,83 @@ describe("ApnsClient", () => {
         );
       }
     }).pipe(Effect.provide(layerTest)),
+  );
+
+  it.effect(
+    "sends to Apple's host for the device's environment unless a base URL replaces it",
+    () => {
+      const { privateKey } = NodeCrypto.generateKeyPairSync("ec", {
+        namedCurve: "prime256v1",
+        privateKeyEncoding: { type: "pkcs8", format: "pem" },
+        publicKeyEncoding: { type: "spki", format: "pem" },
+      });
+      const sentTo = (baseUrl: string | undefined, environment: ApnsCredentials["environment"]) => {
+        const urls: Array<string> = [];
+        const capturingHttpClient = HttpClient.make((request) => {
+          urls.push(request.url);
+          return Effect.succeed(HttpClientResponse.fromWeb(request, new Response("")));
+        });
+        return Effect.gen(function* () {
+          const apns = yield* ApnsClient.ApnsClient;
+          const credentials = {
+            teamId: "team-base-url",
+            keyId: "key-base-url",
+            privateKey: Redacted.make(privateKey),
+            bundleId: "com.t3tools.test",
+            environment,
+          } satisfies ApnsCredentials;
+          yield* apns.sendPushNotificationRequest({
+            credentials,
+            issuedAtUnixSeconds: 1,
+            request: apns.makePushNotificationRequest({
+              token: "push-token",
+              notification: {
+                title: "Thread",
+                body: "Input: Project",
+                environmentId: "env",
+                threadId: "thread",
+                deepLink: "/threads/env/thread",
+              },
+            }),
+          });
+          yield* apns.sendLiveActivityRequest({
+            credentials,
+            issuedAtUnixSeconds: 1,
+            request: apns.makeLiveActivityRequest({
+              event: "update",
+              token: "activity-token",
+              state,
+              nowEpochSeconds: 1,
+              nowIso: DateTime.formatIso(now),
+            }),
+          });
+          return urls;
+        }).pipe(
+          Effect.provide(
+            ApnsClient.layer.pipe(
+              Layer.provide(ApnsProviderTokens.layer),
+              Layer.provide(Layer.succeed(HttpClient.HttpClient, capturingHttpClient)),
+              Layer.provide(Layer.succeed(ApnsClient.ApnsBaseUrl, baseUrl)),
+            ),
+          ),
+        );
+      };
+
+      return Effect.gen(function* () {
+        expect(yield* sentTo(undefined, "sandbox")).toEqual([
+          "https://api.sandbox.push.apple.com/3/device/push-token",
+          "https://api.sandbox.push.apple.com/3/device/activity-token",
+        ]);
+        expect(yield* sentTo(undefined, "production")).toEqual([
+          "https://api.push.apple.com/3/device/push-token",
+          "https://api.push.apple.com/3/device/activity-token",
+        ]);
+        expect(yield* sentTo("https://fake-apns.test:2197/", "production")).toEqual([
+          "https://fake-apns.test:2197/3/device/push-token",
+          "https://fake-apns.test:2197/3/device/activity-token",
+        ]);
+      });
+    },
   );
 
   it.effect("reuses the signed provider JWT across pushes within the reuse window", () => {

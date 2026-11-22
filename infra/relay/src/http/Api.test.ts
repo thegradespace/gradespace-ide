@@ -50,7 +50,7 @@ import {
   relayDpopFailureReason,
   traceRelayHttpRequestWith,
   unlinkEnvironmentRecord,
-  verifyRelayClientBearerToken,
+  verifyRelaySubjectToken,
   verifyEnvironmentTunnelRecoveryProof,
   withoutCapturedParentSpan,
 } from "./Api.ts";
@@ -73,6 +73,13 @@ vi.mock("@clerk/backend", () => ({
   verifyToken: vi.fn(),
 }));
 
+const clerkAuth = {
+  mode: "clerk",
+  secretKey: Redacted.make("clerk-secret-key"),
+  publishableKey: "pk_test_test",
+  jwtAudience: "t3-code-relay",
+} satisfies RelayConfiguration.ClerkAuthSettings;
+
 const relaySettings: RelayConfiguration.RelayConfiguration["Service"] = {
   relayIssuer: "https://relay.example.test",
   apns: {
@@ -82,9 +89,7 @@ const relaySettings: RelayConfiguration.RelayConfiguration["Service"] = {
     bundleId: "com.example.t3",
     environment: "sandbox",
   },
-  clerkSecretKey: Redacted.make("clerk-secret-key"),
-  clerkPublishableKey: "pk_test_test",
-  clerkJwtAudience: "t3-code-relay",
+  auth: clerkAuth,
   apnsDeliveryJobSigningSecret: Redacted.make("apns-delivery-secret"),
   cloudMintPrivateKey: Redacted.make("cloud-mint-private-key"),
   cloudMintPublicKey: "cloud-mint-public-key",
@@ -390,19 +395,21 @@ describe("relay client authentication", () => {
     Effect.gen(function* () {
       vi.mocked(verifyToken).mockResolvedValue({
         sub: "user_session",
-        aud: relaySettings.clerkJwtAudience,
+        aud: clerkAuth.jwtAudience,
       } as never);
 
-      expect(yield* verifyRelayClientBearerToken(relaySettings, "session-token")).toEqual({
-        sub: "user_session",
-        mode: "clerk_session_bearer",
-      });
+      for (const acceptClerkOAuthToken of [true, false]) {
+        expect(
+          yield* verifyRelaySubjectToken(relaySettings, "session-token", { acceptClerkOAuthToken }),
+        ).toEqual({ sub: "user_session", mode: "clerk_session_bearer" });
+      }
       expect(verifyToken).toHaveBeenCalledWith("session-token", {
         secretKey: "clerk-secret-key",
-        audience: relaySettings.clerkJwtAudience,
+        audience: clerkAuth.jwtAudience,
       });
       expect(createClerkClient).not.toHaveBeenCalled();
     }).pipe(
+      Effect.provide(NodeCryptoLayer.layerDigest),
       Effect.ensuring(
         Effect.sync(() => {
           vi.mocked(verifyToken).mockReset();
@@ -422,21 +429,70 @@ describe("relay client authentication", () => {
         }),
       } as never);
 
-      expect(yield* verifyRelayClientBearerToken(relaySettings, "oauth-token")).toEqual({
-        sub: "user_oauth",
-        mode: "clerk_oauth_bearer",
-      });
+      // The token exchange takes session JWTs only, so it must not reach the OAuth check.
+      const exchange = yield* verifyRelaySubjectToken(relaySettings, "oauth-token", {
+        acceptClerkOAuthToken: false,
+      }).pipe(Effect.exit);
+      expect(exchange._tag).toBe("Failure");
+      expect(createClerkClient).not.toHaveBeenCalled();
+
+      expect(
+        yield* verifyRelaySubjectToken(relaySettings, "oauth-token", {
+          acceptClerkOAuthToken: true,
+        }),
+      ).toEqual({ sub: "user_oauth", mode: "clerk_oauth_bearer" });
       expect(createClerkClient).toHaveBeenCalledWith({
         secretKey: "clerk-secret-key",
         publishableKey: "pk_test_test",
       });
     }).pipe(
+      Effect.provide(NodeCryptoLayer.layerDigest),
       Effect.ensuring(
         Effect.sync(() => {
           vi.mocked(verifyToken).mockReset();
           vi.mocked(createClerkClient).mockReset();
         }),
       ),
+    ),
+  );
+
+  it.effect("in owner mode accepts exactly the owner token and never asks Clerk", () =>
+    Effect.gen(function* () {
+      const ownerToken = "owner-token-0123456789abcdef0123456789abcdef";
+      const ownerSettings: RelayConfiguration.RelayConfiguration["Service"] = {
+        ...relaySettings,
+        auth: { mode: "owner", ownerToken: Redacted.make(ownerToken), ownerUserId: "owner-1" },
+      };
+      // A Clerk session that would verify must not open an owner-mode relay.
+      vi.mocked(verifyToken).mockResolvedValue({
+        sub: "user_session",
+        aud: clerkAuth.jwtAudience,
+      } as never);
+
+      for (const acceptClerkOAuthToken of [true, false]) {
+        expect(
+          yield* verifyRelaySubjectToken(ownerSettings, ownerToken, { acceptClerkOAuthToken }),
+        ).toEqual({ sub: "owner-1", mode: "owner_token" });
+
+        for (const rejected of [
+          "session-token",
+          ownerToken.slice(0, -1),
+          `${ownerToken}0`,
+          `${ownerToken.slice(0, -1)}e`,
+          ownerToken.toUpperCase(),
+          ` ${ownerToken}`,
+        ]) {
+          const error = yield* verifyRelaySubjectToken(ownerSettings, rejected, {
+            acceptClerkOAuthToken,
+          }).pipe(Effect.flip);
+          expect(error._tag).toBe("OwnerTokenRejected");
+        }
+      }
+      expect(verifyToken).not.toHaveBeenCalled();
+      expect(createClerkClient).not.toHaveBeenCalled();
+    }).pipe(
+      Effect.provide(NodeCryptoLayer.layerDigest),
+      Effect.ensuring(Effect.sync(() => vi.mocked(verifyToken).mockReset())),
     ),
   );
 });
@@ -538,6 +594,8 @@ function layerRelayUnlinkTest(input?: {
         listForUser: () => Effect.die("unused listForUser"),
         getForUser: input?.getForUser ?? (() => Effect.succeed(null)),
         findActiveManagedForEnvironment: () => Effect.die("unused findActiveManagedForEnvironment"),
+        updateLiveActivityPreference: () =>
+          Effect.die("unexpected Live Activity preference update"),
         setHoldWebhooksWhileOffline: () => Effect.die("unused setHoldWebhooksWhileOffline"),
         revokeForUser: input?.revokeForUser ?? (() => Effect.succeed(false)),
       }),
@@ -1079,52 +1137,71 @@ describe("relay managed tunnel recovery", () => {
 });
 
 describe("relay environment unlink", () => {
-  it.effect("drops the unlinked endpoint's held webhooks, even if clearing fails", () => {
-    const cleared: Array<string> = [];
-    const endpointKey = "0123456789abcdef";
-    const unlink = (clearFails: boolean) =>
-      unlinkEnvironmentRecord({
-        userId: "user-1",
-        environmentId: "environment-1",
-        managedEndpointNamespace: "dev",
-      }).pipe(
-        Effect.provide(
-          layerRelayUnlinkTest({
-            getForUser: () => Effect.succeed(linkedEnvironmentRecord),
-            revokeForUser: () => Effect.succeed(true),
-            prepareDeprovision: () =>
-              Effect.succeed({
-                userId: "user-1",
-                environmentId: "environment-1",
-                hostname: "dev-0123456789abcdef.example.test",
-                tunnelId: "tunnel-1",
-                tunnelName: `t3coderelay-managedendpoint-dev-${endpointKey}`,
-                dnsRecordId: "dns-1",
-                readyAt: "2026-07-28T00:00:00.000Z",
-                tunnelReleasedAt: null,
-                origin: null,
-                updatedAt: "2026-07-28T00:00:00.000Z",
-                generation: 1,
-              }),
-            clearInbox: (input) =>
-              clearFails
-                ? Effect.fail(
-                    new HookInbox.HookInboxError({
-                      operation: "clear",
-                      endpointKey: input.endpointKey,
-                      cause: new Error("unavailable"),
-                    }),
-                  )
-                : Effect.sync(() => void cleared.push(input.endpointKey)),
-          }),
-        ),
-      );
-    return Effect.gen(function* () {
-      expect(yield* unlink(false)).toBe(true);
-      expect(cleared).toEqual([endpointKey]);
-      expect(yield* unlink(true)).toBe(true);
-    });
-  });
+  it.effect(
+    "drops the unlinked endpoint's held webhooks, even if clearing or teardown fails",
+    () => {
+      const cleared: Array<string> = [];
+      const endpointKey = "0123456789abcdef";
+      const unlink = (clearFails: boolean, teardownFails = false) =>
+        unlinkEnvironmentRecord({
+          userId: "user-1",
+          environmentId: "environment-1",
+          managedEndpointNamespace: "dev",
+        }).pipe(
+          Effect.provide(
+            layerRelayUnlinkTest({
+              getForUser: () => Effect.succeed(linkedEnvironmentRecord),
+              revokeForUser: () => Effect.succeed(true),
+              prepareDeprovision: () =>
+                Effect.succeed({
+                  userId: "user-1",
+                  environmentId: "environment-1",
+                  hostname: "dev-0123456789abcdef.example.test",
+                  tunnelId: "tunnel-1",
+                  tunnelName: `t3coderelay-managedendpoint-dev-${endpointKey}`,
+                  dnsRecordId: "dns-1",
+                  readyAt: "2026-07-28T00:00:00.000Z",
+                  tunnelReleasedAt: null,
+                  origin: null,
+                  updatedAt: "2026-07-28T00:00:00.000Z",
+                  generation: 1,
+                }),
+              clearInbox: (input) =>
+                clearFails
+                  ? Effect.fail(
+                      new HookInbox.HookInboxError({
+                        operation: "clear",
+                        endpointKey: input.endpointKey,
+                        cause: new Error("unavailable"),
+                      }),
+                    )
+                  : Effect.sync(() => void cleared.push(input.endpointKey)),
+              ...(teardownFails
+                ? {
+                    deprovision: (input) =>
+                      Effect.fail(
+                        new ManagedEndpointProvider.ManagedEndpointDeprovisioningFailed({
+                          userId: input.userId,
+                          environmentId: input.environmentId,
+                          stage: "delete-tunnel",
+                          cause: new Error("unavailable"),
+                        }),
+                      ),
+                  }
+                : {}),
+            }),
+          ),
+        );
+      return Effect.gen(function* () {
+        expect(yield* unlink(false)).toBe(true);
+        expect(cleared).toEqual([endpointKey]);
+        expect(yield* unlink(true)).toBe(true);
+        // A later link under another key shares the inbox, so it is emptied before teardown can fail.
+        yield* unlink(false, true).pipe(Effect.flip);
+        expect(cleared).toEqual([endpointKey, endpointKey]);
+      });
+    },
+  );
 
   it.effect("commits database revocation before deprovisioning the managed endpoint", () => {
     const calls: Array<string> = [];
