@@ -320,25 +320,29 @@ export function studioPlaybackTime(seconds: number): string {
   return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${secs}` : `${minutes}:${secs}`;
 }
 
-export function studioPinLine(variant: StudioVariant, pin: StudioPinNote): string {
+function studioPinSpot(pin: StudioPinNote): string {
   const { page, video } = pin;
-  const spot =
-    video !== undefined
-      ? `at ${studioPlaybackTime(video.time)}, about ${percent(video.x)} from the left and ${percent(video.y)} from the top of the video frame`
-      : page === null
-        ? `about ${percent(pin.fx)} from the left and ${percent(pin.fy)} from the top of the visible area`
-        : [
-            [
-              page.text.length > 0 ? `near "${oneLine(page.text).replaceAll('"', "'")}"` : "",
-              page.selector.length > 0 ? `(${oneLine(page.selector)})` : "",
-            ]
-              .filter((part) => part.length > 0)
-              .join(" "),
-            `about ${percent(page.width > 0 ? page.x / page.width : 0)} from the left and ${percent(page.height > 0 ? page.y / page.height : 0)} from the top of the page`,
-          ]
-            .filter((part) => part.length > 0)
-            .join(", ");
-  return `Option ${studioOptionLabel(variant, pin.version)}, pin ${pin.number} (${spot}): ${oneLine(pin.comment)}`;
+  if (video !== undefined) {
+    return `at ${studioPlaybackTime(video.time)}, about ${percent(video.x)} from the left and ${percent(video.y)} from the top of the video frame`;
+  }
+  if (page === null) {
+    return `about ${percent(pin.fx)} from the left and ${percent(pin.fy)} from the top of the visible area`;
+  }
+  return [
+    [
+      page.text.length > 0 ? `near "${oneLine(page.text).replaceAll('"', "'")}"` : "",
+      page.selector.length > 0 ? `(${oneLine(page.selector)})` : "",
+    ]
+      .filter((part) => part.length > 0)
+      .join(" "),
+    `about ${percent(page.width > 0 ? page.x / page.width : 0)} from the left and ${percent(page.height > 0 ? page.y / page.height : 0)} from the top of the page`,
+  ]
+    .filter((part) => part.length > 0)
+    .join(", ");
+}
+
+export function studioPinLine(variant: StudioVariant, pin: StudioPinNote): string {
+  return `Option ${studioOptionLabel(variant, pin.version)}, pin ${pin.number} (${studioPinSpot(pin)}): ${oneLine(pin.comment)}`;
 }
 
 /**
@@ -380,4 +384,112 @@ export function withStudioFeedback(
   ]);
   const body = prompt.trimEnd();
   return body.length === 0 ? lines.join("\n") : `${body}\n${lines.join("\n")}`;
+}
+
+/**
+ * The id a new option should take: the letter after the set's last single-letter id, or the
+ * first unused letter. Null when the set does not use letters or has run out of them.
+ */
+export function studioNextOptionId(manifest: StudioManifest): string | null {
+  const ids = new Set(manifest.variants.map((variant) => variant.id));
+  const letters = [...ids].filter((id) => /^[A-Za-z]$/.test(id));
+  if (letters.length === 0) return null;
+  const upper = letters.every((id) => id === id.toUpperCase());
+  const last = Math.max(...letters.map((id) => id.toUpperCase().charCodeAt(0)));
+  const codes = [
+    ...Array.from({ length: 90 - last }, (_, index) => last + 1 + index),
+    ...Array.from({ length: last - 65 }, (_, index) => 65 + index),
+  ];
+  const free = codes
+    .map((code) => String.fromCharCode(code))
+    .map((letter) => (upper ? letter : letter.toLowerCase()))
+    .find((id) => !ids.has(id));
+  return free ?? null;
+}
+
+/** A part of one option to keep in a mix: a pin placed in Mix mode, whose comment is the note. */
+export interface StudioMixPart {
+  readonly variant: StudioVariant;
+  readonly pin: StudioPinNote;
+}
+
+const mixPrefix = (manifest: StudioManifest) => `Studio mix for "${manifest.title}":`;
+const MIX_PART_START = "- Option ";
+const MIX_CLOSING_START = "Add the new option to ";
+
+const versionLabel = (variant: StudioVariant, version: StudioViewedVersion) =>
+  version === null ? `v${studioLatestVersion(variant)} (latest)` : `v${version}`;
+
+/**
+ * Asks the agent for a new option made of parts kept from others, listed in set order. Replaces
+ * an earlier mix request for the same set, so mixing again does not send two.
+ */
+export function withStudioMixRequest(
+  prompt: string,
+  manifest: StudioManifest,
+  setPath: string,
+  parts: readonly StudioMixPart[],
+): string {
+  const prefix = mixPrefix(manifest);
+  const lines = prompt.split("\n");
+  const start = lines.findIndex((line) => line.startsWith(prefix));
+  const partsEnd =
+    start === -1
+      ? -1
+      : lines.findIndex((line, index) => index > start && !line.startsWith(MIX_PART_START));
+  const end =
+    start === -1
+      ? -1
+      : partsEnd === -1
+        ? lines.length
+        : lines[partsEnd]!.startsWith(MIX_CLOSING_START)
+          ? partsEnd + 1
+          : partsEnd;
+  const kept = start === -1 ? lines : [...lines.slice(0, start), ...lines.slice(end)];
+  const body = kept.join("\n").trimEnd();
+  if (parts.length === 0) return body;
+  const order = new Map(manifest.variants.map((variant, index) => [variant.id, index]));
+  const sorted = [...parts].sort(
+    (a, b) =>
+      (order.get(a.variant.id) ?? 0) - (order.get(b.variant.id) ?? 0) ||
+      (a.pin.version ?? Infinity) - (b.pin.version ?? Infinity) ||
+      a.pin.number - b.pin.number,
+  );
+  const nextId = studioNextOptionId(manifest);
+  const request = [
+    `${prefix} make one new option that combines these parts.`,
+    ...sorted.map(({ variant, pin }) => {
+      const note = oneLine(pin.comment);
+      return `${MIX_PART_START}${variant.id} ${versionLabel(variant, pin.version)} (${setPath}/${studioVersionFile(variant, pin.version)}), pin ${pin.number} (${studioPinSpot(pin)})${note.length > 0 ? `: ${note}` : ""}`;
+    }),
+    `${MIX_CLOSING_START}${setPath}/${STUDIO_MANIFEST_NAME} as ${nextId === null ? "the next option" : `option ${nextId}`}, with a title and a note that says which part came from which option, and set "recommended" to ${nextId === null ? "its id" : `"${nextId}"`}. Leave the other options as they are.`,
+  ].join("\n");
+  return body.length === 0 ? request : `${body}\n${request}`;
+}
+
+/** One problem the automatic checks found in an option. */
+export interface StudioCheckIssueNote {
+  readonly message: string;
+  readonly selector: string | null;
+}
+
+/** Asks the agent to fix what the checks found in one option, at the version they ran on. */
+export function withStudioFixRequest(
+  prompt: string,
+  manifest: StudioManifest,
+  setPath: string,
+  variant: StudioVariant,
+  version: StudioViewedVersion,
+  issues: readonly StudioCheckIssueNote[],
+): string {
+  if (issues.length === 0) return prompt;
+  const request = [
+    `Studio checks on option ${studioOptionLabel(variant, version)} of "${manifest.title}" (${setPath}/${studioVersionFile(variant, version)}) found ${issues.length === 1 ? "1 issue" : `${issues.length} issues`}. Fix them in this option and leave the rest of the design as it is:`,
+    ...issues.map(
+      (issue) =>
+        `- ${oneLine(issue.message)}${issue.selector === null || issue.selector.length === 0 ? "" : ` (${oneLine(issue.selector)})`}`,
+    ),
+  ].join("\n");
+  const body = prompt.trimEnd();
+  return body.length === 0 ? request : `${body}\n${request}`;
 }

@@ -19,23 +19,29 @@ import {
   type Size,
   type StudioPin,
   type StudioPinDraft,
+  type StudioPinKind,
   type StudioScroll,
 } from "./studioPins";
 
 const POPOVER_SIZE = { width: 224, height: 124 } as const;
 
-function PinMarker(props: {
+export function PinMarker(props: {
   readonly label: number | null;
-  readonly point: Point;
+  readonly point?: Point;
+  readonly kind: StudioPinKind;
   readonly dim?: boolean;
 }) {
   return (
     <span
       className={cn(
-        "absolute flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary font-semibold text-3xs text-primary-foreground shadow-md ring-2 ring-background",
+        "flex size-5 shrink-0 items-center justify-center font-semibold text-3xs shadow-md ring-2 ring-background",
+        props.point !== undefined && "absolute -translate-x-1/2 -translate-y-1/2",
+        props.kind === "keep"
+          ? "rounded-sm bg-success text-white"
+          : "rounded-full bg-primary text-primary-foreground",
         props.dim && "opacity-50",
       )}
-      style={{ left: props.point.x, top: props.point.y }}
+      style={props.point === undefined ? undefined : { left: props.point.x, top: props.point.y }}
     >
       {props.label ?? "+"}
     </span>
@@ -44,26 +50,29 @@ function PinMarker(props: {
 
 function PinPopover(props: {
   readonly origin: Point;
+  readonly kind: StudioPinKind;
   readonly onSubmit: (comment: string) => void;
   readonly onCancel: () => void;
 }) {
   const [text, setText] = useState("");
-  const empty = text.trim().length === 0;
+  const keep = props.kind === "keep";
+  // A kept part speaks for itself; its note is optional.
+  const empty = !keep && text.trim().length === 0;
   const submit = () => {
     if (!empty) props.onSubmit(text.trim());
   };
   return (
     <div
       role="dialog"
-      aria-label="Comment on this spot"
+      aria-label={keep ? "Keep this part" : "Comment on this spot"}
       className="pointer-events-auto absolute flex flex-col gap-1.5 rounded-lg border bg-popover p-2 text-popover-foreground shadow-lg"
       style={{ left: props.origin.x, top: props.origin.y, width: POPOVER_SIZE.width }}
     >
       <Textarea
         size="sm"
         autoFocus
-        aria-label="Pin comment"
-        placeholder="What should change here?"
+        aria-label={keep ? "Note on this part" : "Pin comment"}
+        placeholder={keep ? "Note, optional: what to keep" : "What should change here?"}
         value={text}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
@@ -77,7 +86,7 @@ function PinPopover(props: {
           Cancel
         </Button>
         <Button type="button" size="xs" disabled={empty} onClick={submit}>
-          Add
+          {keep ? "Keep" : "Add"}
         </Button>
       </div>
     </div>
@@ -94,6 +103,8 @@ export function StudioPinLayer(props: {
   readonly size: Size | null;
   readonly zoom: number;
   readonly pinMode: boolean;
+  /** What a click in pin mode places. */
+  readonly pinKind: StudioPinKind;
   readonly pane: 0 | 1;
   readonly draft: StudioPinDraft | null;
   readonly onDraft: (draft: StudioPinDraft) => void;
@@ -202,6 +213,7 @@ export function StudioPinLayer(props: {
                 key={pin.id}
                 label={pin.number}
                 point={point}
+                kind={pin.kind}
                 dim={pin.page !== null && Math.abs(pin.zoom - props.zoom) > 0.01}
               />
             );
@@ -224,8 +236,9 @@ export function StudioPinLayer(props: {
       ) : null}
       {box !== null && props.draft !== null && draftPoint !== null ? (
         <>
-          <PinMarker label={null} point={draftPoint} />
+          <PinMarker label={null} point={draftPoint} kind={props.pinKind} />
           <PinPopover
+            kind={props.pinKind}
             origin={popoverOrigin(draftPoint, POPOVER_SIZE, box)}
             onSubmit={props.onSubmit}
             onCancel={props.onCancel}

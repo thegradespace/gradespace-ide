@@ -188,7 +188,7 @@ function StudioText(props: StudioContext & { readonly relativePath: string }) {
   );
 }
 
-function contentRevision(contents: string): string {
+export function contentRevision(contents: string): string {
   let hash = 0x811c9dc5;
   for (let index = 0; index < contents.length; index += 1) {
     hash = Math.imul(hash ^ contents.charCodeAt(index), 0x01000193) >>> 0;

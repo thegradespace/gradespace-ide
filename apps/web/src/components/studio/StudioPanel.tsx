@@ -51,11 +51,16 @@ import {
   studioViewedVersion,
   type StudioViewedVersion,
   withStudioFeedback,
+  withStudioFixRequest,
+  withStudioMixRequest,
   withStudioPicked,
   withStudioPickLine,
   withStudioRestoreLine,
 } from "./studioManifest";
-import type { NewStudioPin, StudioPin } from "./studioPins";
+import type { StudioCheckIssue } from "./studioChecks";
+import { StudioChecksBadge } from "./StudioChecksBadge";
+import { StudioMixTray } from "./StudioMixTray";
+import type { NewStudioPin, StudioPin, StudioPinKind } from "./studioPins";
 import { type StudioContext, showToast, StudioVariantPreview } from "./StudioVariantPreview";
 import { STUDIO_PAGE_WIDTH } from "./studioZoom";
 
@@ -246,7 +251,7 @@ function StudioSet(
   const [comparing, setComparing] = useState(false);
   const [compareId, setCompareId] = useState<string | null>(null);
   const [versions, setVersions] = useState<Readonly<Record<string, number>>>({});
-  const [pinMode, setPinMode] = useState(false);
+  const [pinMode, setPinMode] = useState<StudioPinKind | null>(null);
   const [pins, setPins] = useState<readonly StudioPin[]>([]);
   const nextPinId = useRef(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -356,8 +361,12 @@ function StudioSet(
       },
     ]);
   };
+  const commentPins = (variant: StudioVariant) =>
+    pins.filter((pin) => pin.kind === "comment" && pin.variantId === variant.id);
+  const keptParts = pins.filter((pin) => pin.kind === "keep");
+
   const sendFeedback = (variant: StudioVariant) => {
-    const own = pins.filter((pin) => pin.variantId === variant.id);
+    const own = commentPins(variant);
     updatePrompt((prompt) =>
       withStudioFeedback(prompt, manifest, props.setPath, variant, {
         comment: comments[variant.id] ?? "",
@@ -365,7 +374,8 @@ function StudioSet(
         pins: own,
       }),
     );
-    setPins((current) => current.filter((pin) => pin.variantId !== variant.id));
+    const sent = new Set(own.map((pin) => pin.id));
+    setPins((current) => current.filter((pin) => !sent.has(pin.id)));
     setComments((current) => ({ ...current, [variant.id]: "" }));
     showToast(
       "success",
@@ -379,7 +389,7 @@ function StudioSet(
       sendFeedback(variant);
       return;
     }
-    const own = pins.filter((pin) => pin.variantId === variant.id);
+    const own = commentPins(variant);
     const comment = comments[variant.id] ?? "";
     const text = withStudioFeedback("", manifest, props.setPath, variant, {
       comment,
@@ -407,6 +417,46 @@ function StudioSet(
     );
     showToast("success", `Sent your comments on option ${variant.id} to the agent`);
   };
+
+  const mixParts = () => {
+    const parts = keptParts.flatMap((pin) => {
+      const variant = manifest.variants.find((candidate) => candidate.id === pin.variantId);
+      return variant === undefined ? [] : [{ variant, pin }];
+    });
+    updatePrompt((prompt) => withStudioMixRequest(prompt, manifest, props.setPath, parts));
+    setPins((current) => current.filter((pin) => pin.kind !== "keep"));
+    setPinMode((mode) => (mode === "keep" ? null : mode));
+    showToast(
+      "success",
+      "Mix request added to your message",
+      "Send it and the agent will add the mixed option to this set.",
+    );
+  };
+  const askToFix = (
+    variant: StudioVariant,
+    version: StudioViewedVersion,
+    issues: readonly StudioCheckIssue[],
+  ) => {
+    updatePrompt((prompt) =>
+      withStudioFixRequest(prompt, manifest, props.setPath, variant, version, issues),
+    );
+    showToast(
+      "success",
+      `Fixes for option ${variant.id} added to your message`,
+      "Send it when you're ready.",
+    );
+  };
+  const mixTray =
+    pinMode === "keep" || keptParts.length > 0 ? (
+      <StudioMixTray
+        manifest={manifest}
+        parts={keptParts}
+        keeping={pinMode === "keep"}
+        onRemove={(id) => setPins((current) => current.filter((pin) => pin.id !== id))}
+        onClear={() => setPins((current) => current.filter((pin) => pin.kind !== "keep"))}
+        onMix={mixParts}
+      />
+    ) : null;
 
   const focused = manifest.variants.find((variant) => variant.id === focusedId) ?? null;
 
@@ -439,6 +489,7 @@ function StudioSet(
       onPinModeChange: setPinMode,
       pins,
       onAddPin: addPin,
+      onAskToFix: askToFix,
     };
     const feedbackVariants =
       compareVariant === null || compareVariant.id === focused.id
@@ -474,7 +525,7 @@ function StudioSet(
             </div>
           </>
         ) : fullscreen ? (
-          <StudioFullscreen onClose={() => setFullscreen(false)} busy={pinMode}>
+          <StudioFullscreen onClose={() => setFullscreen(false)} busy={pinMode !== null}>
             <StudioDesignStage
               {...stage}
               onPopOut={popOut}
@@ -510,6 +561,7 @@ function StudioSet(
           />
         )}
         <div className="flex max-h-[45%] shrink-0 flex-wrap gap-x-3 gap-y-3 overflow-y-auto border-t p-2">
+          {mixTray}
           {feedbackVariants.map((variant) => (
             <StudioFeedback
               key={variant.id}
@@ -517,7 +569,7 @@ function StudioSet(
               variant={variant}
               version={viewedVersion(variant)}
               comment={comments[variant.id] ?? ""}
-              pins={pins.filter((pin) => pin.variantId === variant.id)}
+              pins={commentPins(variant)}
               onCommentChange={(comment) =>
                 setComments((current) => ({ ...current, [variant.id]: comment }))
               }
@@ -533,57 +585,68 @@ function StudioSet(
   }
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] content-start gap-3 overflow-y-auto p-3">
-      {manifest.variants.map((variant) => {
-        const kind = studioVariantKind(variant.file);
-        const picked = manifest.picked === variant.id;
-        return (
-          <div
-            key={variant.id}
-            className={cn(
-              "flex min-w-0 flex-col overflow-hidden rounded-lg border bg-card",
-              picked && "border-primary",
-            )}
-          >
-            <button
-              type="button"
-              aria-label={`Open option ${variant.id}: ${variant.title}`}
-              className="aspect-[4/3] w-full cursor-pointer overflow-hidden border-b bg-background"
-              onClick={() => {
-                setZoom(null);
-                setFocusedId(variant.id);
-              }}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid min-h-0 flex-1 auto-rows-max grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] content-start gap-3 overflow-y-auto p-3">
+        {manifest.variants.map((variant) => {
+          const kind = studioVariantKind(variant.file);
+          const picked = manifest.picked === variant.id;
+          return (
+            <div
+              key={variant.id}
+              className={cn(
+                "flex min-w-0 flex-col overflow-hidden rounded-lg border bg-card",
+                picked && "border-primary",
+              )}
             >
-              <ScaledThumbnail fit={kind === "html"}>
-                <StudioVariantPreview {...props} variant={variant} thumbnail />
-              </ScaledThumbnail>
-            </button>
-            <div className="flex flex-1 flex-col gap-1 p-2">
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="shrink-0 font-semibold">{variant.id}</span>
-                <span className="min-w-0 truncate font-medium">{variant.title}</span>
-                <StudioVariantBadges manifest={manifest} variant={variant} />
-                {studioLatestVersion(variant) > 1 ? (
-                  <Badge variant="outline" size="sm">
-                    v{studioLatestVersion(variant)}
-                  </Badge>
+              <button
+                type="button"
+                aria-label={`Open option ${variant.id}: ${variant.title}`}
+                className="aspect-[4/3] w-full cursor-pointer overflow-hidden border-b bg-background"
+                onClick={() => {
+                  setZoom(null);
+                  setFocusedId(variant.id);
+                }}
+              >
+                <ScaledThumbnail fit={kind === "html"}>
+                  <StudioVariantPreview {...props} variant={variant} thumbnail />
+                </ScaledThumbnail>
+              </button>
+              <div className="flex flex-1 flex-col gap-1 p-2">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="shrink-0 font-semibold">{variant.id}</span>
+                  <span className="min-w-0 truncate font-medium">{variant.title}</span>
+                  <StudioVariantBadges manifest={manifest} variant={variant} />
+                  {studioLatestVersion(variant) > 1 ? (
+                    <Badge variant="outline" size="sm">
+                      v{studioLatestVersion(variant)}
+                    </Badge>
+                  ) : null}
+                </div>
+                {variant.note ? (
+                  <p className="line-clamp-2 text-muted-foreground text-xs">{variant.note}</p>
                 ) : null}
-              </div>
-              {variant.note ? (
-                <p className="line-clamp-2 text-muted-foreground text-xs">{variant.note}</p>
-              ) : null}
-              <div className="mt-auto flex items-center justify-between gap-1 pt-1">
-                <StudioPickButton
-                  picked={picked}
-                  disabled={saving}
-                  onPress={() => void togglePick(variant)}
-                />
-                <StudioExportButton {...props} variant={variant} />
+                <div className="mt-auto flex items-center justify-between gap-1 pt-1">
+                  <StudioPickButton
+                    picked={picked}
+                    disabled={saving}
+                    onPress={() => void togglePick(variant)}
+                  />
+                  <div className="flex min-w-0 items-center gap-1">
+                    <StudioChecksBadge
+                      {...props}
+                      variant={variant}
+                      optionLabel={variant.id}
+                      onAskToFix={(issues) => askToFix(variant, null, issues)}
+                    />
+                    <StudioExportButton {...props} variant={variant} />
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      {mixTray === null ? null : <div className="shrink-0 border-t p-2">{mixTray}</div>}
     </div>
   );
 }

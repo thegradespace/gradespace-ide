@@ -4,6 +4,7 @@ import {
   parseStudioManifest,
   studioCompareDefault,
   studioDownloadFileName,
+  studioNextOptionId,
   studioPinLine,
   studioPlaybackTime,
   studioSetPaths,
@@ -12,6 +13,8 @@ import {
   studioViewedVersion,
   withStudioComment,
   withStudioFeedback,
+  withStudioFixRequest,
+  withStudioMixRequest,
   withStudioPicked,
   withStudioPickLine,
   withStudioRestoreLine,
@@ -347,5 +350,84 @@ describe("studioSetPaths", () => {
         { path: ".gradespace/other", kind: "directory" },
       ]),
     ).toEqual([".gradespace/studio/2026-03-01-deck", ".gradespace/studio/2026-01-02-logo"]);
+  });
+});
+
+describe("mixing options", () => {
+  const c = { ...variant("C"), revisions: [{ file: "c.v1.html" }] };
+  const mixSet = { title: "Launch", variants: [variant("A"), variant("B"), c] };
+  const pin = (number: number, comment: string, version: number | null = null) => ({
+    number,
+    version,
+    comment,
+    fx: 0.5,
+    fy: 0.2,
+    page: { x: 640, y: 100, width: 1280, height: 2000, selector: "header.top", text: "Acme" },
+  });
+
+  it("lists kept parts in set order with version, pin, element and note", () => {
+    const text = withStudioMixRequest("Hi", mixSet, setPath, [
+      { variant: c, pin: { ...pin(2, " pricing \n table "), page: null } },
+      { variant: c, pin: pin(1, "", 1) },
+      { variant: mixSet.variants[0]!, pin: pin(1, "header") },
+    ]);
+    expect(text).toBe(
+      [
+        "Hi",
+        'Studio mix for "Launch": make one new option that combines these parts.',
+        `- Option A v1 (latest) (${setPath}/a.html), pin 1 (near "Acme" (header.top), about 50% from the left and 5% from the top of the page): header`,
+        `- Option C v1 (${setPath}/c.v1.html), pin 1 (near "Acme" (header.top), about 50% from the left and 5% from the top of the page)`,
+        `- Option C v2 (latest) (${setPath}/c.html), pin 2 (about 50% from the left and 20% from the top of the visible area): pricing table`,
+        `Add the new option to ${setPath}/studio.json as option D, with a title and a note that says which part came from which option, and set "recommended" to "D". Leave the other options as they are.`,
+      ].join("\n"),
+    );
+  });
+
+  it("replaces an earlier mix request and keeps the rest of the message", () => {
+    const a = mixSet.variants[0]!;
+    const first = withStudioMixRequest("Hi", mixSet, setPath, [{ variant: a, pin: pin(1, "x") }]);
+    const second = withStudioMixRequest(`${first}\nThanks`, mixSet, setPath, [
+      { variant: c, pin: pin(3, "y") },
+    ]);
+    expect(second.split("\n").filter((line) => line.startsWith("Studio mix"))).toHaveLength(1);
+    expect(second).toContain("Hi\nThanks\nStudio mix");
+    expect(second).not.toContain("Option A v1");
+    expect(withStudioMixRequest(first, mixSet, setPath, [])).toBe("Hi");
+  });
+
+  it("picks the next free letter for the new option", () => {
+    expect(studioNextOptionId(mixSet)).toBe("D");
+    expect(studioNextOptionId({ ...mixSet, variants: [variant("a"), variant("c")] })).toBe("d");
+    const full = Array.from({ length: 26 }, (_, index) => variant(String.fromCharCode(65 + index)));
+    expect(studioNextOptionId({ ...mixSet, variants: full.filter((v) => v.id !== "B") })).toBe("B");
+    expect(studioNextOptionId({ ...mixSet, variants: full })).toBeNull();
+    expect(studioNextOptionId({ ...mixSet, variants: [variant("hero")] })).toBeNull();
+    expect(
+      withStudioMixRequest("", { ...mixSet, variants: [variant("hero")] }, setPath, [
+        { variant: variant("hero"), pin: pin(1, "") },
+      ]),
+    ).toContain(
+      'as the next option, with a title and a note that says which part came from which option, and set "recommended" to its id.',
+    );
+  });
+});
+
+describe("withStudioFixRequest", () => {
+  const b = manifest.variants[1]!;
+  it("lists each issue with its element", () => {
+    expect(
+      withStudioFixRequest("Hi", manifest, setPath, b, null, [
+        { message: "Low contrast text: 2.3:1, needs 4.5:1", selector: "p.muted" },
+        { message: "The page has no lang attribute", selector: null },
+      ]),
+    ).toBe(
+      [
+        "Hi",
+        `Studio checks on option B of "Launch" (${setPath}/b.html) found 2 issues. Fix them in this option and leave the rest of the design as it is:`,
+        "- Low contrast text: 2.3:1, needs 4.5:1 (p.muted)",
+        "- The page has no lang attribute",
+      ].join("\n"),
+    );
+    expect(withStudioFixRequest("Hi", manifest, setPath, b, null, [])).toBe("Hi");
   });
 });
