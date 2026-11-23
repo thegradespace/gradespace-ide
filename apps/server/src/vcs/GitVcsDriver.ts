@@ -1144,10 +1144,10 @@ export const makeVcsDriverShape = Effect.fn("makeGitVcsDriverShape")(function* (
     (excludePaths ?? []).map((relativePath) => `:(exclude,literal)${relativePath}`);
 
   const checkpointIdentity: NodeJS.ProcessEnv = {
-    GIT_AUTHOR_NAME: "T3 Code",
-    GIT_AUTHOR_EMAIL: "t3code@users.noreply.github.com",
-    GIT_COMMITTER_NAME: "T3 Code",
-    GIT_COMMITTER_EMAIL: "t3code@users.noreply.github.com",
+    GIT_AUTHOR_NAME: "Gradespace IDE",
+    GIT_AUTHOR_EMAIL: "gradespace-ide@users.noreply.github.com",
+    GIT_COMMITTER_NAME: "Gradespace IDE",
+    GIT_COMMITTER_EMAIL: "gradespace-ide@users.noreply.github.com",
   };
 
   // Index files known to hold no assume-unchanged or skip-worktree entry, by their stat. Setting
@@ -1267,10 +1267,10 @@ export const makeVcsDriverShape = Effect.fn("makeGitVcsDriverShape")(function* (
         GIT_ALTERNATE_OBJECT_DIRECTORIES: quotedObjects.startsWith('"')
           ? quotedObjects
           : `"${quotedObjects}"`,
-        GIT_AUTHOR_NAME: "T3 Code",
-        GIT_AUTHOR_EMAIL: "t3code@users.noreply.github.com",
-        GIT_COMMITTER_NAME: "T3 Code",
-        GIT_COMMITTER_EMAIL: "t3code@users.noreply.github.com",
+        GIT_AUTHOR_NAME: "Gradespace IDE",
+        GIT_AUTHOR_EMAIL: "gradespace-ide@users.noreply.github.com",
+        GIT_COMMITTER_NAME: "Gradespace IDE",
+        GIT_COMMITTER_EMAIL: "gradespace-ide@users.noreply.github.com",
       };
 
       const cleanupTempIndex = Effect.forEach(
@@ -1745,7 +1745,7 @@ export const makeVcsDriverShape = Effect.fn("makeGitVcsDriverShape")(function* (
                     "-p",
                     commit,
                     "-m",
-                    `t3 checkpoint turn start ref=${input.checkpointRef}`,
+                    `Gradespace checkpoint turn start ref=${input.checkpointRef}`,
                   ],
                   // listAuthoredPaths reads commits newer than the start as the turn's own.
                   env: { ...commitEnv, GIT_COMMITTER_DATE: `${capturedAt} +0000` },
@@ -1761,7 +1761,7 @@ export const makeVcsDriverShape = Effect.fn("makeGitVcsDriverShape")(function* (
                 ),
               );
 
-        const message = `t3 checkpoint ref=${input.checkpointRef}${
+        const message = `Gradespace checkpoint ref=${input.checkpointRef}${
           headMark === undefined ? "" : `\n\n${HEAD_MARK_TRAILER}: ${headMark}`
         }`;
         // HEAD is the first parent so listAuthoredPaths can see how HEAD moved between checkpoints.
@@ -1980,7 +1980,7 @@ export const makeVcsDriverShape = Effect.fn("makeGitVcsDriverShape")(function* (
             "-p",
             input.head,
             "-m",
-            `t3 checkpoint ref=${input.checkpointRef}${
+            `Gradespace checkpoint ref=${input.checkpointRef}${
               headMark === undefined ? "" : `\n\n${HEAD_MARK_TRAILER}: ${headMark}`
             }`,
           ],
