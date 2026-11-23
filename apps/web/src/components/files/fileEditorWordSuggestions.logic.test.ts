@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { collectWordSuggestions, wordLanguageForPath } from "./fileEditorWordSuggestions.logic";
+import {
+  collectWordSuggestions,
+  wordInsertion,
+  wordLanguageForPath,
+} from "./fileEditorWordSuggestions.logic";
 
 /** `|` marks the caret. */
 function suggest(path: string, source: string) {
@@ -34,5 +38,27 @@ describe("collectWordSuggestions", () => {
     expect(suggest("a.ts", "re|turn")).toBeNull();
     expect(suggest("notes.txt", "hello\nhe|")).toBeNull();
     expect(suggest("a.ts", "12|")).toBeNull();
+  });
+});
+
+describe("wordInsertion", () => {
+  const html = wordLanguageForPath("index.html");
+  it.each([
+    ["class", true, undefined, 'class=""', 7],
+    ["href", true, ">", 'href=""', 6],
+    ["class", true, "=", "class", 5],
+    ["class", false, undefined, "class", 5],
+    ["disabled", true, undefined, "disabled", 8],
+  ] as const)("%s (inside tag: %s, next %s)", (word, insideTag, nextChar, text, caretOffset) => {
+    expect(wordInsertion(word, html, { insideTag, nextChar })).toEqual({ text, caretOffset });
+  });
+
+  it("leaves JSX attributes alone", () => {
+    expect(
+      wordInsertion("class", wordLanguageForPath("App.tsx"), {
+        insideTag: true,
+        nextChar: undefined,
+      }),
+    ).toEqual({ text: "class", caretOffset: 5 });
   });
 });

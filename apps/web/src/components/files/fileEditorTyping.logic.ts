@@ -47,6 +47,8 @@ export interface TypingLanguage {
   readonly pairQuotes: string;
   /** A line ending in `:` opens a block (Python, YAML). */
   readonly colonIndents: boolean;
+  /** `=` after an attribute name in a tag adds `""` (HTML and XML, not JSX). */
+  readonly quoteAttributes: boolean;
 }
 
 const PLAIN: TypingLanguage = {
@@ -56,11 +58,17 @@ const PLAIN: TypingLanguage = {
   pairBrackets: false,
   pairQuotes: "",
   colonIndents: false,
+  quoteAttributes: false,
 };
 const CODE: TypingLanguage = { ...PLAIN, pairBrackets: true, pairQuotes: `"'` };
 const SCRIPT: TypingLanguage = { ...CODE, pairQuotes: `"'\`` };
-const HTML: TypingLanguage = { ...CODE, closeTags: true, voidElements: true };
-const XML: TypingLanguage = { ...CODE, closeTags: true };
+const HTML: TypingLanguage = {
+  ...CODE,
+  closeTags: true,
+  voidElements: true,
+  quoteAttributes: true,
+};
+const XML: TypingLanguage = { ...CODE, closeTags: true, quoteAttributes: true };
 const JSX: TypingLanguage = { ...SCRIPT, closeTags: true, voidElements: true };
 const TSX: TypingLanguage = { ...JSX, typeScriptGenerics: true };
 const COLON: TypingLanguage = { ...CODE, colonIndents: true };
@@ -179,6 +187,20 @@ function openTagBefore(before: string, language: TypingLanguage): string | null 
   return name;
 }
 
+/** Whether `before` ends inside an open tag's attributes, outside any quoted value. */
+function endsInsideOpenTag(before: string): boolean {
+  const match = /<[A-Za-z][\w:.-]*(\s[^<>]*)$/.exec(before);
+  if (!match) return false;
+  const attributes = match[1] ?? "";
+  const count = (quote: string) => attributes.split(quote).length - 1;
+  return count('"') % 2 === 0 && count("'") % 2 === 0;
+}
+
+/** Whether the caret sits among a tag's attributes, so an attribute name typed here takes a value. */
+export function caretInsideOpenTag(document: TypingDocument, position: TypingPosition): boolean {
+  return endsInsideOpenTag(textBeforeCaret(document, position));
+}
+
 /** The innermost tag still open at the end of `text`. */
 function innermostOpenTag(text: string, language: TypingLanguage): string | null {
   const stack: string[] = [];
@@ -249,6 +271,18 @@ function planCaretText(
     // `don't`, `"abc"` and `x'` are not the start of a string.
     if (prev !== undefined && (WORD_CHAR.test(prev) || prev === text || prev === "\\")) return null;
     return insert(text + text, 1);
+  }
+
+  if (
+    language.quoteAttributes &&
+    text === "=" &&
+    prev !== undefined &&
+    /[\w-]/.test(prev) &&
+    next !== '"' &&
+    next !== "'" &&
+    endsInsideOpenTag(textBeforeCaret(document, position))
+  ) {
+    return insert('=""', 2);
   }
 
   if (language.closeTags && text === ">") {

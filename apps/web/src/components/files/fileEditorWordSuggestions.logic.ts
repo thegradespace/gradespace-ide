@@ -13,9 +13,17 @@ const PY_KEYWORDS =
     " ",
   );
 const HTML_WORDS =
-  "html head body title meta link script style div span section article header footer main nav aside button input label form select option textarea img picture source video audio canvas svg table thead tbody tr th td ul ol li strong em small template slot class href src alt type name value placeholder rel content charset width height loading target disabled required checked hidden aria-label aria-hidden role data-".split(
+  "html head body title meta link script style div span section article header footer main nav aside button input label form select option textarea img picture source video audio canvas svg table thead tbody tr th td ul ol li strong em small template slot class id href src alt type name value placeholder rel content charset width height loading target disabled required checked hidden aria-label aria-hidden role style for action method lang title srcset data-".split(
     " ",
   );
+/** HTML attributes that take a value; picking one inside a tag inserts `name=""`. */
+const HTML_VALUE_ATTRIBUTES: ReadonlySet<string> = new Set(
+  "class id href src alt type name value placeholder rel content charset width height loading target role style for action method lang title srcset sizes media aria-label aria-hidden aria-describedby".split(
+    " ",
+  ),
+);
+const NO_VALUE_ATTRIBUTES: ReadonlySet<string> = new Set();
+
 const CSS_WORDS =
   "display flex grid block inline none position absolute relative fixed sticky width height margin padding border background color font-size font-weight font-family line-height letter-spacing text-align justify-content align-items gap opacity transform transition overflow z-index cursor box-shadow border-radius important".split(
     " ",
@@ -32,38 +40,47 @@ export interface WordLanguage {
   /** Words may contain `-`, as in CSS properties and HTML attributes. */
   readonly dashWords: boolean;
   readonly keywords: readonly string[];
+  readonly valueAttributes: ReadonlySet<string>;
 }
 
 export function wordLanguageForPath(path: string): WordLanguage {
   const name = path.slice(path.lastIndexOf("/") + 1).toLowerCase();
   const dot = name.lastIndexOf(".");
   const extension = dot > 0 ? name.slice(dot + 1) : "";
-  if (extension === "" || PLAIN_EXTENSIONS.has(extension))
-    return { enabled: false, dashWords: false, keywords: [] };
+  const code = (keywords: readonly string[], dashWords = false): WordLanguage => ({
+    enabled: true,
+    dashWords,
+    keywords,
+    valueAttributes: NO_VALUE_ATTRIBUTES,
+  });
+  if (extension === "" || PLAIN_EXTENSIONS.has(extension)) return { ...code([]), enabled: false };
   if (TS_EXTENSIONS.has(extension))
-    return {
-      enabled: true,
-      dashWords: false,
-      keywords:
-        extension === "tsx"
-          ? [...JS_KEYWORDS, ...TS_EXTRA, ...HTML_WORDS]
-          : [...JS_KEYWORDS, ...TS_EXTRA],
-    };
+    return code(
+      extension === "tsx"
+        ? [...JS_KEYWORDS, ...TS_EXTRA, ...HTML_WORDS]
+        : [...JS_KEYWORDS, ...TS_EXTRA],
+    );
   if (JS_EXTENSIONS.has(extension))
-    return {
-      enabled: true,
-      dashWords: false,
-      keywords: extension === "jsx" ? [...JS_KEYWORDS, ...HTML_WORDS] : JS_KEYWORDS,
-    };
-  if (extension === "py") return { enabled: true, dashWords: false, keywords: PY_KEYWORDS };
+    return code(extension === "jsx" ? [...JS_KEYWORDS, ...HTML_WORDS] : JS_KEYWORDS);
+  if (extension === "py") return code(PY_KEYWORDS);
   if (HTML_EXTENSIONS.has(extension))
     return {
-      enabled: true,
-      dashWords: true,
-      keywords: [...HTML_WORDS, ...CSS_WORDS, ...JS_KEYWORDS],
+      ...code([...HTML_WORDS, ...CSS_WORDS, ...JS_KEYWORDS], true),
+      valueAttributes: HTML_VALUE_ATTRIBUTES,
     };
-  if (CSS_EXTENSIONS.has(extension)) return { enabled: true, dashWords: true, keywords: CSS_WORDS };
-  return { enabled: true, dashWords: false, keywords: [] };
+  if (CSS_EXTENSIONS.has(extension)) return code(CSS_WORDS, true);
+  return code([]);
+}
+
+/** The text to insert for a picked word: an HTML attribute inside a tag gets `=""`. */
+export function wordInsertion(
+  word: string,
+  language: WordLanguage,
+  context: { readonly insideTag: boolean; readonly nextChar: string | undefined },
+): { readonly text: string; readonly caretOffset: number } {
+  return context.insideTag && context.nextChar !== "=" && language.valueAttributes.has(word)
+    ? { text: `${word}=""`, caretOffset: word.length + 2 }
+    : { text: word, caretOffset: word.length };
 }
 
 const isWordChar = (char: string, dashWords: boolean) =>

@@ -1,5 +1,14 @@
-import type { TypingDocument, TypingEdit, TypingRange } from "./fileEditorTyping.logic";
-import { collectWordSuggestions, wordLanguageForPath } from "./fileEditorWordSuggestions.logic";
+import {
+  caretInsideOpenTag,
+  type TypingDocument,
+  type TypingEdit,
+  type TypingRange,
+} from "./fileEditorTyping.logic";
+import {
+  collectWordSuggestions,
+  wordInsertion,
+  wordLanguageForPath,
+} from "./fileEditorWordSuggestions.logic";
 
 interface WordSuggestionEditor {
   getEditState(): { document: TypingDocument } | undefined;
@@ -113,10 +122,14 @@ export function installFileEditorWordSuggestions({
     const current = open;
     close();
     if (editor === null || caret === undefined || current === null) return;
-    const word = current.words[index]!;
+    const document = editor.getEditState()?.document;
     const start = { line: current.line, character: current.start };
-    editor.applyEdits([{ range: { start, end: caret.end }, newText: word }]);
-    const end = { line: current.line, character: current.start + word.length };
+    const insertion = wordInsertion(current.words[index]!, language, {
+      insideTag: document !== undefined && caretInsideOpenTag(document, start),
+      nextChar: document?.getLineText(caret.end.line)[caret.end.character],
+    });
+    editor.applyEdits([{ range: { start, end: caret.end }, newText: insertion.text }]);
+    const end = { line: current.line, character: current.start + insertion.caretOffset };
     editor.setSelections([{ start: end, end, direction: "none" }]);
   }
 

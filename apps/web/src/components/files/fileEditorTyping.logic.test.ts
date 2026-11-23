@@ -78,6 +78,15 @@ describe("closing tags", () => {
     expect(type(path, source, ">")).toBeNull();
   });
 
+  it("adds quotes after an attribute name", () => {
+    expect(type("index.html", "<a href|", "=")).toBe('<a href="|"');
+    expect(type("index.html", "<div data-id|>", "=")).toBe('<div data-id="|">');
+    expect(type("feed.xml", "<link rel|", "=")).toBe('<link rel="|"');
+    expect(type("index.html", "a href|", "=")).toBeNull();
+    expect(type("index.html", '<a title="x href|', "=")).toBeNull();
+    expect(type("App.tsx", "<a href|", "=")).toBeNull();
+  });
+
   it("closes a tag whose attributes span lines", () => {
     expect(type("index.html", '<section\n  id="hero"|', ">")).toBe(
       '<section\n  id="hero">|</section>',
