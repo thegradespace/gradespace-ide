@@ -115,6 +115,7 @@ import {
   promptFileCommentEntries,
 } from "./fileCommentAnnotations";
 import { installFileEditorDismissal } from "./fileEditorDismissal";
+import { installFileEditorTyping } from "./fileEditorTyping";
 import {
   FILE_LINK_REVEAL_ATTRIBUTE,
   FILE_LINK_REVEAL_UNSAFE_CSS,
@@ -1089,6 +1090,16 @@ function EditableFileSurface({
       onDismiss: () => setSelectedRange(null),
     });
   }, [hasOpenCommentForm, setSelectedRange]);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- installs typing listeners on the editor surface DOM node
+  useEffect(() => {
+    const root = surfaceRef.current;
+    if (!root) return;
+    return installFileEditorTyping({
+      root,
+      path: relativePath,
+      getEditor: () => editorRef.current,
+    });
+  }, [relativePath]);
   const handleLineSelectionEnd = (range: SelectedLineRange | null) => {
     setSelectedRange(range);
     if (range) {
