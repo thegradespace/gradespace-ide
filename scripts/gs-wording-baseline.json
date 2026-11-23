@@ -9,6 +9,7 @@
   "apps/server/src/cli/up.ts": 1,
   "apps/server/src/cloud/CloudLink.ts": 3,
   "apps/server/src/cloud/pinnedRuntime.ts": 1,
+  "apps/server/src/feedback/FeedbackReport.ts": 35,
   "apps/server/src/persistence/AuthPairingLinks.ts": 1,
   "apps/server/src/policy/managedLimits.ts": 1,
   "apps/server/src/policy/policyTemplates.ts": 4,

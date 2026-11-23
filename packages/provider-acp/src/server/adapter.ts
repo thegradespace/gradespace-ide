@@ -80,6 +80,7 @@ import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderS
 import * as McpProviderSession from "@t3tools/provider-core/server/mcpSession";
 import {
   applyAcpAgentTerminalUpdate,
+  MAX_AGENT_TERMINAL_OUTPUT_CHARS,
   acpContentBlockDisplayText,
   embeddedTerminalIdsFromSessionUpdate,
   extractMcpToolCallIdentity,
@@ -389,15 +390,17 @@ export interface AcpAdapterV2Flavor {
   /** The flavor's runtime refuses a version the policy rates broken when it starts. */
   readonly checksVersionAtHandshake?: boolean;
   /**
-   * Runs before `session/prompt`. The returned check sees a prompt the agent ended
-   * without an error or cancel, and reports a failure its stop reason hid. A reported
-   * failure restarts the runtime before the next turn. A `broken` thread's native
-   * history is unusable, so the next turn falls back to a fresh session.
+   * Runs before `session/prompt`. The check reports a failure hidden by a clean stop, or
+   * by silence when the inactivity watchdog retires the prompt (`retired`). A failure
+   * restarts the runtime; a `broken` thread's next turn starts a fresh session.
    */
   readonly watchPromptOutcome?: (
     sessionId: string,
   ) => Effect.Effect<
-    (result: EffectAcpSchema.PromptResponse) => Effect.Effect<AcpPromptOutcomeFailure | undefined>
+    (
+      result: EffectAcpSchema.PromptResponse,
+      options?: { readonly retired?: boolean },
+    ) => Effect.Effect<AcpPromptOutcomeFailure | undefined>
   >;
   readonly requiresSignIn?: (cause: unknown) => boolean;
   /**
@@ -637,6 +640,15 @@ export interface AcpAdapterV2Flavor {
    * tool ends. With `deferFinalizeForBackgroundWork`, the turn stays open until then.
    */
   readonly toolOutlivesPrompt?: (toolCall: AcpToolCallState) => boolean;
+  /**
+   * Finalize a settled turn held only by running commands once the session has been silent for
+   * `timeout`, so a command that never reports back cannot leave the thread in Working forever.
+   * Other holds (questions, schedules, subagents) keep the turn open as before.
+   */
+  readonly postSettleCommandHold?: {
+    readonly timeout: Duration.Input;
+    readonly isCommand: (toolCall: AcpToolCallState) => boolean;
+  };
   readonly isProviderWakeNotification?: (
     notification: EffectAcpSchema.SessionNotification,
   ) => boolean;
@@ -1737,6 +1749,12 @@ interface ActiveAcpTurn {
   inactivityWatchdog: Fiber.Fiber<void> | undefined;
 }
 
+const PROMPT_OUTCOME_CHECK_TIMEOUT = Duration.seconds(5);
+
+type PromptOutcomeCheck = Effect.Success<
+  ReturnType<NonNullable<AcpAdapterV2Flavor["watchPromptOutcome"]>>
+>;
+
 type AcpRuntimeTeardownState =
   | { readonly _tag: "Idle" }
   | {
@@ -1990,9 +2008,6 @@ const emptySnapshotState = (): SnapshotMessageState => ({
 /** How long a Stop waits for the agent to confirm before the user is offered Force stop. */
 const ACP_STOP_CONFIRM_TIMEOUT_MS = 10_000;
 const TOOL_UPDATE_PERSIST_EVERY = 10;
-
-// CommandOutputHub reads the last 256 KiB; retain more so its display cut stays unchanged.
-const MAX_AGENT_TERMINAL_OUTPUT_CHARS = 320 * 1024;
 
 // Agents can resend whole calls while streaming arguments.
 function shouldPersistToolUpdate(
@@ -2742,7 +2757,12 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
         const notePromptProgress =
           /* Provider events include streaming deltas; avoid a span for each update. */
           Effect.fnUntraced(function* (notification?: EffectAcpSchema.SessionNotification) {
-            if (promptInactivityTimeoutMillis === undefined) return;
+            if (
+              promptInactivityTimeoutMillis === undefined &&
+              flavor.postSettleCommandHold === undefined
+            ) {
+              return;
+            }
             if (
               notification !== undefined &&
               !ACP_PROMPT_ACTIVITY_UPDATES.has(notification.update.sessionUpdate)
@@ -4274,11 +4294,15 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
         const isMonitorEndNoticeText = (text: string): boolean =>
           /Monitor\s+["']?[0-9a-f-]{8,}/i.test(text) && /ended/i.test(text);
 
-        const hasDeferredBackgroundWork = (context: ActiveAcpTurn): boolean => {
+        const hasDeferredBackgroundWork = (
+          context: ActiveAcpTurn,
+          ignoreTool?: (tool: AcpToolCallState) => boolean,
+        ): boolean => {
           if (flavor.wakeOnDetachedRequest && agentRequests.size > 0) return true;
           if (flavor.toolOutlivesPrompt !== undefined) {
             // A tool that never started has nothing to report later.
             for (const tool of context.tools.values()) {
+              if (ignoreTool?.(tool) === true) continue;
               if (toolStatus(tool.status) === "running" && flavor.toolOutlivesPrompt(tool))
                 return true;
             }
@@ -8835,6 +8859,39 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
           yield* options.testHooks?.onDeferredFinalizeScheduled?.(debounce) ?? Effect.void;
         });
 
+        const schedulePostSettleHoldExpiry = Effect.fn("AcpAdapterV2.schedulePostSettleHoldExpiry")(
+          function* (context: ActiveAcpTurn) {
+            const hold = flavor.postSettleCommandHold;
+            if (hold === undefined) return;
+            if (!context.promptSettled || context.finalized) return;
+            const timeoutMillis = Duration.toMillis(hold.timeout);
+            const isRunningCommand = (tool: AcpToolCallState) =>
+              toolStatus(tool.status) === "running" && hold.isCommand(tool);
+            let quietSince = yield* Clock.currentTimeMillis;
+            // Armed even without a command yet: a pending reply can still start one.
+            yield* Effect.gen(function* () {
+              while (!context.finalized) {
+                quietSince = Math.max(quietSince, context.lastProgressAt);
+                const now = yield* Clock.currentTimeMillis;
+                const remaining = quietSince + timeoutMillis - now;
+                if (remaining > 0) {
+                  yield* Effect.sleep(Duration.millis(remaining));
+                  continue;
+                }
+                if (
+                  context.tools.values().some(isRunningCommand) &&
+                  !hasDeferredBackgroundWork(context, isRunningCommand)
+                ) {
+                  yield* finalizeTurn(context, context.promptSettledStatus ?? "completed");
+                  return;
+                }
+                // Something else still holds the turn; count silence again once it clears.
+                quietSince = now;
+              }
+            }).pipe(Effect.forkIn(sessionScope), Effect.asVoid);
+          },
+        );
+
         const promptInactivityPaused = Effect.fn("AcpAdapterV2.promptInactivityPaused")(function* (
           context: ActiveAcpTurn,
         ) {
@@ -8858,6 +8915,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
           context: ActiveAcpTurn,
           generation: number,
           timeoutMillis: number,
+          checkPromptOutcome: PromptOutcomeCheck | undefined,
         ) {
           const retired = yield* runRuntimeCallbackAtGeneration(
             generation,
@@ -8878,14 +8936,31 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
               yield* Ref.set(runtimeRestartRequired, true);
               yield* cancelPendingRuntimeRequests();
               yield* terminalizeOpenForegroundTools(context, "failed");
+              // Bounded: it runs under the transition permit that Stop and the next turn wait on.
+              const recorded =
+                checkPromptOutcome === undefined
+                  ? undefined
+                  : yield* checkPromptOutcome({ stopReason: "end_turn" }, { retired: true }).pipe(
+                      Effect.timeout(PROMPT_OUTCOME_CHECK_TIMEOUT),
+                      Effect.catchCause((cause) =>
+                        Effect.logError("failed to check a silent ACP prompt's outcome", {
+                          driver,
+                          cause,
+                        }).pipe(Effect.as(undefined)),
+                      ),
+                    );
               const minutes = Math.max(1, Math.round(timeoutMillis / 60_000));
               yield* finalizeTurn(
                 context,
                 "failed",
-                makeProviderFailure({
-                  class: "provider_error",
-                  message: `${flavor.runtimeHarness ?? driver} sent nothing for ${minutes} ${minutes === 1 ? "minute" : "minutes"}, so GS stopped the turn and restarted the agent. Send a message to continue.`,
-                }),
+                recorded?.failure ??
+                  makeProviderFailure({
+                    class: "provider_error",
+                    message: `${flavor.runtimeHarness ?? driver} sent nothing for ${minutes} ${minutes === 1 ? "minute" : "minutes"}, so GS stopped the turn and restarted the agent. Send a message to continue.`,
+                  }),
+                recorded === undefined
+                  ? undefined
+                  : { threadDisposition: recorded.threadDisposition },
               );
               return "retired" as const;
             }),
@@ -8909,6 +8984,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
           context: ActiveAcpTurn,
           generation: number,
           timeoutMillis: number,
+          checkPromptOutcome: PromptOutcomeCheck | undefined,
         ) {
           yield* Deferred.await(context.promptDispatched);
           context.lastProgressAt = yield* Clock.currentTimeMillis;
@@ -8927,7 +9003,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
               continue;
             }
             const outcome = yield* runtimeTransitionPermit.withPermit(
-              retireInactivePrompt(context, generation, timeoutMillis),
+              retireInactivePrompt(context, generation, timeoutMillis, checkPromptOutcome),
             );
             if (outcome !== "rearm") return;
           }
@@ -9041,6 +9117,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
           });
           const sessionSetup = yield* Ref.get(activeSessionSetup);
           const runtimeInstructions = buildRuntimeInstructions({
+            agentFeedback: instructionState.hasT3Mcp ? (turnInput.agentFeedback ?? "off") : "off",
             harness: flavor.runtimeHarness ?? driver,
             model: turnInput.modelSelection.model,
             runtimePolicy: turnInput.runtimePolicy,
@@ -9265,6 +9342,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
                   if (context.finalized) return;
                   if (deferredBackgroundWork || pendingReply) {
                     yield* closeTextStreams(context);
+                    yield* schedulePostSettleHoldExpiry(context);
                     if (pendingReply) {
                       context.replyOpen = true;
                       yield* scheduleDeferredFinalize(context);
@@ -9665,6 +9743,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
                 return;
               }
               if (!context.finalized) {
+                yield* schedulePostSettleHoldExpiry(context);
                 if (hasDeferredBackgroundWork(context)) {
                   yield* rearmDeferredFinalize(context);
                 } else {
@@ -9688,6 +9767,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
                 context,
                 promptGeneration,
                 promptInactivityTimeoutMillis,
+                checkPromptOutcome,
               ).pipe(Effect.forkIn(sessionScope));
             }
             const compactSession = isCompactionMessage(turnInput.message)
@@ -9790,6 +9870,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
                       context,
                       generation,
                       promptInactivityTimeoutMillis,
+                      checkPromptOutcome,
                     ).pipe(Effect.forkIn(sessionScope));
                   }
                   const releasedForSteer = context.foregroundIdle;
