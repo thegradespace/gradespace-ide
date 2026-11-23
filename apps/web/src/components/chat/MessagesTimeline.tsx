@@ -149,6 +149,8 @@ import {
   useStableRows,
   useStableStudioTurnSets,
 } from "./useTimelineRows";
+import { useRightPanelStore } from "../../rightPanelStore";
+import { latestStudioSetForRun } from "../studio/studioTurnSets.logic";
 import { useClientSettings } from "../../hooks/useSettings";
 
 function timelineListStateFor(identity: string): {
@@ -167,6 +169,13 @@ function timelineListStateFor(identity: string): {
   };
 }
 
+const ACTIVE_RUN_STATUSES: ReadonlySet<string> = new Set([
+  "preparing",
+  "queued",
+  "starting",
+  "running",
+  "waiting",
+]);
 const TIMELINE_LIST_HEADER = <div className="h-3 sm:h-4" />;
 const TIMELINE_LIST_FADE_HEADER = (
   <div className="h-[var(--workspace-titlebar-scroll-fade-height)]" />
@@ -610,6 +619,8 @@ const ConversationTimeline = memo(function ConversationTimeline({
     });
   };
 
+  // A run seen finishing here, not one already done when the thread opened, may open Studio.
+  const [studioRunToOpen, setStudioRunToOpen] = useState<string | null>(null);
   // An interrupted run opens its fold; a newer run closes the previous run's.
   const [observedLatestRun, setObservedLatestRun] = useState({
     identity: listIdentityKey,
@@ -627,6 +638,15 @@ const ConversationTimeline = memo(function ConversationTimeline({
       status: latestRun?.status,
     });
     const previousRunId = observedLatestRun.runId;
+    if (observedLatestRun.identity !== listIdentityKey) setStudioRunToOpen(null);
+    else if (
+      latestRun?.status === "completed" &&
+      latestRun.runId === previousRunId &&
+      observedLatestRun.status !== undefined &&
+      ACTIVE_RUN_STATUSES.has(observedLatestRun.status)
+    ) {
+      setStudioRunToOpen(latestRun.runId);
+    }
     if (
       observedLatestRun.identity === listIdentityKey &&
       latestRun &&
@@ -787,6 +807,16 @@ const ConversationTimeline = memo(function ConversationTimeline({
   const runs = useStableHandoffRuns(runsProp);
   const replyDevices = replyDevicesByRowId(rows);
   const studioSetsByMessageId = useStableStudioTurnSets(timelineEntries, workspaceRoot);
+  const openFinishedStudioSet = useEffectEvent((runId: string) => {
+    const set = latestStudioSetForRun(studioSetsByMessageId, runId);
+    if (set !== null && citationThreadRef !== null) {
+      useRightPanelStore.getState().openStudio(citationThreadRef, set.setPath);
+    }
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- opens the Studio panel store once when a run that wrote a set finishes
+  useEffect(() => {
+    if (studioRunToOpen !== null) openFinishedStudioSet(studioRunToOpen);
+  }, [studioRunToOpen]);
   const minimapItems = deriveTimelineMinimapItems(rows);
   const minimapRowIndices = minimapItems.map((item) => item.rowIndex);
   const restoreRowIndex =

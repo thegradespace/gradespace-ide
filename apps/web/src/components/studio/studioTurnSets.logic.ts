@@ -9,6 +9,7 @@ export interface StudioTurnSet {
   readonly name: string;
   /** Changes when the turn touched the set again, so a card rereads its manifest. */
   readonly revision: string;
+  readonly runId: string;
 }
 
 const SET_FOLDER = new RegExp(`^${STUDIO_ROOT.replaceAll(".", "\\.")}/([^/]+)(?:/|$)`, "u");
@@ -58,9 +59,38 @@ export function collectStudioTurnSets(
       });
     }
     const cards = [...sets].flatMap(([setPath, { revision, live }]) =>
-      live ? [{ setPath, name: setPath.slice(STUDIO_ROOT.length + 1), revision }] : [],
+      live ? [{ setPath, name: setPath.slice(STUDIO_ROOT.length + 1), revision, runId }] : [],
     );
     if (cards.length > 0) result.set(messageId, cards);
   }
   return result;
+}
+
+/** The set a run wrote most recently, for opening Studio when that run finishes. */
+export function latestStudioSetForRun(
+  setsByMessageId: ReadonlyMap<string, ReadonlyArray<StudioTurnSet>>,
+  runId: string,
+): StudioTurnSet | null {
+  let latest: StudioTurnSet | null = null;
+  for (const sets of setsByMessageId.values()) {
+    for (const set of sets) {
+      if (set.runId === runId && (latest === null || set.revision >= latest.revision)) latest = set;
+    }
+  }
+  return latest;
+}
+
+/**
+ * The Studio set folder a linked file sits in, workspace-relative, or null. Accepts a
+ * workspace-relative path or an absolute one inside `cwd`.
+ */
+export function studioSetPathForFile(path: string, cwd: string | null | undefined): string | null {
+  const normalized = path.replaceAll("\\", "/");
+  const root = cwd?.replaceAll("\\", "/").replace(/\/+$/, "");
+  const relative =
+    root !== undefined && root !== "" && normalized.startsWith(`${root}/`)
+      ? normalized.slice(root.length + 1)
+      : normalized.replace(/^\.\//, "");
+  const match = SET_FOLDER.exec(relative);
+  return match === null ? null : `${STUDIO_ROOT}/${match[1]}`;
 }

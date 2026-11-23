@@ -9,7 +9,11 @@ import {
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
 
-import { collectStudioTurnSets } from "./studioTurnSets.logic";
+import {
+  collectStudioTurnSets,
+  latestStudioSetForRun,
+  studioSetPathForFile,
+} from "./studioTurnSets.logic";
 
 const threadId = ThreadId.make("thread-studio-sets");
 
@@ -80,14 +84,20 @@ describe("collectStudioTurnSets", () => {
         setPath: ".gradespace/studio/2026-11-03-hero",
         name: "2026-11-03-hero",
         revision: "2026-11-04T10:03:00.000Z",
+        runId: "run-1",
       },
       {
         setPath: ".gradespace/studio/2026-11-04-deck",
         name: "2026-11-04-deck",
         revision: "2026-11-04T10:03:00.000Z",
+        runId: "run-1",
       },
     ]);
     expect(sets.get("m-second")?.map((set) => set.revision)).toEqual(["2026-11-04T10:06:00.000Z"]);
+    expect(latestStudioSetForRun(sets, "run-2")?.setPath).toBe(
+      ".gradespace/studio/2026-11-03-hero",
+    );
+    expect(latestStudioSetForRun(sets, "run-3")).toBeNull();
   });
 
   it("skips files outside a set, inherited rows, turns without a reply, and deleted sets", () => {
@@ -108,5 +118,21 @@ describe("collectStudioTurnSets", () => {
       cwd,
     );
     expect(sets.size).toBe(0);
+  });
+});
+
+describe("studioSetPathForFile", () => {
+  it.each([
+    [".gradespace/studio/2026-11-03-hero/a.html", ".gradespace/studio/2026-11-03-hero"],
+    ["./.gradespace/studio/2026-11-03-hero/", ".gradespace/studio/2026-11-03-hero"],
+    [
+      "/work/app/.gradespace/studio/2026-11-03-hero/studio.json",
+      ".gradespace/studio/2026-11-03-hero",
+    ],
+    [".gradespace/studio", null],
+    ["src/app.ts", null],
+    ["/elsewhere/.gradespace/studio/x/a.html", null],
+  ])("%s", (path, expected) => {
+    expect(studioSetPathForFile(path, "/work/app")).toBe(expected);
   });
 });

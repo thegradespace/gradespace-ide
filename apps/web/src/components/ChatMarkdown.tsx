@@ -150,6 +150,7 @@ import { hostEnvironmentIdAtom } from "../state/primaryEnvironment";
 import { cn } from "../lib/utils";
 import { resolveRemoteOpenState, useRemoteOpenResolution } from "../remoteOpen";
 import { rightPanelHostRef, useRightPanelStore } from "../rightPanelStore";
+import { studioSetPathForFile } from "./studio/studioTurnSets.logic";
 import { useOpenIssueLink } from "../lib/openIssueLink";
 import { issueTrackerEnvironment } from "../state/issueTrackers";
 import { useEnvironmentQuery } from "../state/query";
@@ -954,8 +955,11 @@ function useChatMarkdownState(
   };
   const openFileInPanel = (fileLinkMeta: MarkdownFileLinkMeta, panelPath: string) => {
     if (!threadRef) return;
-    const openAt = (path: string) =>
-      useRightPanelStore.getState().openFile(threadRef, path, fileLinkMeta.line);
+    const openAt = (path: string) => {
+      const studioSet = studioSetPathForFile(path, cwd);
+      if (studioSet !== null) useRightPanelStore.getState().openStudio(threadRef, studioSet);
+      else useRightPanelStore.getState().openFile(threadRef, path, fileLinkMeta.line);
+    };
     if (
       fileLinkMeta.workspaceLookupPath === null ||
       !cwd ||
