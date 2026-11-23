@@ -2,12 +2,15 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   filterStudioSets,
+  latestStudioSetWrittenByRun,
   parseStudioManifest,
   studioCompareDefault,
   studioDownloadFileName,
   studioNextOptionId,
   studioPinLine,
   studioPlaybackTime,
+  studioRunFinishedWhileWatched,
+  studioSetPathForFile,
   studioSetPaths,
   studioShownVariant,
   studioVariantKind,
@@ -477,5 +480,76 @@ describe("withStudioFixRequest", () => {
       ].join("\n"),
     );
     expect(withStudioFixRequest("Hi", manifest, setPath, b, null, [])).toBe("Hi");
+  });
+});
+
+describe("studioSetPathForFile", () => {
+  it.each([
+    [".gradespace/studio/2026-11-23-landing/a.html", ".gradespace/studio/2026-11-23-landing"],
+    ["./.gradespace/studio/landing/a.html", ".gradespace/studio/landing"],
+    ["/repo/.gradespace/studio/landing/nested/b.png", ".gradespace/studio/landing"],
+    ["/repo/.gradespace/studio/landing", ".gradespace/studio/landing"],
+    ["C:\\repo\\.gradespace\\studio\\landing\\a.html", null],
+    ["src/.gradespace/studio/landing/a.html", null],
+    ["/other/.gradespace/studio/landing/a.html", null],
+    ["docs/readme.md", null],
+  ])("maps %s", (path, expected) => {
+    expect(studioSetPathForFile(path, "/repo/")).toBe(expected);
+  });
+});
+
+describe("latestStudioSetWrittenByRun", () => {
+  const change = (
+    runId: string,
+    changes: ReadonlyArray<{ path: string; operation: string }> | undefined,
+    options: { fileName?: string; status?: string; visibility?: string } = {},
+  ) =>
+    ({
+      visibility: options.visibility ?? "local",
+      item: {
+        type: "file_change",
+        runId,
+        status: options.status ?? "completed",
+        fileName: options.fileName ?? "Write result",
+        changes,
+      },
+    }) as unknown as Parameters<typeof latestStudioSetWrittenByRun>[0][number];
+
+  it("returns the set the run wrote last, ignoring other runs, deletions and failures", () => {
+    const rows = [
+      change("run-1", [{ path: "/repo/.gradespace/studio/first/a.html", operation: "add" }]),
+      change("run-1", undefined, { fileName: ".gradespace/studio/second/b.html" }),
+      change("run-2", [{ path: ".gradespace/studio/other/a.html", operation: "add" }]),
+      change("run-1", [{ path: ".gradespace/studio/gone/a.html", operation: "delete" }]),
+      change("run-1", [{ path: ".gradespace/studio/failed/a.html", operation: "add" }], {
+        status: "failed",
+      }),
+      change("run-1", [{ path: ".gradespace/studio/fork/a.html", operation: "add" }], {
+        visibility: "inherited",
+      }),
+      change("run-1", [{ path: "src/app.ts", operation: "edit" }]),
+    ];
+    expect(latestStudioSetWrittenByRun(rows, "run-1", "/repo")).toBe(".gradespace/studio/second");
+    expect(latestStudioSetWrittenByRun(rows, "run-3", "/repo")).toBeNull();
+  });
+});
+
+describe("studioRunFinishedWhileWatched", () => {
+  const run = (status: string | null, runId: string | null = "run-1", identity = "thread-1") => ({
+    identity,
+    runId,
+    status,
+  });
+
+  it.each([
+    ["running", run("running"), run("completed"), "run-1"],
+    ["waiting", run("waiting"), run("completed"), "run-1"],
+    ["already completed on open", run("completed"), run("completed"), null],
+    ["first seen", run(null, null), run("completed"), null],
+    ["interrupted", run("running"), run("interrupted"), null],
+    ["a different run", run("running", "run-0"), run("completed"), null],
+    ["another thread", run("running", "run-1", "thread-0"), run("completed"), null],
+  ])("%s", (_name, previous, next, expected) => {
+    expect(studioRunFinishedWhileWatched(previous, next)).toBe(expected);
   });
 });

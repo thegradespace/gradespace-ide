@@ -140,6 +140,7 @@ import { useStartSideChat } from "./useStartSideChat";
 import { useThreadStatusAnnouncements } from "./useThreadStatusAnnouncements";
 import type { ThreadInspectorMode, ThreadInspectorTarget } from "./thread-inspector-navigation";
 import { useSelectWorkspaceDetail } from "../layout/workspace/useSelectWorkspaceDetail";
+import { useOpenFinishedStudioSet } from "../studio/useOpenFinishedStudioSet";
 
 function firstRouteParam(value: string | string[] | undefined): string | null {
   const first = Array.isArray(value) ? value[0] : value;
@@ -402,6 +403,14 @@ function ThreadRouteContent(
   const { selectedThreadCwd } = useSelectedThreadWorktree();
   const startSideChat = useStartSideChat();
   const composer = useThreadComposerState({ startSideChat });
+  useOpenFinishedStudioSet({
+    threadRef:
+      selectedThread === null
+        ? null
+        : { environmentId: selectedThread.environmentId, threadId: selectedThread.id },
+    latestRun: composer.selectedThreadActivityRun,
+    cwd: selectedThreadCwd,
+  });
   const gitState = useSelectedThreadGitState();
   const gitActions = useSelectedThreadGitActions();
   const requests = useSelectedThreadRequests();

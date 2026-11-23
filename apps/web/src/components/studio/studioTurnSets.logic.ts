@@ -79,18 +79,3 @@ export function latestStudioSetForRun(
   }
   return latest;
 }
-
-/**
- * The Studio set folder a linked file sits in, workspace-relative, or null. Accepts a
- * workspace-relative path or an absolute one inside `cwd`.
- */
-export function studioSetPathForFile(path: string, cwd: string | null | undefined): string | null {
-  const normalized = path.replaceAll("\\", "/");
-  const root = cwd?.replaceAll("\\", "/").replace(/\/+$/, "");
-  const relative =
-    root !== undefined && root !== "" && normalized.startsWith(`${root}/`)
-      ? normalized.slice(root.length + 1)
-      : normalized.replace(/^\.\//, "");
-  const match = SET_FOLDER.exec(relative);
-  return match === null ? null : `${STUDIO_ROOT}/${match[1]}`;
-}

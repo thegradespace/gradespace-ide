@@ -9,11 +9,7 @@ import {
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  collectStudioTurnSets,
-  latestStudioSetForRun,
-  studioSetPathForFile,
-} from "./studioTurnSets.logic";
+import { collectStudioTurnSets, latestStudioSetForRun } from "./studioTurnSets.logic";
 
 const threadId = ThreadId.make("thread-studio-sets");
 
@@ -118,21 +114,5 @@ describe("collectStudioTurnSets", () => {
       cwd,
     );
     expect(sets.size).toBe(0);
-  });
-});
-
-describe("studioSetPathForFile", () => {
-  it.each([
-    [".gradespace/studio/2026-11-03-hero/a.html", ".gradespace/studio/2026-11-03-hero"],
-    ["./.gradespace/studio/2026-11-03-hero/", ".gradespace/studio/2026-11-03-hero"],
-    [
-      "/work/app/.gradespace/studio/2026-11-03-hero/studio.json",
-      ".gradespace/studio/2026-11-03-hero",
-    ],
-    [".gradespace/studio", null],
-    ["src/app.ts", null],
-    ["/elsewhere/.gradespace/studio/x/a.html", null],
-  ])("%s", (path, expected) => {
-    expect(studioSetPathForFile(path, "/work/app")).toBe(expected);
   });
 });

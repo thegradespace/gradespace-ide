@@ -67,6 +67,7 @@ import { canForkProjectedAssistantItem } from "@t3tools/client-runtime/state/thr
 import type { ThreadCheckpointSummary } from "@t3tools/client-runtime/state/thread-checkpoints";
 import { turnChanges } from "@t3tools/client-runtime/state/thread-repositories";
 import { formatDiffCount } from "@t3tools/client-runtime/diff-count";
+import { STUDIO_ROOT, studioSetPathForFile } from "@t3tools/client-runtime/studio";
 import type { WorkflowOpening } from "@t3tools/client-runtime/state/subagentRuntime";
 import {
   AuthFilesystemReadScope,
@@ -3442,6 +3443,24 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     if (parseThreadLinkHref(href)) {
       const target = resolveLinkedThread(href);
       if (target) openThreadLink(target);
+      return;
+    }
+    const linkPresentation = resolveMarkdownLinkPresentation(href);
+    const linkedPath =
+      linkPresentation.kind === "file"
+        ? resolveFileLinkPath(props.workspaceRoot, linkPresentation.path)
+        : null;
+    const studioSet =
+      imageEmbed || linkedPath === null
+        ? null
+        : studioSetPathForFile(linkedPath, props.workspaceRoot);
+    if (studioSet !== null) {
+      void Haptics.selectionAsync();
+      navigation.navigate("ThreadStudioSet", {
+        environmentId: String(props.environmentId),
+        threadId: String(props.threadId),
+        set: studioSet.slice(STUDIO_ROOT.length + 1),
+      });
       return;
     }
     const media = resolveMarkdownMediaPreview(href, {

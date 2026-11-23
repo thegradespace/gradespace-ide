@@ -1,3 +1,4 @@
+import type { OrchestrationV2ProjectedTurnItem } from "@t3tools/contracts";
 import {
   isWorkspaceBrowserPreviewPath,
   isWorkspaceImagePreviewPath,
@@ -535,4 +536,85 @@ export function withStudioFixRequest(
   ].join("\n");
   const body = prompt.trimEnd();
   return body.length === 0 ? request : `${body}\n${request}`;
+}
+
+const STUDIO_SET_FOLDER = new RegExp(`^${STUDIO_ROOT.replaceAll(".", "\\.")}/([^/]+)(?:/|$)`, "u");
+
+/**
+ * The Studio set folder a file sits in, workspace-relative, or null. Accepts a workspace-relative
+ * path, a `./`-prefixed one, or an absolute one inside `cwd`.
+ */
+export function studioSetPathForFile(path: string, cwd: string | null | undefined): string | null {
+  const normalized = path.replaceAll("\\", "/");
+  const root = cwd?.replaceAll("\\", "/").replace(/\/+$/u, "");
+  const relative =
+    root !== undefined && root !== "" && normalized.startsWith(`${root}/`)
+      ? normalized.slice(root.length + 1)
+      : normalized.replace(/^\.\//u, "");
+  const match = STUDIO_SET_FOLDER.exec(relative);
+  return match === null ? null : `${STUDIO_ROOT}/${match[1]}`;
+}
+
+const WRITING_ITEM_STATUSES: ReadonlySet<string> = new Set([
+  "pending",
+  "running",
+  "waiting",
+  "completed",
+]);
+
+/** The Studio set a run wrote to last, workspace-relative, or null; deletions do not count. */
+export function latestStudioSetWrittenByRun(
+  rows: ReadonlyArray<Pick<OrchestrationV2ProjectedTurnItem, "item" | "visibility">>,
+  runId: string,
+  cwd: string | null,
+): string | null {
+  let latest: string | null = null;
+  for (const { item, visibility } of rows) {
+    if (
+      item.type !== "file_change" ||
+      item.runId !== runId ||
+      visibility === "inherited" ||
+      !WRITING_ITEM_STATUSES.has(item.status)
+    ) {
+      continue;
+    }
+    const changes = item.changes?.length
+      ? item.changes
+      : [{ path: item.fileName, operation: "edit" }];
+    for (const change of changes) {
+      if (/^(?:delete|deleted|remove)$/iu.test(change.operation)) continue;
+      latest = studioSetPathForFile(change.path, cwd) ?? latest;
+    }
+  }
+  return latest;
+}
+
+const ACTIVE_RUN_STATUSES: ReadonlySet<string> = new Set([
+  "preparing",
+  "queued",
+  "starting",
+  "running",
+  "waiting",
+]);
+
+export interface StudioObservedRun {
+  /** The thread being watched; a switch to another thread never counts as a finish. */
+  readonly identity: string | null;
+  readonly runId: string | null;
+  readonly status: string | null;
+}
+
+/** The run that was seen going from active to completed, or null; a run already done when first seen is not. */
+export function studioRunFinishedWhileWatched(
+  previous: StudioObservedRun,
+  next: StudioObservedRun,
+): string | null {
+  return previous.identity === next.identity &&
+    next.runId !== null &&
+    next.runId === previous.runId &&
+    next.status === "completed" &&
+    previous.status !== null &&
+    ACTIVE_RUN_STATUSES.has(previous.status)
+    ? next.runId
+    : null;
 }
