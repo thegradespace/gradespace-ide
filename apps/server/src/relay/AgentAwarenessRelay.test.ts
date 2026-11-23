@@ -338,12 +338,14 @@ const makeTestRelay = Effect.fnUntraced(function* (
     }),
     Effect.provideService(FetchHttpClient.Fetch, fetch),
     Effect.provide(
-      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
-        isThreadWatched: () =>
-          options.watched === undefined ? Effect.succeed(false) : Ref.get(options.watched),
-      }),
+      Layer.mergeAll(
+        NodeCrypto.layer,
+        Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+          isThreadWatched: () =>
+            options.watched === undefined ? Effect.succeed(false) : Ref.get(options.watched),
+        }),
+      ),
     ),
-    Effect.provide(NodeCrypto.layer),
   );
   return { relay, secrets, secretReads, currentShell, shellReads, publications, catchUp };
 });
