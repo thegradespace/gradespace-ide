@@ -615,3 +615,18 @@ export class ProjectWriteFileError extends Schema.TaggedError<ProjectWriteFileEr
     } as any);
   }
 }
+
+export const PROJECT_COMPLETE_CODE_MAX_PREFIX = 8_000;
+export const PROJECT_COMPLETE_CODE_MAX_SUFFIX = 2_000;
+
+/** Text around the editor caret; the model returns what to insert at the caret. */
+export const ProjectCompleteCodeInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  relativePath: Schema.NonEmptyString,
+  prefix: Schema.String.check(Schema.isMaxLength(PROJECT_COMPLETE_CODE_MAX_PREFIX)),
+  suffix: Schema.String.check(Schema.isMaxLength(PROJECT_COMPLETE_CODE_MAX_SUFFIX)),
+});
+export type ProjectCompleteCodeInput = typeof ProjectCompleteCodeInput.Type;
+
+export const ProjectCompleteCodeResult = Schema.Struct({ text: Schema.String });
+export type ProjectCompleteCodeResult = typeof ProjectCompleteCodeResult.Type;

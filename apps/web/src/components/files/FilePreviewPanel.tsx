@@ -116,6 +116,8 @@ import {
 } from "./fileCommentAnnotations";
 import { installFileEditorDismissal } from "./fileEditorDismissal";
 import { installFileEditorTyping } from "./fileEditorTyping";
+import { AI_SUGGESTION_EXCLUDES, createAiSuggestionProvider } from "./fileEditorAiSuggestions";
+import { installFileEditorWordSuggestions } from "./fileEditorWordSuggestions";
 import {
   FILE_LINK_REVEAL_ATTRIBUTE,
   FILE_LINK_REVEAL_UNSAFE_CSS,
@@ -954,9 +956,27 @@ function EditableFileSurface({
   const { ready: editable, onPostRender: onEditablePostRender } =
     useEditableAfterHighlight(externalFile);
   const editorRef = useRef<FileEditor | null>(null);
+  const aiSuggestionsEnabled = useClientSettings((settings) => settings.editorAiSuggestions);
+  // The editor reads its options once, so the provider reads the live file and setting.
+  const suggestionTargetRef = useRef({ ...saveTarget, enabled: aiSuggestionsEnabled });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- hands the live file and setting to the editor's long-lived suggestion provider
+  useEffect(() => {
+    suggestionTargetRef.current = {
+      environmentId,
+      cwd,
+      relativePath,
+      enabled: aiSuggestionsEnabled,
+    };
+  });
   const editorOptions: EditorOptions<"file", FileCommentAnnotationGroup, undefined> = {
     onAttach: (editor) => {
       editorRef.current = editor;
+      editor.setOptions({
+        editPrediction: {
+          provider: createAiSuggestionProvider(suggestionTargetRef),
+          exclude: AI_SUGGESTION_EXCLUDES,
+        },
+      });
       onEditorChange(editor);
     },
     onComplete: () => {
@@ -1090,15 +1110,17 @@ function EditableFileSurface({
       onDismiss: () => setSelectedRange(null),
     });
   }, [hasOpenCommentForm, setSelectedRange]);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- installs typing listeners on the editor surface DOM node
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- installs typing and suggestion listeners on the editor surface DOM node
   useEffect(() => {
     const root = surfaceRef.current;
     if (!root) return;
-    return installFileEditorTyping({
-      root,
-      path: relativePath,
-      getEditor: () => editorRef.current,
-    });
+    const options = { root, path: relativePath, getEditor: () => editorRef.current };
+    const removeTyping = installFileEditorTyping(options);
+    const removeSuggestions = installFileEditorWordSuggestions(options);
+    return () => {
+      removeSuggestions();
+      removeTyping();
+    };
   }, [relativePath]);
   const handleLineSelectionEnd = (range: SelectedLineRange | null) => {
     setSelectedRange(range);

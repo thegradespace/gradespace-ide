@@ -18,6 +18,8 @@ import { WS_METHODS } from "./rpc.ts";
 /** Incremental client enforcement; the server still authorizes every request. */
 export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.providerAuthRemoveMethod]: AuthProvidersManageScope,
+  // A code suggestion runs a model on the user's provider account, as a turn does.
+  [WS_METHODS.projectsCompleteCode]: AuthOrchestrationOperateScope,
   // An MCP sign-in stores a credential for the agent, as an account sign-in does.
   [WS_METHODS.providerMcpSignInStart]: AuthProvidersManageScope,
   [WS_METHODS.providerMcpSignInComplete]: AuthProvidersManageScope,

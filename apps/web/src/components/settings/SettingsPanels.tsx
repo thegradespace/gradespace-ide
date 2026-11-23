@@ -568,6 +568,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       ? [gt("Quick actions")]
       : []),
     ...(settings.wordWrap !== DEFAULT_UNIFIED_SETTINGS.wordWrap ? [gt("Word wrap")] : []),
+    ...(settings.editorAiSuggestions !== DEFAULT_UNIFIED_SETTINGS.editorAiSuggestions
+      ? [gt("AI suggestions in the editor")]
+      : []),
     ...(settings.persistComposerContextStrip !==
     DEFAULT_UNIFIED_SETTINGS.persistComposerContextStrip
       ? [gt("Composer context")]
@@ -731,6 +734,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       notificationMode: DEFAULT_UNIFIED_SETTINGS.notificationMode,
       inAppNotificationsEnabled: DEFAULT_UNIFIED_SETTINGS.inAppNotificationsEnabled,
       wordWrap: DEFAULT_UNIFIED_SETTINGS.wordWrap,
+      editorAiSuggestions: DEFAULT_UNIFIED_SETTINGS.editorAiSuggestions,
       persistComposerContextStrip: DEFAULT_UNIFIED_SETTINGS.persistComposerContextStrip,
       diffFilesCollapsed: DEFAULT_UNIFIED_SETTINGS.diffFilesCollapsed,
       diffIgnoreWhitespace: DEFAULT_UNIFIED_SETTINGS.diffIgnoreWhitespace,

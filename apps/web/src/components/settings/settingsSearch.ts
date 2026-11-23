@@ -527,6 +527,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("long lines code blocks diffs file previews")],
   },
   {
+    id: "editor-ai-suggestions",
+    title: msg("AI suggestions in the editor"),
+    to: "/settings/appearance",
+    searchTerms: [msg("autocomplete ghost text code completion tab")],
+  },
+  {
     id: "composer-context",
     title: msg("Composer context"),
     to: "/settings/appearance",

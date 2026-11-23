@@ -192,6 +192,7 @@ import {
   VcsStatusSubscriptionInput,
   VcsRefreshStatusResult,
   VcsStatusStreamEvent,
+  TextGenerationError,
 } from "./git.ts";
 import {
   ReviewBranchCommitsInput,
@@ -329,6 +330,8 @@ import {
   ProjectSearchEntriesError,
   ProjectSearchEntriesInput,
   ProjectSearchEntriesResult,
+  ProjectCompleteCodeInput,
+  ProjectCompleteCodeResult,
   ProjectWriteFileError,
   ProjectWriteFileInput,
   ProjectWriteFileResult,
@@ -494,6 +497,7 @@ export const WS_METHODS = {
   projectsSearchContents: "projects.searchContents",
   projectsSearchEntries: "projects.searchEntries",
   projectsWriteFile: "projects.writeFile",
+  projectsCompleteCode: "projects.completeCode",
   projectsMutate: "projects.mutate",
   projectsEnsureScratch: "projects.ensureScratch",
   projectsCreateNew: "projects.createNew",
@@ -1803,6 +1807,12 @@ const WsProjectsWriteFileRpc = Rpc.make(WS_METHODS.projectsWriteFile, {
   error: Schema.Union([ProjectWriteFileError, EnvironmentAuthorizationError]),
 });
 
+const WsProjectsCompleteCodeRpc = Rpc.make(WS_METHODS.projectsCompleteCode, {
+  payload: ProjectCompleteCodeInput,
+  success: ProjectCompleteCodeResult,
+  error: Schema.Union([TextGenerationError, EnvironmentAuthorizationError]),
+});
+
 const WsProjectsMutateRpc = Rpc.make(WS_METHODS.projectsMutate, {
   payload: ProjectMutation,
   success: Project,
@@ -2712,6 +2722,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsProjectsReadFileRpc,
   WsProjectsSearchContentsRpc,
   WsProjectsSearchEntriesRpc,
+  WsProjectsCompleteCodeRpc,
   WsProjectsEnsureScratchRpc,
   WsProjectsCreateNewRpc,
   WsProjectsCreateFromThreadRpc,

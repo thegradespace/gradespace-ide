@@ -285,6 +285,38 @@ function WordWrapRow() {
   );
 }
 
+function EditorAiSuggestionsRow() {
+  const gt = useGT();
+  const searchableSetting = useSearchableSetting();
+  const settings = useScopedSettings();
+  const updateSettings = useUpdateScopedSettings();
+  return (
+    <SettingsRow
+      {...searchableSetting("editor-ai-suggestions")}
+      description={gt(
+        "Show grey suggestions while you edit files; press Tab to accept. Each one uses your text generation model.",
+      )}
+      resetAction={
+        settings.editorAiSuggestions !== DEFAULT_UNIFIED_SETTINGS.editorAiSuggestions ? (
+          <SettingResetButton
+            ariaLabel={gt("Reset AI suggestions in the editor to default")}
+            onClick={() =>
+              updateSettings({ editorAiSuggestions: DEFAULT_UNIFIED_SETTINGS.editorAiSuggestions })
+            }
+          />
+        ) : null
+      }
+      control={
+        <Switch
+          checked={settings.editorAiSuggestions}
+          onCheckedChange={(checked) => updateSettings({ editorAiSuggestions: Boolean(checked) })}
+          aria-label={gt("Show AI suggestions in the file editor")}
+        />
+      }
+    />
+  );
+}
+
 function FontSettingsGroup() {
   return (
     <>
@@ -376,6 +408,7 @@ export function TypographySection() {
     <SettingsSection id="typography" title={gt("Typography")}>
       {showAdvanced ? <FontSettingsGroup /> : <SimpleFontRows />}
       <WordWrapRow />
+      <EditorAiSuggestionsRow />
       <AdvancedSettings
         targetIds={[searchableSetting("separate-fonts").id, searchableSetting("font-smoothing").id]}
       >

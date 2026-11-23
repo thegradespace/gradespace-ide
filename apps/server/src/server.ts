@@ -91,6 +91,7 @@ import * as SourceControlBuiltInDrivers from "./sourceControl/builtInDrivers.ts"
 import * as SourceControlSignIn from "./sourceControl/SourceControlSignIn.ts";
 import { BUILT_IN_SOURCE_CONTROL_DRIVER_LIST } from "./sourceControl/sourceControlDefinitions.ts";
 import * as TextGeneration from "./textGeneration/TextGeneration.ts";
+import * as CodeCompletion from "./textGeneration/CodeCompletion.ts";
 import * as SecretCheck from "./secrets/SecretCheck.ts";
 import * as SecretResolver from "./secrets/SecretResolver.ts";
 import * as ProviderInstanceRegistryHydration from "./provider/ProviderInstanceRegistryHydration.ts";
@@ -732,6 +733,7 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   SkillPacks.layer,
   EmailConnections.layer,
   Career.layer,
+  CodeCompletion.layer,
   Library.layer.pipe(Layer.provide(Library.layerIndex)),
   DatabaseStorage.layer.pipe(
     Layer.provide(ProjectionMaintenance.layer),
