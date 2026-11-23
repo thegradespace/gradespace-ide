@@ -6,6 +6,7 @@ import {
   type ClientActivityReportInput,
   type HostPowerSnapshot,
   type RpcClientId,
+  type ThreadId,
 } from "@t3tools/contracts";
 import {
   getBackgroundActivityPresetSettings,
@@ -36,12 +37,16 @@ export class BackgroundPolicy extends Context.Service<
     readonly snapshot: Effect.Effect<BackgroundPolicySnapshot>;
     readonly shouldRunScopeWork: (scope: BackgroundScope) => Effect.Effect<boolean>;
     readonly shouldRunOpportunisticWork: Effect.Effect<boolean>;
+    /** Whether someone is looking at this thread right now in a focused desktop or web window. */
+    readonly isThreadWatched: (threadId: ThreadId) => Effect.Effect<boolean>;
   }
 >()("t3/background/BackgroundPolicy") {}
 
 const DEFAULT_LEASE_TTL_MS = 45_000;
 const MAX_LEASE_TTL_MS = 120_000;
 export const MAX_CLIENT_ACTIVITY_LEASES_PER_RPC_CLIENT = 16;
+// A focused window left alone this long no longer counts as watching; the phone alerts again.
+const WATCHING_INTERACTION_WINDOW_MS = 3 * 60_000;
 
 function scopeKey(scope: BackgroundScope): string {
   switch (scope.type) {
@@ -116,6 +121,24 @@ function isForegroundLease(lease: ClientActivityLease, now: DateTime.Utc): boole
 function leaseHasScope(lease: ClientActivityLease, scope: BackgroundScope): boolean {
   const key = scopeKey(scope);
   return lease.scopes.some((leaseScope) => scopeKey(leaseScope) === key);
+}
+
+export function leaseWatchesThread(
+  lease: ClientActivityLease,
+  threadId: ThreadId,
+  lastInteractedAt: DateTime.Utc | undefined,
+  now: DateTime.Utc,
+): boolean {
+  return (
+    isLeaseActive(lease, now) &&
+    lease.clientKind !== "mobile" &&
+    lease.visible &&
+    lease.focused &&
+    lastInteractedAt !== undefined &&
+    DateTime.toEpochMillis(now) - DateTime.toEpochMillis(lastInteractedAt) <=
+      WATCHING_INTERACTION_WINDOW_MS &&
+    leaseHasScope(lease, { type: "thread", threadId })
+  );
 }
 
 function hasThermalPressure(hostPower: HostPowerSnapshot): boolean {
@@ -196,6 +219,7 @@ export const make = Effect.fn("background.policy.make")(function* () {
   const hostPowerMonitor = yield* HostPowerMonitor.HostPowerMonitor;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const leasesRef = yield* Ref.make(new Map<string, ClientActivityLease>());
+  const lastInteractedRef = yield* Ref.make(new Map<string, DateTime.Utc>());
 
   const backgroundActivitySettings = serverSettings.getSettings.pipe(
     Effect.map(resolveServerBackgroundActivitySettings),
@@ -233,6 +257,9 @@ export const make = Effect.fn("background.policy.make")(function* () {
       expiresAt,
     };
     yield* Ref.update(leasesRef, (leases) => upsertClientActivityLease(leases, lease, now));
+    if (input.recentlyInteracted) {
+      yield* Ref.update(lastInteractedRef, (times) => new Map(times).set(leaseKey(lease), now));
+    }
   });
 
   const removeRpcClient: BackgroundPolicy["Service"]["removeRpcClient"] = (
@@ -261,6 +288,19 @@ export const make = Effect.fn("background.policy.make")(function* () {
     );
   });
 
+  const isThreadWatched: BackgroundPolicy["Service"]["isThreadWatched"] = Effect.fn(
+    "BackgroundPolicy.isThreadWatched",
+  )(function* (threadId) {
+    const [leases, lastInteracted, now] = yield* Effect.all([
+      Ref.get(leasesRef),
+      Ref.get(lastInteractedRef),
+      DateTime.now,
+    ]);
+    return [...leases.entries()].some(([key, lease]) =>
+      leaseWatchesThread(lease, threadId, lastInteracted.get(key), now),
+    );
+  });
+
   const shouldRunOpportunisticWork = Effect.map(
     snapshot,
     (current) => current.shouldRunOpportunisticWork,
@@ -280,6 +320,11 @@ export const make = Effect.fn("background.policy.make")(function* () {
             }
             return next;
           });
+          const leases = yield* Ref.get(leasesRef);
+          yield* Ref.update(
+            lastInteractedRef,
+            (times) => new Map([...times].filter(([key]) => leases.has(key))),
+          );
         }),
       ),
     ),
@@ -291,6 +336,7 @@ export const make = Effect.fn("background.policy.make")(function* () {
     snapshot,
     shouldRunScopeWork,
     shouldRunOpportunisticWork,
+    isThreadWatched,
   });
 });
 

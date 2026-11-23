@@ -8,6 +8,7 @@ import {
   type BackgroundScope,
   type ClientActivityReportInput,
   type EnvironmentId,
+  type ThreadId,
   WS_METHODS,
 } from "@t3tools/contracts";
 import * as Clock from "effect/Clock";
@@ -155,6 +156,11 @@ export function observeBackgroundActivitySubscription(
     const release = retainBackgroundScope(observation.environmentId as EnvironmentId, scope);
     return Effect.sync(release);
   });
+}
+
+/** Tells the server this thread is on screen here, so the phone skips alerts for it. */
+export function retainViewedThread(environmentId: EnvironmentId, threadId: ThreadId): () => void {
+  return retainBackgroundScope(environmentId, { type: "thread", threadId });
 }
 
 export function retainedBackgroundScopes(

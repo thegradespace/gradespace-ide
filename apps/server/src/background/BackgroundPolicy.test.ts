@@ -2,7 +2,9 @@ import { assert, describe, it } from "@effect/vitest";
 import {
   AuthSessionId,
   RpcClientId,
+  ThreadId,
   type HostPowerSnapshot,
+  type ClientActivityLease,
   type ClientActivityReportInput,
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
@@ -248,4 +250,42 @@ describe("BackgroundPolicy", () => {
       ),
     ),
   );
+});
+
+describe("leaseWatchesThread", () => {
+  const thread = ThreadId.make("thread-1");
+  const lease = (overrides: Partial<ClientActivityLease> = {}): ClientActivityLease => ({
+    sessionId: AuthSessionId.make("session-1"),
+    rpcClientId: RpcClientId.make(1),
+    clientId: "client-1",
+    clientKind: "desktop-renderer",
+    visible: true,
+    focused: true,
+    recentlyInteracted: true,
+    scopes: [{ type: "thread", threadId: thread }],
+    updatedAt: TEST_NOW,
+    expiresAt: DateTime.add(TEST_NOW, { seconds: 45 }),
+    ...overrides,
+  });
+  const twoMinutesAgo = DateTime.subtract(TEST_NOW, { minutes: 2 });
+
+  it.each([
+    ["open, focused and used", lease(), twoMinutesAgo, true],
+    [
+      "another thread open",
+      lease({ scopes: [{ type: "thread", threadId: ThreadId.make("other") }] }),
+      twoMinutesAgo,
+      false,
+    ],
+    ["window in the background", lease({ focused: false }), twoMinutesAgo, false],
+    ["the phone itself", lease({ clientKind: "mobile" }), twoMinutesAgo, false],
+    ["left alone for five minutes", lease(), DateTime.subtract(TEST_NOW, { minutes: 5 }), false],
+    ["never used", lease(), undefined, false],
+    ["lease expired", lease({ expiresAt: TEST_NOW }), twoMinutesAgo, false],
+  ] as const)("%s", (_name, current, lastInteractedAt, expected) => {
+    assert.equal(
+      BackgroundPolicy.leaseWatchesThread(current, thread, lastInteractedAt, TEST_NOW),
+      expected,
+    );
+  });
 });

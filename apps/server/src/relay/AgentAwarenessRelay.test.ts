@@ -41,6 +41,7 @@ import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
+import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as AgentAwarenessRelay from "./AgentAwarenessRelay.ts";
 
@@ -172,6 +173,8 @@ const makeTestRelay = Effect.fnUntraced(function* (
     readonly readShell?: (threadId: ThreadId) => Effect.Effect<OrchestrationV2ThreadShell | null>;
     readonly domainEvents?: Stream.Stream<OrchestrationV2DomainEvent>;
     readonly catchUpThreads?: ReadonlyArray<OrchestrationV2ThreadShell>;
+    /** Whether the thread is open in a focused desktop window. */
+    readonly watched?: Ref.Ref<boolean>;
   } = {},
 ) {
   const values = new Map<string, Uint8Array>(
@@ -334,6 +337,12 @@ const makeTestRelay = Effect.fnUntraced(function* (
       getById: () => Effect.succeedSome(project),
     }),
     Effect.provideService(FetchHttpClient.Fetch, fetch),
+    Effect.provide(
+      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+        isThreadWatched: () =>
+          options.watched === undefined ? Effect.succeed(false) : Ref.get(options.watched),
+      }),
+    ),
     Effect.provide(NodeCrypto.layer),
   );
   return { relay, secrets, secretReads, currentShell, shellReads, publications, catchUp };
@@ -730,6 +739,31 @@ describe("AgentAwarenessRelay", () => {
         assert.equal(publications.length, 3);
         assert.equal(publications[2]?.state, null);
       }),
+  );
+
+  it.effect("clears instead of alerting while the thread is open on a desktop", () =>
+    Effect.gen(function* () {
+      const watched = yield* Ref.make(false);
+      const { relay, currentShell, publications } = yield* makeTestRelay({ watched });
+      yield* relay.publishThread(THREAD_ID);
+      yield* relay.drain;
+      yield* Ref.set(watched, true);
+      yield* Ref.set(currentShell, shell({ status: "completed" }));
+      yield* relay.publishThread(THREAD_ID);
+      yield* TestClock.adjust("5 seconds");
+      yield* relay.drain;
+      assert.deepEqual(
+        publications.map((publication) => publication.state?.phase ?? null),
+        ["running", null],
+      );
+
+      // Looking away later must not alert the completion they already saw.
+      yield* Ref.set(watched, false);
+      yield* relay.publishThread(THREAD_ID);
+      yield* TestClock.adjust("5 seconds");
+      yield* relay.drain;
+      assert.equal(publications.length, 2);
+    }),
   );
 
   it.effect("holds a completion through a continuation gap, then publishes it once", () =>

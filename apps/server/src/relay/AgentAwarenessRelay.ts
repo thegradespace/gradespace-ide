@@ -41,6 +41,7 @@ import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpApiClient from "effect/http-api/HttpApiClient";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
+import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import {
   isAgentActivityPublishingEnabledValue,
   PUBLISH_AGENT_ACTIVITY_SECRET,
@@ -308,6 +309,14 @@ function describeThreadShellForAwareness(
   };
 }
 
+// The relay alerts when a thread moves into one of these.
+const ALERTING_PHASES: ReadonlySet<string> = new Set([
+  "completed",
+  "failed",
+  "waiting_for_approval",
+  "waiting_for_input",
+]);
+
 interface SubagentRequest {
   readonly topLevelThreadId: ThreadId;
   readonly requestId: RuntimeRequestId;
@@ -429,6 +438,7 @@ export const make = Effect.gen(function* () {
   const serverEnvironment = yield* ServerEnvironment.ServerEnvironment;
   const threads = yield* ThreadManagement.ThreadManagementService;
   const projects = yield* ProjectService.ProjectService;
+  const backgroundPolicy = yield* BackgroundPolicy.BackgroundPolicy;
   const random = yield* SecureRandom.SecureRandom;
   const signingKey = yield* EnvironmentSigningKey;
   const scope = yield* Effect.scope;
@@ -712,11 +722,27 @@ export const make = Effect.gen(function* () {
       childAlert?.requestId === childRequestId
         ? { ...snapshot.state, updatedAt: childAlert.updatedAt }
         : snapshot.state;
-    yield* publishState({
-      projectId: snapshot.projectId,
-      state,
-      reason: snapshot.reason,
-    }).pipe(withRelayClientTracing);
+    // Someone looking at this thread on a desktop or web window needs no phone alert for it. A
+    // tombstone clears the phone's card without alerting, and recording the real identity keeps
+    // the alert from firing later once they look away.
+    const watched =
+      state !== null &&
+      ALERTING_PHASES.has(state.phase) &&
+      (yield* backgroundPolicy.isThreadWatched(threadId));
+    if (watched) {
+      yield* Effect.logInfo("agent activity alert skipped; thread is open on another client", {
+        environmentId,
+        threadId,
+        statePhase: state.phase,
+      });
+    }
+    if (!watched || hasLivePublishedState(publishedStateByThread, threadId)) {
+      yield* publishState({
+        projectId: snapshot.projectId,
+        state: watched ? null : state,
+        reason: watched ? "watched-elsewhere" : snapshot.reason,
+      }).pipe(withRelayClientTracing);
+    }
     if (state !== null && childRequestId !== undefined) {
       childAlertByThread.set(threadId, { requestId: childRequestId, updatedAt: state.updatedAt });
     }

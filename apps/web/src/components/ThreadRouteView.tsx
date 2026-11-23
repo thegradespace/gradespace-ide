@@ -18,6 +18,7 @@ import {
   useQuietThreadShell,
 } from "../state/entities";
 import { appAtomRegistry } from "../rpc/atomRegistry";
+import { retainViewedThread } from "../lib/backgroundActivityReporter";
 import { useEnvironmentShellStatus } from "../state/shell";
 import { environmentThreadShells, threadFamilies, useEnvironmentThread } from "../state/threads";
 import {
@@ -68,6 +69,13 @@ export function ThreadRouteView({
   );
   const serverThreadRef = target.kind === "server" ? target.threadRef : null;
   const serverThreadShell = useQuietThreadShell(serverThreadRef);
+  const viewedEnvironmentId = background ? null : (serverThreadRef?.environmentId ?? null);
+  const viewedThreadId = background ? null : (serverThreadRef?.threadId ?? null);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- reports the on-screen thread to the server's activity leases
+  useEffect(() => {
+    if (viewedEnvironmentId === null || viewedThreadId === null) return;
+    return retainViewedThread(viewedEnvironmentId, viewedThreadId);
+  }, [viewedEnvironmentId, viewedThreadId]);
   const shellStatus = useEnvironmentShellStatus(serverThreadRef?.environmentId ?? null);
   const environmentThreadRefs = useEnvironmentThreadRefs(serverThreadRef?.environmentId ?? null);
   const bootstrapComplete = isThreadRouteSnapshotAuthoritative(shellStatus);
