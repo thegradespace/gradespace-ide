@@ -63,8 +63,11 @@ const externalProtocolPromptUrl = (rawUrl: string | undefined): string | null =>
   }
 };
 
-// Teams sends Electron User-Agents to an error page before sign-in. Electron allows one listener per session.
-const TEAMS_URL_PATTERNS = ["https://teams.cloud.microsoft/*", "https://teams.microsoft.com/*"];
+// Sites such as Teams and WhatsApp Web reject Electron and app tokens, so pages see a plain Chrome User-Agent.
+export const chromeUserAgent = (userAgent: string): string =>
+  userAgent
+    .replace(/ Electron\/\S+/, "")
+    .replace(/(\(KHTML, like Gecko\)) .*? (Chrome\/)/, "$1 $2");
 
 const MAX_PROMPT_URL_LENGTH = 300;
 
@@ -680,22 +683,7 @@ export const make = Effect.gen(function* BrowserSessionMake() {
                 true
               : ALLOWED_PREVIEW_PERMISSIONS.has(permission),
           );
-          browserSession.webRequest.onBeforeSendHeaders(
-            { urls: TEAMS_URL_PATTERNS },
-            ({ requestHeaders }, callback) => {
-              const userAgent = Object.entries(requestHeaders).find(
-                ([name]) => name.toLowerCase() === "user-agent",
-              );
-              if (userAgent === undefined) {
-                callback({});
-                return;
-              }
-              const [name, value] = userAgent;
-              callback({
-                requestHeaders: { ...requestHeaders, [name]: value.replace(/ Electron\/\S+/, "") },
-              });
-            },
-          );
+          browserSession.setUserAgent(chromeUserAgent(browserSession.getUserAgent()));
           return browserSession;
         },
         catch: (cause) =>

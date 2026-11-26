@@ -204,12 +204,12 @@ describe("BrowserSession", () => {
     }).pipe(Effect.provide(layer)),
   );
 
-  it.effect("keeps the native User-Agent except for the Electron token sent to Teams", () =>
+  it.effect("presents a plain Chrome User-Agent to every site", () =>
     Effect.gen(function* () {
       const nativeUserAgent =
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) T3Code(Alpha)/0.0.33 Chrome/146.0.7680.216 Electron/41.5.0 Safari/537.36";
-      const teamsUserAgent =
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) T3Code(Alpha)/0.0.33 Chrome/146.0.7680.216 Safari/537.36";
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) GradespaceIDEBeta/0.1.21 Chrome/152.0.7977.169 Electron/44.10.1 Safari/537.36";
+      const chromeUserAgent =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.169 Safari/537.36";
       fromPartition.mockReset();
       fromPartition.mockImplementation((partition: string) => {
         let userAgent = nativeUserAgent;
@@ -236,30 +236,8 @@ describe("BrowserSession", () => {
 
       const browserSession = sessions.get(partition);
       assert.isDefined(browserSession);
-      assert.strictEqual(browserSession.getUserAgent(), nativeUserAgent);
-
-      // Teams redirects Electron to an error page before sign-in; every other host sees the native one.
-      const calls = browserSession.webRequest.onBeforeSendHeaders.mock.calls;
-      assert.strictEqual(calls.length, 1);
-      const [filter, listener] = calls[0] ?? [];
-      assert.deepStrictEqual(filter, {
-        urls: ["https://teams.cloud.microsoft/*", "https://teams.microsoft.com/*"],
-      });
-      const send = (requestHeaders: Record<string, string>) => {
-        let response: { requestHeaders?: Record<string, string> } | undefined;
-        listener({ requestHeaders }, (next: typeof response) => {
-          response = next;
-        });
-        return response;
-      };
-      for (const key of ["User-Agent", "user-agent"]) {
-        const requestHeaders = { [key]: nativeUserAgent, Accept: "*/*" };
-        assert.deepStrictEqual(send(requestHeaders), {
-          requestHeaders: { [key]: teamsUserAgent, Accept: "*/*" },
-        });
-        assert.strictEqual(requestHeaders[key], nativeUserAgent);
-      }
-      assert.deepStrictEqual(send({ Accept: "*/*" }), {});
+      assert.strictEqual(browserSession.getUserAgent(), chromeUserAgent);
+      assert.strictEqual(BrowserSession.chromeUserAgent(chromeUserAgent), chromeUserAgent);
     }).pipe(Effect.provide(layer)),
   );
 
